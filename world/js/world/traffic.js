@@ -34,11 +34,22 @@ export function createTraffic(w) {
   const truck = createGarbageTruck();
   truck.group.rotation.order = 'YXZ';
   group.add(truck.group);
-  const route = layout.places.truckRoute;
+  // The Boulevard down to the landfill gate, then a left turn inside the fence so the truck ends
+  // up alongside the heap and what it tips out lands in the dump, not in the trailer park.
+  const route = [];
+  const fenceZ = layout.stations.fenceZ;
+  for (const p of layout.places.truckRoute) {
+    route.push(p);
+    if (p[1] > fenceZ + 0.6) break;
+  }
+  {
+    const g = route[route.length - 1];
+    for (const [dx, dz] of [[1.6, 1.5], [4.2, 2.1], [8, 2.2], [12, 2.0], [15.5, 1.9]]) route.push([g[0] + dx, fenceZ + 0.6 + dz]);
+  }
   const cum = [0];
   for (let i = 1; i < route.length; i++) cum.push(cum[i - 1] + Math.hypot(route[i][0] - route[i - 1][0], route[i][1] - route[i - 1][1]));
   const total = cum[cum.length - 1];
-  const stopAt = total - 6.5; // the truck's nose stops short of the heap
+  const stopAt = total - 3.6; // pulled up along the foot of the heap
   const hitA = colliders.addCircle(0, -9999, 1.5, 'truck');
   const hitB = colliders.addCircle(0, -9999, 1.5, 'truck');
   const pt = { x: 0, z: 0 };
