@@ -1,0 +1,11 @@
+{
+  "name": "league-world",
+  "private": true,
+  "type": "module",
+  "description": "League World: a 3D world driven by ESPN fantasy data. No dependencies, no build step.",
+  "scripts": {
+    "sync": "node scripts/sync-espn.mjs",
+    "sample": "node scripts/sync-espn.mjs --sample",
+    "test": "node --test scripts/test/"
+  }
+}
