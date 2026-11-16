@@ -10,6 +10,7 @@
 //   net.on('peer', fn)              fn({ teamId, x, z, heading, anim, t })   a friend moved or joined
 //   net.on('leave', fn)             fn({ teamId })                           a friend left
 //   net.on('status', fn)            fn('offline' | 'connecting' | 'online')
+//   net.submitScore(game, score)    -> Promise<boolean>   mini game results (no-op until phase 2)
 //   net.connected                   boolean
 //   net.peers                       Map<teamId, last state>
 //
@@ -22,6 +23,7 @@ export function createNet() {
   const events = emitter();
   const peers = new Map();
   let last = null;
+  let lastScore = null;
   return {
     kind: 'noop',
     connected: false,
@@ -34,6 +36,13 @@ export function createNet() {
     sendState(state) {
       last = state;
     },
+    // Mini game scores, for a shared leaderboard later: submitScore('kick', { yards, teamId }).
+    // Resolves false while there is no backend. Never throws.
+    submitScore(game, score) {
+      lastScore = { game, score };
+      return Promise.resolve(false);
+    },
+    get lastScore() { return lastScore; },
     on: events.on.bind(events),
     off: events.off.bind(events),
     get lastSent() { return last; },

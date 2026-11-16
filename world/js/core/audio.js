@@ -657,6 +657,21 @@ export function createAudio() {
       });
       return 0.6;
     },
+    // a football meeting a goalpost: a bright strike and a ringing, slightly sagging hum
+    doink(t, out) {
+      for (const [f, level, decay] of [[494, 0.2, 0.95], [1245, 0.1, 0.55], [2093, 0.05, 0.3]]) {
+        const o = osc('sine', f);
+        const g = gain(0);
+        o.frequency.setValueAtTime(f * 1.03, t);
+        o.frequency.exponentialRampToValueAtTime(f * 0.975, t + decay);
+        pluck(g.gain, t, 0.003, level, decay);
+        chain(o, g, out);
+        o.start(t);
+        o.stop(t + decay + 0.1);
+      }
+      burst(out, t, 0.03, 'bandpass', 1700, 1, 0.22);
+      return 1.2;
+    },
     honk(t, out) {
       const lp = filter('lowpass', 1500, 1.2);
       lp.connect(out);

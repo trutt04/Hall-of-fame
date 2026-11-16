@@ -144,9 +144,10 @@ export function createTraffic(w) {
     return out.set(truck.group.position.x + v.x * c + v.z * s, truck.group.position.y + v.y, truck.group.position.z - v.x * s + v.z * c);
   }
 
+  // The step rides about 0.6 m above the road wherever the truck is, uphill or down.
   function seatRider() {
     local(RIDE_SPOT, v3);
-    player.setSeat(v3.x, v3.y, v3.z, truck.group.rotation.y);
+    player.setSeat(v3.x, terrain.heightAt(v3.x, v3.z) + RIDE_SPOT.y, v3.z, truck.group.rotation.y);
   }
 
   function canBoard() {
@@ -161,7 +162,7 @@ export function createTraffic(w) {
     ride.seen = new Set([terrain.dominantZone(truck.group.position.x, truck.group.position.z)]);
     ride.release = w.freezePlayer();
     local(RIDE_SPOT, v3);
-    player.sit(v3.x, v3.y, v3.z, truck.group.rotation.y, () => hopOff(), 'idle');
+    player.sit(v3.x, terrain.heightAt(v3.x, v3.z) + RIDE_SPOT.y, v3.z, truck.group.rotation.y, () => hopOff(), 'idle');
     hud.setCue('Tap to hop off');
     audio.sfx('pop', { volume: 0.6 });
     if (T.state === 'wait') T.clock = 0.8; // all aboard: leave now
@@ -225,18 +226,20 @@ export function createTraffic(w) {
       const u = Math.min(1, ride.tip);
       v3.lerpVectors(ride.from, ride.to, u);
       v3.y += Math.sin(Math.PI * u) * 1.5;
-      player.setSeat(v3.x, v3.y, v3.z, truck.group.rotation.y + Math.PI);
+      player.setSeat(v3.x, v3.y, v3.z, truck.group.rotation.y);
       if (u >= 1) {
         const m = w.model;
         const t = m && w.playerTeam !== null ? m.teams[w.playerTeam] : null;
         const line = t && t.rank === m.order.length ? TIP_LINES.last : t && t.rank === 1 ? TIP_LINES.first : TIP_LINES.other;
+        // land facing the truck and the heap, so the camera settles behind with the whole scene ahead
         const to = ride.to.clone();
-        const face = truck.group.rotation.y + Math.PI;
+        const face = truck.group.rotation.y;
         ride.active = false;
         ride.tip = -1;
         hud.setCue(null);
         player.stand(to.x, to.z, face);
         if (rig.isCinematic) rig.skip();
+        rig.setView({ yaw: face + Math.PI });
         if (ride.release) ride.release();
         ride.release = null;
         hud.toast(line, { ms: 5200 });

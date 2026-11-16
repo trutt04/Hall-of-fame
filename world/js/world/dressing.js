@@ -10,11 +10,11 @@
 
 import * as THREE from '../../lib/three.module.min.js';
 import {
-  flatMat, createFountain, createStreetlight, createBurningBarrel, createStatue, createNewspaperBox, createOuthouse, createTree,
+  Geo, flatMat, createFountain, createStreetlight, createBurningBarrel, createStatue, createNewspaperBox, createOuthouse, createTree,
   createBush, createTrashCan, createVelvetRope, createLawnChair, createBuilding, createBoardFrame, createFloodlight, createPlaque,
   createCritters,
 } from '../art/index.js';
-import { makeCanvas, drawSign } from './signs.js';
+import { makeCanvas, drawSign, fit, wrap, hex, FONT_BODY, FONT_DISPLAY } from './signs.js';
 import { boardTexture, drawStandings, drawMatchups, drawChampions } from './boards.js';
 
 const ANIM_FAR = 80;
@@ -37,6 +37,16 @@ export function createDressing(w) {
   let boardClock = 0;
   const cam = new THREE.Vector3();
   const v = new THREE.Vector3();
+
+  // The draft-bust cemetery: a 4 x 2 plot beside the Graveyard gate, on its Hall of Fame side.
+  const GY = P.graveyard;
+  const gyC = Math.cos(GY.facing);
+  const gyS = Math.sin(GY.facing);
+  const gyWorld = (lx, lz) => [GY.x + lx * gyC + lz * gyS, GY.z - lx * gyS + lz * gyC];
+  const PLOT = (() => {
+    const [x, z] = gyWorld(10.5, -1.9);
+    return { x, z };
+  })();
 
   // Place a prop on the ground, register its colliders, remember it for animation and culling.
   function put(prop, x, z, facing = 0, o = {}) {
@@ -164,6 +174,7 @@ export function createDressing(w) {
       buckets.get(key).list.push({ p, scale });
     };
     terrain.scatterPoints.forEach((p, i) => {
+      if (Math.hypot(p.x - PLOT.x, p.z - PLOT.z) < 8.5) return; // the cemetery plot stays clear
       if (p.kind === 'tree') {
         const kind = kindFor[p.zone][i % 2];
         add(p.zone + ':' + kind, () => createTree(kind, { seed: 3 + (i % 2) }), p, p.scale * (kind === 'dead' ? 1 : 1.15));
@@ -357,6 +368,142 @@ export function createDressing(w) {
     for (const col of rope.colliders || []) colliders.addCircle(rx + col.x * c + col.z * s, rz - col.x * s + col.z * c, col.r, 'cutline');
   }
 
+  // ------------------------------------------------------------------ draft-bust headstones
+  // One merged mesh for the stones, one quad mesh for the engravings (a single canvas atlas), and
+  // invisible pick boxes so a tap on a stone means that stone. Rebuilt only when the list changes.
+  let graves = null;
+  function clearGraves() {
+    if (!graves) return;
+    for (const id of graves.ids) interact.unregister(id);
+    colliders.removeGroup('headstones');
+    group.remove(graves.group);
+    for (const d of graves.own) d.dispose();
+    graves = null;
+  }
+
+  function drawEngraving(g, x0, y0, S, entry, color) {
+    g.fillStyle = '#b9bec6';
+    g.fillRect(x0, y0, S, S);
+    g.strokeStyle = 'rgba(40,44,54,0.35)';
+    g.lineWidth = 4;
+    g.strokeRect(x0 + 8, y0 + 8, S - 16, S - 16);
+    g.fillStyle = hex(color);
+    g.fillRect(x0 + 18, y0 + 18, S - 36, 22);
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillStyle = '#3d424c';
+    g.font = `24px ${FONT_DISPLAY}`;
+    g.fillText('R.I.P.', x0 + S / 2, y0 + 64);
+    g.fillStyle = '#20242c';
+    let size = 44;
+    let lines = [];
+    for (; size >= 26; size -= 4) {
+      g.font = `700 ${size}px ${FONT_BODY}`;
+      lines = wrap(g, entry.name || 'Unknown', S - 40, 2);
+      if (Math.max(...lines.map((l) => g.measureText(l).width)) <= S - 36) break;
+    }
+    lines = lines.map((l) => fit(g, l, S - 36, size, 20, FONT_BODY, '700'));
+    g.font = `700 ${size}px ${FONT_BODY}`;
+    lines.forEach((l, i) => g.fillText(l, x0 + S / 2, y0 + 126 + (i - (lines.length - 1) / 2) * size * 1.02));
+    g.fillStyle = '#3d424c';
+    g.fillText(fit(g, entry.drafted || '', S - 40, 26, 16, FONT_BODY, '600'), x0 + S / 2, y0 + 196);
+    g.fillText(fit(g, entry.cause === 'ir' ? 'Resting on IR' : 'Gone too soon', S - 40, 21, 14, FONT_BODY, '600'), x0 + S / 2, y0 + 228);
+  }
+
+  function buildHeadstones() {
+    const list = (Array.isArray(model.graveyard) ? model.graveyard : []).slice(0, 8);
+    const sig = JSON.stringify(list.map((e) => [e.teamId, e.name, e.drafted, e.cause, model.teams[e.teamId] ? model.teams[e.teamId].color : 0]));
+    if (graves && graves.sig === sig) return;
+    clearGraves();
+    const g3 = new THREE.Group();
+    g3.name = 'headstones';
+    const own = [];
+    const ids = [];
+    graves = { sig, group: g3, own, ids };
+    group.add(g3);
+    if (!list.length) {
+      // an empty plot is its own joke
+      const [sx, sz] = gyWorld(8.2, 0.4);
+      const y = terrain.heightAt(sx, sz);
+      const tex = boardTexture(drawSign(['No burials this week.', 'Suspicious.'], 2.4, { height: 160, bg: '#23262e', color: '#e6ffd0', borderColor: '#8a93a0', display: false }));
+      const side = new THREE.MeshLambertMaterial({ color: 0x23262e });
+      const face = new THREE.MeshLambertMaterial({ map: tex });
+      const boardGeo = new THREE.BoxGeometry(2.4, 1.0, 0.07);
+      const postGeo = new THREE.BoxGeometry(0.12, 1.9, 0.12);
+      const board = new THREE.Mesh(boardGeo, [side, side, side, side, face, face]);
+      const post = new THREE.Mesh(postGeo, side);
+      post.position.set(sx, y + 0.95, sz);
+      board.position.set(sx, y + 1.75, sz);
+      board.rotation.y = GY.facing;
+      g3.add(post, board);
+      colliders.addCircle(sx, sz, 0.25, 'headstones');
+      own.push(tex, side, face, boardGeo, postGeo);
+      return;
+    }
+    const stones = new Geo();
+    const cv = makeCanvas(1024, 512);
+    const g = cv.getContext('2d');
+    const pos = [];
+    const uv = [];
+    const pickGeo = new THREE.BoxGeometry(1.3, 1.5, 0.5);
+    const pickMat = new THREE.MeshBasicMaterial();
+    own.push(pickGeo, pickMat);
+    list.forEach((entry, i) => {
+      const col = i % 4;
+      const row = Math.floor(i / 4);
+      const [x, z] = gyWorld(7.2 + col * 2.25, -0.5 - row * 2.8 + ((i * 7) % 3) * 0.12);
+      const y = terrain.heightAt(x, z);
+      const yaw = GY.facing + (((i * 37) % 7) - 3) * 0.035;
+      const shade = i % 2 ? 0xa7adb5 : 0x9aa0a9;
+      stones.at(x, y - 0.03, z, yaw);
+      stones.box(0, 0, 0, 1.45, 0.16, 0.55, 0x7f858e);
+      stones.cloft(0, 0.16, 0, [[0, 1.16, 0.26, 0], [0.95, 1.16, 0.26, 0], [1.22, 0.96, 0.26, 0], [1.36, 0.5, 0.26, 0]], shade, { capTop: 0x8a9099 });
+      stones.restore();
+      // engraving quad on the face that looks at the plaza
+      const rx = Math.cos(yaw);
+      const rz = -Math.sin(yaw);
+      const fx = Math.sin(yaw);
+      const fz = Math.cos(yaw);
+      const at = (lx, ly) => [x + rx * lx + fx * 0.136, y + 0.13 + ly, z + rz * lx + fz * 0.136];
+      const a = at(-0.5, 0.1);
+      const b = at(0.5, 0.1);
+      const c = at(0.5, 1.06);
+      const d = at(-0.5, 1.06);
+      pos.push(...a, ...b, ...c, ...a, ...c, ...d);
+      const u0 = col / 4;
+      const v1 = 1 - row / 2;
+      uv.push(u0, v1 - 0.5, u0 + 0.25, v1 - 0.5, u0 + 0.25, v1, u0, v1 - 0.5, u0 + 0.25, v1, u0, v1);
+      const team = model.teams[entry.teamId];
+      drawEngraving(g, col * 256, row * 256, 256, entry, team ? team.color : 0x8a93a0);
+      colliders.addCircle(x, z, 0.5, 'headstones');
+      const pickBox = new THREE.Mesh(pickGeo, pickMat);
+      pickBox.position.set(x, y + 0.85, z);
+      pickBox.rotation.y = yaw;
+      pickBox.visible = false; // never drawn, only there for taps
+      g3.add(pickBox);
+      const id = 'headstone:' + i;
+      ids.push(id);
+      interact.register({
+        id, position: new THREE.Vector3(x + fx * 1.05, y, z + fz * 1.05), radius: 1.3, label: 'Read the headstone', priority: 1, object3D: pickBox,
+        onUse: use({ kind: 'headstone', index: i }),
+      });
+    });
+    const stoneMesh = stones.mesh(flatMat);
+    stoneMesh.name = 'stones';
+    g3.add(stoneMesh);
+    own.push(stoneMesh.geometry);
+    const tex = boardTexture(cv);
+    const eg = new THREE.BufferGeometry();
+    eg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
+    eg.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
+    eg.computeVertexNormals();
+    const em = new THREE.MeshLambertMaterial({ map: tex });
+    const engraving = new THREE.Mesh(eg, em);
+    engraving.name = 'engravings';
+    g3.add(engraving);
+    own.push(tex, eg, em);
+  }
+
   function redrawBoards(force) {
     const now = Date.now();
     const sSig = JSON.stringify([model.meta.week, model.meta.generatedAt, model.meta.isSample, playerTeam, model.order.map((id) => { const t = model.teams[id]; return [id, t.name, t.record.text, t.pointsFor, t.streak]; })]);
@@ -385,6 +532,7 @@ export function createDressing(w) {
     buildStatue();
     buildOuthouses();
     buildCutLine();
+    buildHeadstones();
     redrawBoards(false);
     if (w.sky) w.sky.setGameDay({ live: !!model.meta.nflLive });
     setLights();

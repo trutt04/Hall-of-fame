@@ -182,6 +182,40 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
   background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 0,rgba(0,0,0,0) min(40vw,40vh),rgba(5,8,18,.96) calc(min(40vw,40vh) + 14px))}
 .lw-hud.lw-scope .lw-top,.lw-hud.lw-scope .lw-action,.lw-hud.lw-scope .lw-hint{opacity:0;pointer-events:none}
 
+/* ---------- field goal kicks: the mini game's own overlay (one root, .lw-kick) ---------- */
+.lw-kick{position:absolute;inset:0;z-index:4;pointer-events:none;font-family:var(--body);color:var(--chalk)}
+.lw-kick-bar{position:absolute;left:50%;top:calc(126px + var(--sat));transform:translateX(-50%);display:flex;align-items:center;gap:12px;
+  max-width:calc(100% - 124px);padding:6px 14px;white-space:nowrap;background:var(--panel-solid);border:1.5px solid var(--line);border-radius:999px;
+  box-shadow:0 6px 18px rgba(0,0,0,.4)}
+.lw-kick-dist{font-family:var(--display);font-size:20px;line-height:1;color:var(--gold)}
+.lw-kick-made{font-weight:700;font-size:14px;letter-spacing:.08em;color:var(--chalk)}
+.lw-kick-lives{display:inline-flex;gap:5px}
+.lw-kick-lives i{width:11px;height:11px;border-radius:50%;background:var(--gold);border:1.5px solid var(--night)}
+.lw-kick-lives i.lw-off{background:transparent;border-color:rgba(243,238,221,.45)}
+.lw-kick-wind{position:absolute;left:50%;top:calc(170px + var(--sat));transform:translateX(-50%);padding:4px 12px;font-weight:700;font-size:14px;
+  letter-spacing:.08em;white-space:pre;background:rgba(10,16,34,.8);border:1.5px solid rgba(243,238,221,.3);border-radius:999px}
+.lw-kick-result{position:absolute;left:16px;right:16px;top:calc(226px + var(--sat));text-align:center;text-shadow:0 2px 10px rgba(0,0,0,.85)}
+.lw-kick-result.lw-in{animation:lw-pop .25s cubic-bezier(.2,1.4,.4,1) both}
+.lw-kick-big{font-family:var(--display);font-size:clamp(40px,15vw,72px);line-height:1;color:var(--flare)}
+.lw-kick-result[data-kind="good"] .lw-kick-big{color:var(--gold)}
+.lw-kick-result[data-kind="over"] .lw-kick-big{color:var(--chalk);font-size:clamp(30px,10vw,52px)}
+.lw-kick-sub{margin-top:4px;font-weight:700;font-size:17px;letter-spacing:.12em;text-transform:uppercase}
+.lw-kick-line{margin:8px auto 0;max-width:420px;font-size:17px;font-style:italic}
+.lw-kick-meter{position:absolute;left:50%;bottom:calc(132px + var(--sab));transform:translateX(-50%);width:min(240px,60vw);height:14px;
+  background:rgba(10,16,34,.8);border:1.5px solid var(--line);border-radius:999px;overflow:hidden}
+.lw-kick-meter i{display:block;height:100%;background:linear-gradient(90deg,var(--gold),var(--flare));transform-origin:left center;transform:scaleX(0)}
+.lw-kick-hint{position:absolute;left:50%;bottom:calc(88px + var(--sab));transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);
+  padding:6px 14px;font-weight:600;font-size:15px;text-align:center;background:rgba(10,16,34,.8);border-radius:999px}
+.lw-hud .lw-kick-leave{position:absolute;left:0;right:0;margin:0 auto;bottom:calc(24px + var(--sab));width:max-content;min-height:46px;padding:8px 22px;
+  pointer-events:auto;font-family:var(--body);font-weight:700;font-size:16px;letter-spacing:.05em;text-transform:uppercase;color:var(--night);
+  background:var(--gold);border:2px solid var(--night);border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.5)}
+@media (max-height:480px){
+  .lw-kick-bar{top:calc(10px + var(--sat))}
+  .lw-kick-wind{top:calc(50px + var(--sat))}
+  .lw-kick-result{top:calc(84px + var(--sat))}
+  .lw-kick-hint{bottom:calc(74px + var(--sab))}
+}
+
 /* ---------- loading veil and teleport fade ---------- */
 .lw-veil{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;
   text-align:center;background:radial-gradient(ellipse at 50% 35%,#18213f,#0a1022 70%);transition:opacity .5s}

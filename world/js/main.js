@@ -28,6 +28,7 @@ import { createResidents, accessoryFor } from './world/residents.js';
 import { createDressing } from './world/dressing.js';
 import { createTraffic } from './world/traffic.js';
 import { createLandmarks } from './world/landmarks.js';
+import { createKickGame } from './world/kick.js';
 import { startFreeRoam } from './world/freeroam.js';
 import { createAvatar, setReducedMotion } from './art/index.js';
 import { createHud } from './ui/hud.js';
@@ -179,7 +180,7 @@ async function boot() {
 
   const world = {
     THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, data,
-    town: null, residents: null, dressing: null, traffic: null, landmarks: null, hideTags: false,
+    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, hideTags: false,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
     get model() { return model; },
     get playerTeam() { return playerTeam; },
@@ -199,6 +200,10 @@ async function boot() {
       if (world.traffic && world.traffic.stop) {
         const ts = world.traffic.stop;
         out.push({ id: 'truckstop', kind: 'ride', name: 'Truck stop', blurb: 'Ride the garbage truck down to the dump.', x: ts.x, z: ts.z, facing: ts.facing });
+      }
+      if (world.kick && world.kick.place) {
+        const kp = world.kick.place;
+        out.push({ id: 'kick', kind: 'game', name: 'Field goal kicks', blurb: 'Swipe up to kick. Three misses and you are done.', x: kp.x, z: kp.z, facing: kp.facing });
       }
       return out;
     },
@@ -292,6 +297,7 @@ async function boot() {
   const traffic = (world.traffic = createTraffic(world));
   traffic.apply(model);
   const landmarks = (world.landmarks = createLandmarks(world));
+  const kick = (world.kick = createKickGame(world));
   world.setPlayerTeam(null);
 
   let markers = null;
@@ -315,6 +321,7 @@ async function boot() {
   engine.addSystem(dressing, 47);
   engine.addSystem(traffic, 48);
   engine.addSystem(landmarks, 49);
+  engine.addSystem(kick, 49.5);
   engine.addSystem({
     update(dt) {
       terrain.zoneAt(player.position.x, player.position.z, zone);

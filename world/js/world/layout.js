@@ -423,6 +423,8 @@ export function makeLayout(counts = {}) {
     hallOfFame: { x: -34, z: -4, y: plaza.y, facing: Math.PI / 2, w: 16, d: 12 },
     leagueOffice: { x: 34, z: -4, y: plaza.y, facing: -Math.PI / 2, w: 14, d: 11 },
     graveyard: { x: -27, z: 21.5, y: plaza.y, facing: faceToward(-27, 21.5, -4, 2), w: 15, d: 13 },
+    // the practice field behind the League Office: kicks go north, toward the Hill
+    kickField: { x: 50.5, z: nB >= 5 ? -12 : -3, y: plaza.y, facing: 0, w: 13, d: 44 },
   };
 
   // ---------------------------------------------------------------- zones
@@ -463,6 +465,7 @@ export function makeLayout(counts = {}) {
     hallOfFame: P(buildings.hallOfFame.x, buildings.hallOfFame.z, buildings.hallOfFame.facing, { w: 16, d: 12 }),
     leagueOffice: P(buildings.leagueOffice.x, buildings.leagueOffice.z, buildings.leagueOffice.facing, { w: 14, d: 11 }),
     graveyard: P(buildings.graveyard.x, buildings.graveyard.z, buildings.graveyard.facing, { w: 15, d: 13 }),
+    kickField: P(buildings.kickField.x, buildings.kickField.z, 0, { w: buildings.kickField.w, d: buildings.kickField.d, y: plaza.y }),
     fountain: P(fountain.x, fountain.z, 0, { r: fountain.r, basinR: fountain.basinR }),
     hillGate: P(hill.x, hill.z + LOT_SIZE.hill.d / 2, 0),
     overlook: P(hill.x, hill.z + LOT_SIZE.hill.d / 2 - 3, 0),
