@@ -137,18 +137,50 @@ export function createTraffic(w) {
   }
 
   // ------------------------------------------------------------------ blimp
+  // Scaled up and flown lower than the art's default so the banner reads from the ground on a
+  // phone. The headline is shown a few words at a time, as large as the banner allows.
+  const BLIMP_SCALE = 1.7;
   const blimp = createBlimp();
+  blimp.group.scale.setScalar(BLIMP_SCALE);
   group.add(blimp.group);
   const path = layout.places.blimpPath;
-  const banner = { cv: null, tex: null, sig: '' };
+  const orbit = Math.min(path.radius, 52);
+  const altitude = Math.min(path.height, 45);
+  const banner = { cv: null, tex: null, sig: '', pages: [''], page: 0, clock: 0 };
   let angle = 1.1;
+  function paginate(text, max = 15) {
+    const pages = [];
+    let cur = '';
+    for (const word of String(text || '').toUpperCase().split(/\s+/).filter(Boolean)) {
+      const next = cur ? cur + ' ' + word : word;
+      if (next.length <= max || !cur) cur = next;
+      else {
+        pages.push(cur);
+        cur = word;
+      }
+    }
+    if (cur) pages.push(cur);
+    return pages.length ? pages : [''];
+  }
+  function showPage() {
+    drawBanner(banner.cv, banner.pages[banner.page % banner.pages.length]);
+    banner.tex.needsUpdate = true;
+  }
   function updateBlimp(dt, t) {
-    angle += (3.6 / path.radius) * dt;
-    const x = path.center[0] + Math.cos(angle) * path.radius;
-    const z = path.center[1] + Math.sin(angle) * path.radius * 1.25;
-    blimp.group.position.set(x, path.height, z);
+    angle += (3.4 / orbit) * dt;
+    const x = path.center[0] + Math.cos(angle) * orbit;
+    const z = path.center[1] + Math.sin(angle) * orbit * 1.25;
+    blimp.group.position.set(x, altitude, z);
     blimp.group.rotation.y = Math.atan2(-Math.sin(angle), Math.cos(angle) * 1.25);
     blimp.update(dt, t);
+    if (banner.cv && banner.pages.length > 1) {
+      banner.clock += dt;
+      if (banner.clock > 3.4) {
+        banner.clock = 0;
+        banner.page = (banner.page + 1) % banner.pages.length;
+        showPage();
+      }
+    }
   }
 
   function apply(model) {
@@ -174,8 +206,10 @@ export function createTraffic(w) {
         blimp.banner.material.map = banner.tex;
         blimp.banner.material.needsUpdate = true;
       }
-      drawBanner(banner.cv, text);
-      banner.tex.needsUpdate = true;
+      banner.pages = paginate(text);
+      banner.page = 0;
+      banner.clock = 0;
+      showPage();
     }
   }
 

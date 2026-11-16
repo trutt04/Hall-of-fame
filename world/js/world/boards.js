@@ -57,10 +57,10 @@ export function drawStandings(cv, model, playerTeam) {
   const W = cv.width;
   const H = cv.height;
   const n = model.order.length;
-  const head = Math.round(H * 0.115);
-  const foot = Math.round(H * 0.06);
+  const head = Math.round(H * 0.095);
+  const foot = Math.round(H * 0.045);
   const rowH = (H - head - foot - 8) / n;
-  const band = 124;
+  const band = 112;
   g.fillStyle = NAVY;
   g.fillRect(0, 0, W, H);
   g.fillStyle = PANEL;
@@ -73,28 +73,28 @@ export function drawStandings(cv, model, playerTeam) {
   g.fillStyle = GOLD;
   g.fillRect(0, head - 5, W, 5);
 
-  const fsRank = Math.min(46, rowH * 0.62);
-  const fsName = Math.min(44, rowH * 0.6);
-  const xRank = band + 62;
-  const xChip = band + 76;
+  const fsRank = Math.min(58, rowH * 0.74);
+  const fsName = Math.min(56, rowH * 0.72);
+  const xRank = band + 66;
+  const xChip = band + 78;
   const xName = xChip + 40;
-  const xStreak = W - 20;
-  const xPf = W - 118;
-  const xRec = W - 262;
+  const xStreak = W - 12;
+  const xPf = W - 104;
+  const xRec = W - 214;
   let tierStart = 0;
   for (let i = 0; i < n; i++) {
     const t = model.teams[model.order[i]];
     const y = head + 4 + i * rowH;
     const mid = y + rowH / 2 + 2;
     if (i % 2) {
-      g.fillStyle = 'rgba(255,255,255,0.045)';
+      g.fillStyle = 'rgba(255,255,255,0.085)';
       g.fillRect(band, y, W - band, rowH);
     }
     if (t.id === playerTeam) {
-      g.fillStyle = 'rgba(245,197,66,0.26)';
+      g.fillStyle = 'rgba(245,197,66,0.34)';
       g.fillRect(band, y + 1, W - band, rowH - 2);
       g.strokeStyle = GOLD;
-      g.lineWidth = 4;
+      g.lineWidth = 6;
       g.strokeRect(band + 2, y + 3, W - band - 4, rowH - 6);
     }
     g.textAlign = 'right';
@@ -107,17 +107,17 @@ export function drawStandings(cv, model, playerTeam) {
     g.lineWidth = 2;
     g.strokeRect(xChip, y + rowH * 0.2, 26, rowH * 0.6);
     g.textAlign = 'left';
-    g.fillStyle = CHALK;
-    g.fillText(fit(g, t.name, xRec - 96 - xName, fsName, 22, FONT_BODY, '700'), xName, mid);
+    g.fillStyle = '#ffffff';
+    g.fillText(fit(g, t.name, xRec - 92 - xName, fsName, 24, FONT_BODY, '700'), xName, mid);
     g.textAlign = 'right';
     g.font = `700 ${fsName}px ${FONT_BODY}`;
-    g.fillStyle = CHALK;
+    g.fillStyle = '#ffffff';
     g.fillText(t.record.text, xRec, mid);
-    g.font = `600 ${fsName * 0.78}px ${FONT_BODY}`;
-    g.fillStyle = STONE;
+    g.font = `600 ${fsName * 0.62}px ${FONT_BODY}`;
+    g.fillStyle = '#c9d2dc';
     g.fillText(Number(t.pointsFor).toFixed(0), xPf, mid);
     if (t.streak && t.streak.type) {
-      g.font = `700 ${fsName * 0.86}px ${FONT_BODY}`;
+      g.font = `700 ${fsName * 0.74}px ${FONT_BODY}`;
       g.fillStyle = t.streak.type === 'W' ? WIN : t.streak.type === 'L' ? LOSS : STONE;
       g.fillText(t.streak.type + t.streak.length, xStreak, mid);
     }
@@ -150,10 +150,10 @@ export function drawStandings(cv, model, playerTeam) {
     g.font = `20px ${FONT_DISPLAY}`;
     const lw = g.measureText('PLAYOFF LINE').width + 20;
     g.fillStyle = FLARE;
-    g.fillRect(W - lw - 300, y - 14, lw, 28);
+    g.fillRect(W - lw - 250, y - 14, lw, 28);
     g.fillStyle = NAVY;
     g.textAlign = 'center';
-    g.fillText('PLAYOFF LINE', W - 300 - lw / 2, y + 2);
+    g.fillText('PLAYOFF LINE', W - 250 - lw / 2, y + 2);
   }
   g.fillStyle = PANEL;
   g.fillRect(0, H - foot, W, foot);
@@ -316,12 +316,12 @@ export function drawBanner(cv, text) {
   g.fillStyle = CHALK;
   g.fillRect(0, 0, W, H);
   g.fillStyle = '#d7263d';
-  g.fillRect(0, 0, W, H * 0.09);
-  g.fillRect(0, H * 0.91, W, H * 0.09);
+  g.fillRect(0, 0, W, H * 0.06);
+  g.fillRect(0, H * 0.94, W, H * 0.06);
   g.fillStyle = PANEL;
   g.textAlign = 'center';
   g.textBaseline = 'middle';
-  g.fillText(fit(g, String(text || '').toUpperCase(), W - 50, H * 0.6, 20, FONT_DISPLAY, '400'), W / 2, H / 2 + H * 0.03);
+  g.fillText(fit(g, String(text || '').toUpperCase(), W - 44, H * 0.78, 20, FONT_DISPLAY, '400'), W / 2, H / 2 + H * 0.04);
   return cv;
 }
 

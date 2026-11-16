@@ -81,7 +81,9 @@ export function createDressing(w) {
   {
     const mk = (name, place, wd, ht, cw, ch, label, kind) => {
       const frame = createBoardFrame({ w: wd, h: ht });
-      put(frame, place.x, place.z, place.facing);
+      // the frame's legs grow with the screen: sink them so the bottom edge stays near eye level
+      const sink = Math.max(0, Math.max(3.2, ht * 0.55) - 3.5);
+      put(frame, place.x, place.z, place.facing, { y: terrain.heightAt(place.x, place.z) - sink });
       const cv = makeCanvas(cw, ch);
       const tex = boardTexture(cv);
       frame.screen.material.map = tex;
@@ -91,7 +93,7 @@ export function createDressing(w) {
       at.y = terrain.heightAt(at.x, at.z);
       interact.register({ id: 'board:' + name, position: at, radius: 5, label, onUse: use({ kind }), object3D: frame.screen });
     };
-    mk('standings', P.standingsBoard, 9.4, 9.6, 1002, 1024, 'Standings', 'standings');
+    mk('standings', P.standingsBoard, 12, 12.4, 990, 1024, 'Standings', 'standings');
     mk('matchups', P.matchupBoard, 9, 6, 1024, 683, 'Matchups', 'matchups');
 
     const box = createNewspaperBox();
@@ -114,7 +116,7 @@ export function createDressing(w) {
       interact.register({ id: 'building:' + kind, position: door, radius: 3.4, label: signs[kind].toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase()), onUse: use({ kind: 'building', which: kind }), object3D: b.group });
     }
 
-    for (const [x, z] of [[20.9, 14.6], [-24, 8.7], [-13.5, -21.5], [20.9, -14.6]]) {
+    for (const [x, z] of [[20.9, 14.6], [-24, 8.7], [-13.5, -21.5], [24.6, -8.6]]) {
       const f = createFloodlight();
       put(f, x, z, Math.atan2(-x, -z));
       f.setOn(false);
@@ -302,28 +304,43 @@ export function createDressing(w) {
       pos.push(x0 - ox, y, z0 - oz, x1 + ox, y, z1 + oz, x0 + ox, y, z0 + oz, x0 - ox, y, z0 - oz, x1 - ox, y, z1 - oz, x1 + ox, y, z1 + oz);
     };
     const R = P.culdesac.r;
-    for (let d = -R + 0.6; d < R + 3.2; d += 1.9) dash(cut.a[0] + dx * d, cut.a[1] + dz * d, cut.a[0] + dx * Math.min(R + 3.4, d + 1.25), cut.a[1] + dz * Math.min(R + 3.4, d + 1.25), 0.24);
+    const aligned = dx > 0.97; // the line runs straight down the middle of the spur
+    const from = aligned ? -(R + 22) : -R + 0.6;
+    for (let d = from; d < R + 3.2; d += 2.1) dash(cut.a[0] + dx * d, cut.a[1] + dz * d, cut.a[0] + dx * Math.min(R + 3.4, d + 1.4), cut.a[1] + dz * Math.min(R + 3.4, d + 1.4), 0.3);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     const line = new THREE.Mesh(geo, lineMat);
     line.renderOrder = 2;
     cutGroup.add(line);
     // ground lettering on the playoff side, readable walking in from the Boulevard
-    const cv = makeCanvas(640, 128);
+    const cv = makeCanvas(1024, 224);
     const g = cv.getContext('2d');
-    g.clearRect(0, 0, 640, 128);
-    g.font = '86px Bungee, "Arial Black", sans-serif';
+    g.clearRect(0, 0, 1024, 224);
+    g.font = '150px Bungee, "Arial Black", sans-serif';
     g.textAlign = 'center';
     g.textBaseline = 'middle';
-    g.fillStyle = '#ff6a3d';
-    g.fillText('PLAYOFF LINE', 320, 68, 620);
+    g.lineJoin = 'round';
+    g.lineWidth = 22;
+    g.strokeStyle = '#ff6a3d';
+    g.strokeText('PLAYOFF LINE', 512, 120, 980);
+    g.fillStyle = '#ffffff';
+    g.fillText('PLAYOFF LINE', 512, 120, 980);
     const tex = boardTexture(cv);
-    const label = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 1.5), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }));
-    label.rotation.order = 'YXZ';
-    label.rotation.set(-Math.PI / 2, -cut.angle, 0);
-    label.position.set(cut.a[0] + dx * 1.2 + cut.inSide[0] * 1.5, y + 0.01, cut.a[1] + dz * 1.2 + cut.inSide[1] * 1.5);
-    label.renderOrder = 2;
-    cutGroup.add(label);
+    const paint = new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 });
+    const letter = (wd, ht, cx, cz, ry) => {
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(wd, ht), paint);
+      m.rotation.order = 'YXZ';
+      m.rotation.set(-Math.PI / 2, ry, 0);
+      m.position.set(cx, y + 0.01, cz);
+      m.renderOrder = 2;
+      cutGroup.add(m);
+    };
+    // across the playoff half of the bulb: upright for anyone walking in along the line
+    const half = Math.min(R - 0.8, 10.4);
+    letter(half, half * 0.22, cut.a[0] - dx * 3.4 + cut.inSide[0] * (half / 2 + 0.5), cut.a[1] - dz * 3.4 + cut.inSide[1] * (half / 2 + 0.5), -cut.angle - Math.PI / 2);
+    // along the playoff side of the line: upright from uphill, where the Boulevard comes down
+    if (aligned) letter(12.8, 2.8, cut.a[0] - dx * (R + 10.5) + cut.inSide[0] * 1.9, cut.a[1] - dz * (R + 10.5) + cut.inSide[1] * 1.9, Math.PI - cut.angle);
+    else letter(9, 2, cut.a[0] + dx * 1.5 + cut.inSide[0] * 1.6, cut.a[1] + dz * 1.5 + cut.inSide[1] * 1.6, Math.PI - cut.angle);
     // velvet rope: this side is the guest list
     const rope = createVelvetRope(4.4);
     const rx = cut.curb[0] + dx * 2.6 + cut.inSide[0] * 1.3;
