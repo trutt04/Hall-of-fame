@@ -340,11 +340,13 @@ function baseTeam(t, members) {
     ...ownerOf(t, members),
     seed: Math.max(0, int(t.playoffSeed)),
     finalRank: Math.max(0, int(t.rankCalculatedFinal)),
-    wins: Math.max(0, int(overall.wins)),
-    losses: Math.max(0, int(overall.losses)),
+    // The record is the heart of the data. If ESPN did not send it, say so (null) instead of
+    // inventing 0-0: validation then refuses the whole response and the old file is kept.
+    wins: isNum(overall.wins) ? Math.max(0, int(overall.wins)) : null,
+    losses: isNum(overall.losses) ? Math.max(0, int(overall.losses)) : null,
     ties: Math.max(0, int(overall.ties)),
-    pointsFor: round2(num(overall.pointsFor, num(t.points))),
-    pointsAgainst: round2(num(overall.pointsAgainst)),
+    pointsFor: isNum(overall.pointsFor) ? round2(overall.pointsFor) : isNum(t.points) ? round2(t.points) : null,
+    pointsAgainst: isNum(overall.pointsAgainst) ? round2(overall.pointsAgainst) : null,
     _overall: overall,
   };
 }
@@ -688,7 +690,7 @@ export function normalizeLeague(raw, { source = 'espn', generatedAt = new Date()
       isPublic: settings.isPublic === true,
       teamCount: teams.length,
       regularSeasonWeeks,
-      playoffTeamCount: int(schedule.playoffTeamCount),
+      playoffTeamCount: Number.isInteger(schedule.playoffTeamCount) ? schedule.playoffTeamCount : null,
       currentWeek,
       scoringPeriod,
       finalScoringPeriod,
@@ -748,7 +750,7 @@ export function normalizeSeason(raw) {
   return {
     season,
     regularSeasonWeeks,
-    playoffTeamCount: int(schedule.playoffTeamCount),
+    playoffTeamCount: Number.isInteger(schedule.playoffTeamCount) ? schedule.playoffTeamCount : null,
     teams,
     games,
   };

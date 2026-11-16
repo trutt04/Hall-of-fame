@@ -438,7 +438,7 @@ function gappedLeague() {
         },
         { id: 5, abbrev: 7, name: 'Numbers', owners: [guid(2)], playoffSeed: 2, record: { overall: overall(3, 2, { streakLength: 0 }) }, roster: { entries: [] } },
         { id: 9, abbrev: 'NINE', name: 'Nine Lives', primaryOwner: guid(3), playoffSeed: 3, record: { overall: overall(2, 3, { streakType: 'LOSS', streakLength: 2 }) } },
-        { id: 14, name: '   ', playoffSeed: 4, record: {} },
+        { id: 14, name: '   ', playoffSeed: 4, record: { overall: { wins: 0, losses: 5, pointsFor: 0, pointsAgainst: 612.3 } } },
         { id: 14, name: 'Duplicate id, must be ignored' },
         { name: 'No id, must be ignored' },
       ],
@@ -505,7 +505,7 @@ test('gapped ids: names, owners and owner keys', () => {
   assert.equal(fourteen.name, 'Team 14');
   assert.equal(fourteen.abbrev, '');
   assert.equal(fourteen.ownerKey, 't_14');
-  assert.deepEqual([fourteen.wins, fourteen.losses, fourteen.pointsFor], [0, 0, 0]);
+  assert.deepEqual([fourteen.wins, fourteen.losses, fourteen.ties, fourteen.pointsFor, fourteen.streakType], [0, 5, 0, 0, 'NONE']);
   assert.equal(fourteen.roster, null); // no roster anywhere for this team
   const text = JSON.stringify(lg);
   for (const secret of ['Secretlast', 'danny_espn_handle', 'smith', 'example.com', 'espncdn', 'Coowner', 'AAAA-4BBB']) assert.ok(!text.includes(secret), secret);
@@ -605,6 +605,27 @@ test('helpers: stat lines, bye weeks, kickoffs, scoring type', () => {
   assert.equal(withReceptions(0.5), 'HALF_PPR');
   assert.equal(withReceptions(null), 'STANDARD');
   assert.equal(normalizeLeague({ main: {} }).league.scoringType, null);
+});
+
+test('a response without the records is refused instead of being published as 0-0', () => {
+  const raw = rawSeason();
+  for (const t of raw.main.teams) delete t.record;
+  const out = normalizeLeague(raw, { source: 'espn', generatedAt: NOW });
+  assert.equal(out.teams[0].wins, null);
+  const problems = validate(out);
+  assert.ok(problems.some((p) => p.includes('wins must be a whole number')));
+  assert.ok(problems.some((p) => p.includes('pointsAgainst must be a number')));
+
+  const noSettings = rawSeason();
+  delete noSettings.main.settings;
+  const problems2 = validate(normalizeLeague(noSettings, { source: 'espn', generatedAt: NOW }));
+  assert.ok(problems2.some((p) => p.includes('league.name')));
+  assert.ok(problems2.some((p) => p.includes('regularSeasonWeeks')));
+  assert.ok(problems2.some((p) => p.includes('playoffTeamCount')));
+
+  const noStatus = rawSeason();
+  delete noStatus.main.status;
+  assert.ok(validate(normalizeLeague(noStatus, { source: 'espn', generatedAt: NOW })).some((p) => p.includes('currentWeek')));
 });
 
 test('garbage in never throws, and validate refuses it', () => {

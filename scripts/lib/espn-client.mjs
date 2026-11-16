@@ -131,7 +131,7 @@ export function classifyResponse({ status, contentType = '', body = '', host, re
     if (parsed.ok && parsed.value !== null && typeof parsed.value === 'object') {
       return { ok: true, data: parsed.value, status, host, redirectedTo };
     }
-    if (looksJson) return fail('bad_shape', `${from} but the JSON was cut off or invalid`, true);
+    if (looksJson) return fail('bad_shape', `${from} but the JSON was cut off or invalid`);
     return fail('endpoint_moved', `${from} but the body is ${looksHtml ? 'a web page' : text ? 'not JSON' : 'empty'}, not JSON`);
   }
   if (status >= 300 && status < 400) return fail('endpoint_moved', `${from}: a redirect that could not be followed`);
@@ -165,7 +165,7 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
  * Create a client.
- *   baseUrls    ordered list of API roots (…/apis/v3/games/ffl)
+ *   baseUrls    ordered list of API roots (each ending in /apis/v3/games/ffl)
  *   leagueId    ESPN league id
  *   log         function(line) for the human-readable run log
  *   fetchImpl   fetch replacement (tests)

@@ -35,6 +35,13 @@
  *   ESPN_BASE_URLS   comma separated API roots to try in order (a one-line fix if ESPN moves)
  *   ESPN_LEAGUE_ID   default 70578866
  *   ESPN_SEASON      default: automatic (Aug to Dec = this year, Jan to Jul = last year)
+ * For rehearsals only (see scripts/testing/mock-espn.mjs):
+ *   LEAGUE_WORLD_DATA_DIR   write somewhere other than world/data
+ *   LEAGUE_WORLD_NOW        pretend it is this ISO time
+ *   ESPN_TIMEOUT_MS, ESPN_RETRIES, ESPN_BACKOFF_MS
+ *
+ * Exit codes: 0 normal (including every ESPN failure), 1 a bug / the one-time alert /
+ * --sample refusing to replace real data, 2 an unknown command line option.
  */
 
 import fs from 'node:fs';
@@ -351,8 +358,8 @@ async function syncHistory(ctx, { client, main, season, existing, prevStatus, li
     }
     const res = await client.fetchPastSeason(year);
     if (!res.ok) {
-      if (res.reason === 'rate_limited' || res.reason === 'network') {
-        log('  stopping past seasons for this run');
+      if (['rate_limited', 'network', 'server_error'].includes(res.reason)) {
+        log('  stopping past seasons for this run: ESPN is not answering well');
         break;
       }
       continue;
@@ -519,7 +526,7 @@ async function runLive(ctx) {
       log(`  history.json: changed, ${historyResult.saved} of ${historyResult.wanted} past seasons saved`);
       wrote.history = save(ctx, paths.history, historyResult.history, 'history.json');
     }
-    commitMessage = `Sync league data (week ${league.league.currentWeek})`;
+    if (wrote.league || wrote.history) commitMessage = `Sync league data (week ${league.league.currentWeek})`;
   } else {
     log(`  league.json: left untouched${prevLeague ? ` (${prevLeague.source}, generated ${prevLeague.generatedAt})` : ' (there is none yet)'}`);
     log('  history.json: left untouched');

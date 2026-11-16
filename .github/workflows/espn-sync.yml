@@ -1,0 +1,104 @@
+# ESPN sync for League World.
+#
+# Fetches the fantasy league from ESPN's unofficial API and saves it as JSON files in
+# world/data/ that the 3D world reads. The browser never talks to ESPN.
+#
+#   every 10 minutes  only does work while an NFL game is on (the script checks and exits early)
+#   every hour        always fetches
+#   by hand           Actions tab, "ESPN sync", "Run workflow"
+#   on push           when the sync code or this file changes, on whatever branch was pushed
+#
+# Good to know:
+#   - GitHub only runs schedules from the default branch (main), and often runs them late.
+#   - No secrets are used. The league must be public. While it is private the job stays
+#     green, keeps the saved data, and starts working by itself once the league is public.
+#   - A commit is made only when a data file really changed.
+#   - If ESPN moves its address, add the new one in scripts/lib/espn-client.mjs
+#     (DEFAULT_BASE_URLS) or set ESPN_BASE_URLS in the "Sync from ESPN" step below.
+
+name: ESPN sync
+
+on:
+  schedule:
+    - cron: '*/10 * * * *' # frequent: only fetches inside a game window
+    - cron: '7 * * * *' # hourly: always fetches
+  workflow_dispatch:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'scripts/**'
+      - '.github/workflows/espn-sync.yml'
+
+permissions:
+  contents: write # to commit the refreshed data files, nothing else
+
+concurrency:
+  group: espn-sync-${{ github.ref }}
+  cancel-in-progress: false # runs on the same branch wait their turn, they never overlap
+
+jobs:
+  sync:
+    name: Fetch league data
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Check Node (18 or newer comes with the runner)
+        run: |
+          node --version
+          node -e "if (Number(process.versions.node.split('.')[0]) < 18) { console.error('Node 18 or newer is required, found ' + process.version); process.exit(1); }"
+
+      - name: Sync from ESPN
+        id: sync
+        env:
+          SCHEDULE: ${{ github.event.schedule }}
+          EVENT_NAME: ${{ github.event_name }}
+          # ESPN_BASE_URLS: https://new-address.example/apis/v3/games/ffl
+        run: |
+          if [ "$SCHEDULE" = "*/10 * * * *" ]; then
+            echo "Frequent run: only fetches while an NFL game is on."
+            node scripts/sync-espn.mjs --window-only
+          elif [ "$EVENT_NAME" = "schedule" ]; then
+            echo "Hourly run."
+            node scripts/sync-espn.mjs
+          else
+            echo "Manual or push run: fetches everything fresh."
+            node scripts/sync-espn.mjs --full
+          fi
+
+      # Runs even if the sync step failed: the one-time "ESPN moved" alert fails the sync step
+      # on purpose, and its note in status.json must be saved so the alert is not repeated.
+      - name: Commit changed data
+        if: ${{ !cancelled() }}
+        env:
+          MESSAGE: ${{ steps.sync.outputs.commit_message }}
+          BRANCH: ${{ github.ref_name }}
+          REF_TYPE: ${{ github.ref_type }}
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- world/data)" ]; then
+            echo "No data changes. Nothing to commit."
+            exit 0
+          fi
+          if [ "$REF_TYPE" != "branch" ]; then
+            echo "Not running on a branch, so there is nowhere to push. Skipping the commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -- world/data
+          git commit -m "${MESSAGE:-Sync league data}"
+          for attempt in 1 2 3; do
+            if git pull --rebase origin "$BRANCH" && git push origin "HEAD:refs/heads/$BRANCH"; then
+              echo "Pushed to $BRANCH on attempt $attempt."
+              exit 0
+            fi
+            git rebase --abort 2>/dev/null || true
+            echo "Push attempt $attempt did not go through."
+            sleep $((attempt * 5))
+          done
+          echo "::error title=League sync::The data was fetched but could not be pushed after 3 attempts."
+          exit 1

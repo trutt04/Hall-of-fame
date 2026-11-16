@@ -670,7 +670,6 @@ function buildRosters(rng, pro, season) {
   const safe = proIds.filter((id) => ![9, 10].includes(pro.byeWeek.get(id)) && id !== mondayA && id !== mondayB);
 
   // How many of each team's starters play in the pending Monday night game.
-  const week10Pairs = season.schedule.week10;
   const mondayCount = new Map(TEAM_IDS.map((id) => [id, 0]));
   mondayCount.set(10, 1).set(6, 2).set(1, 1).set(11, 1);
   const rest = rng.shuffle([0, 0, 0, 1, 1, 2, 0, 1]);
@@ -811,7 +810,7 @@ function buildRosters(rng, pro, season) {
   for (const { players } of teams.values()) {
     for (const p of players) p.seasonTotal = round2((p.pts9 ?? 0) + (p.pts10 ?? 0) + p.proj9 * rng.float(4.5, 8));
   }
-  return { teams, live, week10Pairs };
+  return { teams, live };
 }
 
 function statLine(scoringPeriodId, statSourceId, appliedTotal) {
