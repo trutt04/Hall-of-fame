@@ -26,15 +26,15 @@ const C = (hex) => new THREE.Color(hex);
 const GROUND = {
   grass: {
     hill: C(PALETTE.hill.grass), heights: C(PALETTE.heights.grass), plaza: C(PALETTE.plaza.grass),
-    bubble: C(PALETTE.bubble.grass), park: C(PALETTE.park.grass), dump: C(PALETTE.dump.grass),
+    bubble: C(PALETTE.bubble.grass), park: C(PALETTE.park.grass), dump: C(PALETTE.dump.grass).lerp(C(0x8a8458), 0.45),
   },
   cliff: {
     hill: C(0xc4ae86), heights: C(0xb9a47f), plaza: C(0xa3936f),
     bubble: C(0xa39472), park: C(0x7d6c50), dump: C(0x4c463a),
   },
   dirt: C(PALETTE.park.path),
-  mud: C(PALETTE.dump.path),
-  sludge: C(0x66763a),
+  mud: C(0x7b6f57),
+  sludge: C(0x86934a),
   verge: C(0xb7b074),
   forest: C(0x3d7a4b),
   farHill: C(0x5d8a78),
@@ -107,7 +107,7 @@ export function createTerrain(layout, opts = {}) {
     return Object.assign({}, c, { minX: minX - c.blend, maxX: maxX + c.blend, minZ: minZ - c.blend, maxZ: maxZ + c.blend });
   });
   const discs = layout.pads.discs;
-  const rects = layout.pads.rects.map((r) => Object.assign({ rad: Math.hypot(r.w, r.d) / 2 }, r));
+  const rects = layout.pads.rects.map((r) => Object.assign({ rad: Math.hypot(r.w, r.d) / 2, cos: Math.cos(r.facing || 0), sin: Math.sin(r.facing || 0) }, r));
 
   const near = { d: 0, y: 0 };
   function nearestOnCorridor(c, x, z) {
@@ -239,12 +239,24 @@ export function createTerrain(layout, opts = {}) {
     return arr[idx(i, j)];
   }
 
+  // Inside a lot the ground is exactly the lot's pad height. The outer 1.5 m of the rectangle
+  // eases to the mesh, so there is never a step to trip over where a pad meets a cut bank.
   function groundAt(x, z) {
     for (let i = 0; i < rects.length; i++) {
       const r = rects[i];
       const dx = x - r.x;
       const dz = z - r.z;
-      if (dx * dx + dz * dz < r.rad * r.rad && rectDistance(x, z, r) === 0) return r.y;
+      if (dx * dx + dz * dz >= r.rad * r.rad) continue;
+      const c = r.cos;
+      const s = r.sin;
+      const ix = r.w / 2 - Math.abs(dx * c - dz * s);
+      const iz = r.d / 2 - Math.abs(dx * s + dz * c);
+      const inside = ix < iz ? ix : iz;
+      if (inside <= 0) continue;
+      if (inside >= 1.5) return r.y;
+      const g = gridHeight(x, z);
+      const t = inside / 1.5;
+      return g + (r.y - g) * t * t * (3 - 2 * t);
     }
     return gridHeight(x, z);
   }
@@ -329,7 +341,7 @@ export function createTerrain(layout, opts = {}) {
   const col = new THREE.Color();
   const zw = {};
 
-  function groundColor(cx, cz, ny, rd, out) {
+  function groundColor(cx, cz, cy, ny, rd, out) {
     weightsAt(cx, cz, zw);
     out.setRGB(0, 0, 0);
     let cr = 0;
@@ -357,10 +369,12 @@ export function createTerrain(layout, opts = {}) {
       if (puddle < 0.34) out.lerp(GROUND.sludge, 0.75 * mud * smoothstep(0.34, 0.24, puddle));
     }
     if (rd < 3.2) out.lerp(GROUND.verge, 0.22 * (1 - smoothstep(1, 3.2, rd)) * (1 - zw.dump));
-    const steep = 1 - smoothstep(0.8, 0.93, ny);
+    out.multiplyScalar(0.84 + 0.16 * smoothstep(0.7, 0.96, ny));
+    const steep = 1 - smoothstep(0.52, 0.76, ny);
     if (steep > 0) {
-      col.setRGB(cr, cg, cb);
-      out.lerp(col, steep * 0.92);
+      const strata = 0.86 + 0.22 * valueNoise2(cx * 0.21 + 9, cy * 0.9 + cz * 0.07);
+      col.setRGB(cr * strata, cg * strata, cb * strata);
+      out.lerp(col, steep * 0.95);
     }
     const outside = Math.max(smoothstep(74, 110, Math.abs(cx)), smoothstep(bounds.maxZ, bounds.maxZ + 40, cz), smoothstep(-bounds.minZ, -bounds.minZ + 40, -cz));
     if (outside > 0) out.lerp(GROUND.forest, outside * 0.7);
@@ -387,7 +401,7 @@ export function createTerrain(layout, opts = {}) {
       const nyn = Math.abs(ny) / (Math.sqrt(nx * nx + ny * ny + nz * nz) || 1);
       const cx = (p[0] + q[0] + r[0]) / 3;
       const cz = (p[2] + q[2] + r[2]) / 3;
-      groundColor(cx, cz, nyn, Math.min(gridSample(ROADD, p[0], p[2]), gridSample(ROADD, q[0], q[2]), gridSample(ROADD, r[0], r[2])), col);
+      groundColor(cx, cz, (p[1] + q[1] + r[1]) / 3, nyn, Math.min(gridSample(ROADD, p[0], p[2]), gridSample(ROADD, q[0], q[2]), gridSample(ROADD, r[0], r[2])), col);
       soup.tri(p, q, r, col);
     };
     const P = (out, i, j) => {
@@ -471,8 +485,8 @@ export function createTerrain(layout, opts = {}) {
         soup.triRaw([p.x, -6, p.z], [mid.x, mid.h, mid.z], [pm.x, Math.max(prev.h, p.h) * 1.1, pm.z], c2);
       }
     };
-    ring(44, 250, 330, 46, 30, 52, GROUND.farHill, 11);
-    ring(30, 330, 420, 60, 52, 92, GROUND.farHill2, 23);
+    ring(44, 250, 330, 46, 12, 24, GROUND.farHill, 11);
+    ring(30, 330, 420, 60, 24, 44, GROUND.farHill2, 23);
     const mesh = new THREE.Mesh(soup.geometry(), new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide }));
     mesh.name = 'farHills';
     mesh.matrixAutoUpdate = false;
@@ -584,7 +598,7 @@ export function createTerrain(layout, opts = {}) {
       const [ax, az] = lot.curb;
       const [bx, bz] = lot.street;
       const len = Math.hypot(bx - ax, bz - az);
-      if (len < 0.4) return;
+      if (len < 0.4 || len > 26) return;
       const steps = Math.max(1, Math.ceil(len / 1.2));
       const pts = [];
       for (let i = 0; i <= steps; i++) pts.push([lerp(ax, bx, i / steps), lerp(az, bz, i / steps)]);
@@ -604,7 +618,7 @@ export function createTerrain(layout, opts = {}) {
     }
     // Where the Boulevard gives up: a splash of churned mud at the dump.
     const end = layout.road[layout.road.length - 1];
-    band(soup, end[0], end[1] + 1.5, 0, 5.5, 9, C(PALETTE.dump.path).multiplyScalar(0.8), LIFT.path, 0.3);
+    band(soup, end[0], end[1] + 1.5, 0, 5.5, 9, C(0x5f5645), LIFT.path, 0.3);
 
     const mesh = new THREE.Mesh(soup.geometry(), decalMat);
     mesh.name = 'pavement';
@@ -619,7 +633,7 @@ export function createTerrain(layout, opts = {}) {
     const soup = new Soup();
     const lawn = {
       hillA: C(0x79c95f), hillB: C(0x62b450),
-      heights: C(0x78c463), bubble: C(0xb3b76c), park: C(0x94794f), dump: C(0x3f392e),
+      heights: C(0x78c463), bubble: C(0xb3b76c), park: C(0x94794f), dump: C(0x5b5140),
     };
     const rect = (lot, color, x0, x1, z0, z1) => {
       const c = Math.cos(lot.facing);
@@ -860,9 +874,9 @@ export function createTerrain(layout, opts = {}) {
     const tv = [];
     for (let i = 0; i < 3; i++) {
       const a = (i / 3) * Math.PI + 0.3;
-      const cx = Math.cos(a) * 0.16;
-      const cz = Math.sin(a) * 0.16;
-      tv.push(-cx, 0, -cz, cx, 0, cz, cx * 0.4 + 0.05, 0.42 + i * 0.07, cz * 0.4);
+      const cx = Math.cos(a) * 0.15;
+      const cz = Math.sin(a) * 0.15;
+      tv.push(-cx, 0, -cz, cx, 0, cz, cx * 0.4 + 0.05, 0.3 + i * 0.06, cz * 0.4);
     }
     tg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(tv), 3));
     tg.computeVertexNormals();
@@ -870,8 +884,8 @@ export function createTerrain(layout, opts = {}) {
     const nrm = tg.attributes.normal;
     for (let i = 0; i < nrm.count; i++) nrm.setXYZ(i, 0, 1, 0);
     const tuftDensity = { hill: 0.9, heights: 0.8, plaza: 0.55, bubble: 0.35, park: 0.7, dump: 0.5 };
-    const tuftTint = { hill: 0x5fae4c, heights: 0x5aa64e, plaza: 0x559b4c, bubble: 0xa3a85a, park: 0xa39a4e, dump: 0x6f7340 };
-    const tufts = place(quality === 'low' ? 420 : 760, 0.6, (zone, x, z, roll) => roll < tuftDensity[zone]);
+    const tuftTint = { hill: 0x66b552, heights: 0x60ab52, plaza: 0x59a14e, bubble: 0x9aa457, park: 0x9c9449, dump: 0x7c7f48 };
+    const tufts = place(quality === 'low' ? 380 : 700, 0.6, (zone, x, z, roll) => roll < tuftDensity[zone]);
     build('tufts', tg, new THREE.MeshLambertMaterial({ side: THREE.DoubleSide }), tufts, (p) => {
       pos.set(p.x, p.y - 0.02, p.z);
       e.set(0, r2() * TAU, 0);
@@ -885,7 +899,7 @@ export function createTerrain(layout, opts = {}) {
     const rg = new THREE.IcosahedronGeometry(0.5, 0);
     const rockDensity = { hill: 0.15, heights: 0.2, plaza: 0.2, bubble: 0.25, park: 0.75, dump: 1 };
     const rockTint = { hill: 0xcdbb98, heights: 0xb9ad98, plaza: 0xa7a394, bubble: 0xa89f88, park: 0x857a66, dump: 0x56544a };
-    const rocks = place(quality === 'low' ? 60 : 120, 1.4, (zone, x, z, roll) => roll < rockDensity[zone]);
+    const rocks = place(quality === 'low' ? 45 : 84, 1.4, (zone, x, z, roll) => roll < rockDensity[zone]);
     build('rocks', rg, new THREE.MeshLambertMaterial({ flatShading: true }), rocks, (p) => {
       const s = 0.35 + r2() * r2() * 1.5;
       pos.set(p.x, p.y + s * 0.12, p.z);
@@ -896,7 +910,7 @@ export function createTerrain(layout, opts = {}) {
     });
 
     // Flowers: only where life is good.
-    const fg = new THREE.OctahedronGeometry(0.11, 0);
+    const fg = new THREE.TetrahedronGeometry(0.13, 0);
     const flowerDensity = { hill: 1, heights: 0.75, plaza: 0.4, bubble: 0.06, park: 0, dump: 0 };
     const petals = { hill: [0xf5c542, 0xffffff, 0xffe9a0], heights: [0xff8fab, 0xffffff, 0x9fd0ff], plaza: [0xffffff, 0xf5c542], bubble: [0xefe6d0] };
     const flowers = place(quality === 'low' ? 110 : 230, 0.8, (zone, x, z, roll) => roll < flowerDensity[zone] && Math.abs(x) < 70);

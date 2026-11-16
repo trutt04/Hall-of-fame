@@ -1,7 +1,7 @@
 // Reactive details: the things that appear outside your home because of how your season is going.
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, TAU, shade } from './geo.js';
-import { flatMat, addMat, makeGlowMaterial } from './materials.js';
+import { flatMat, makeGlowMaterial, makeAddMaterial } from './materials.js';
 import { rng, motion, makeProp, addMesh, makeBlob, makeSparkles, beam, halo, stepRand, toTexture, makeCanvas, V3 } from './util.js';
 import { C, drawBag, drawFlamingo, drawTrafficCone } from './parts.js';
 import { makeFlySwarm } from './critters.js';
@@ -23,7 +23,7 @@ export function createTrashPile(count = 0) {
     if (n >= 6) g.disc(0.1, 0.03, 0, 1.15, 0x4a4a36, { seg: 7, sx: 1.25 });
     for (let i = 0; i < n; i++) {
       const s = BAG_SPOTS[i];
-      drawBag(g, s[0], s[1] - 0.03, s[2], s[3], BAG_COLORS[i], r, i % 4 === 1 ? C.caution : C.red);
+      drawBag(g, s[0], s[1] - 0.03, s[2], s[3], BAG_COLORS[i], r, i % 4 === 1 ? C.caution : C.red, 4);
     }
     if (n >= 3) { g.box(0.95, 0, 0.75, 0.3, 0.05, 0.3, C.cardboard, { ry: 0.4 }); g.cyl(-0.9, 0.05, 0.85, 0.05, 0.16, C.metalLt, { seg: 5, rz: Math.PI / 2 }); }
     g.shadeY(0, 0.6, 0.82);
@@ -147,34 +147,35 @@ export function createGoldenToilet() {
 // ---- searchlight for the week's top scorer ----------------------------------------------------------
 export function createSpotlight() {
   const group = new THREE.Group(); group.name = 'spotlight';
-  const own = [], base = new Geo(), head = new Geo(), bm = new Geo({ alpha: true });
+  const own = [], base = new Geo(), head = new Geo(), bm = new Geo({ alpha: true }), B = 0x2d4fa8;
   base.box(0, 0, 0, 1.3, 0.14, 0.9, C.iron);
   for (const [x, z] of [[-0.55, -0.38], [0.55, -0.38], [-0.55, 0.38], [0.55, 0.38]]) base.cyl(x, 0, z, 0.13, 0.12, C.tire, { seg: 6, rz: Math.PI / 2 });
-  base.cyl(0, 0.14, 0, 0.3, 0.2, C.metalDk, { seg: 8 });
+  base.cyl(0, 0.14, 0, 0.34, 0.2, C.metalDk, { seg: 8 });
+  base.cyl(0, 0.34, 0, 0.12, 0.5, C.metalDk, { seg: 6 });
   addMesh(group, base, flatMat, own, 'base');
   const yaw = new THREE.Group(), tilt = new THREE.Group();
   yaw.position.y = 0.34; tilt.position.y = 0.85;
   group.add(yaw); yaw.add(tilt);
-  // the yoke turns with the yaw, the drum tilts inside it
-  const yoke = new Geo();
-  for (const sx of [-1, 1]) yoke.box(sx * 0.52, 0, 0, 0.08, 0.95, 0.2, 0x2d4fa8);
-  yoke.box(0, 0, 0, 1.1, 0.08, 0.2, 0x2d4fa8);
-  const yokeMesh = addMesh(yaw, yoke, flatMat, own, 'yoke');
-  head.lathe(0, -0.35, 0, [[0.3, 0], [0.44, 0.12], [0.46, 0.7], [0.5, 0.74]], 0x2d4fa8, { seg: 10, capTop: 0xfff7d6, capBot: true });
+  // the drum and its bracket turn and tilt together
+  head.lathe(0, -0.35, 0, [[0.3, 0], [0.44, 0.12], [0.46, 0.7], [0.5, 0.74]], B, { seg: 10, capTop: 0xfff7d6, capBot: true });
   head.cyl(0, 0.37, 0, 0.5, 0.05, C.gold, { seg: 10, top: false });
-  for (const sx of [-1, 1]) head.cyl(sx * 0.46, 0, 0, 0.07, 0.1, C.metalLt, { seg: 6, rz: (-sx * Math.PI) / 2 });
+  for (const sx of [-1, 1]) { head.box(sx * 0.52, -0.42, 0, 0.07, 0.5, 0.18, C.metalLt, { bottom: true }); }
+  head.box(0, -0.46, 0, 1.1, 0.07, 0.18, C.metalLt, { bottom: true });
   addMesh(tilt, head, flatMat, own, 'drum');
   bm.at(0, 0.4, 0);
-  beam(bm, 0.42, 3.6, 46, 0xfff3c4, 0.42, 0, 10);
-  beam(bm, 0.2, 1.4, 40, 0xffffff, 0.3, 0, 8);
+  beam(bm, 0.42, 3.6, 46, 0xfff3c4, 0.4, 0, 10);
+  beam(bm, 0.2, 1.4, 40, 0xffffff, 0.28, 0, 8);
   bm.restore();
-  const beamMesh = addMesh(tilt, bm, addMat, own, 'beam');
+  const beamMat = makeAddMaterial(0xffffff, 0.45); own.push(beamMat);
+  const beamMesh = addMesh(tilt, bm, beamMat, own, 'beam');
   beamMesh.frustumCulled = false;
-  void yokeMesh;
   const prop = makeProp(group, own, (dt, t) => {
     const m = 0.25 + 0.75 * motion();
     yaw.rotation.y = Math.sin(t * 0.31 * m) * 1.3 + t * 0.06 * m;
     tilt.rotation.x = 0.55 + 0.3 * Math.sin(t * 0.53 * m + 1);
+  }, {
+    // the beam is faint by day and strong at night
+    setNight(a) { beamMat.opacity = 0.45 + 0.55 * Math.max(0, Math.min(1, a || 0)); },
   });
   prop.update(0, 0);
   return prop;

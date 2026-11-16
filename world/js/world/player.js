@@ -18,6 +18,7 @@ export const WALK_SPEED = 2.7;
 const RADIUS = 0.45;
 const ACCEL = 9;
 const MAX_CLIMB = 1.7; // rise over run: steeper than this uphill is a wall
+const PROBE = 0.5;
 
 // Merge simple parts into one vertex-colored, flat-shaded geometry.
 function mergeColored(parts) {
@@ -182,11 +183,16 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     }
   }
 
+  // Looks half a meter ahead so the answer does not depend on the frame rate, and so curbs and
+  // small ledges (under about 0.85 m) are simply walked over.
   function canStep(fromX, fromZ, toX, toZ, fromY) {
-    const run = Math.hypot(toX - fromX, toZ - fromZ);
+    const dx = toX - fromX;
+    const dz = toZ - fromZ;
+    const run = Math.hypot(dx, dz);
     if (run < 1e-5) return true;
-    const rise = terrain.heightAt(toX, toZ) - fromY;
-    return rise / run <= MAX_CLIMB || rise < 0.12;
+    const k = PROBE / run;
+    const rise = terrain.heightAt(fromX + dx * k, fromZ + dz * k) - fromY;
+    return rise <= MAX_CLIMB * PROBE;
   }
 
   function update(dt, t) {

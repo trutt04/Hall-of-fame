@@ -34,7 +34,7 @@ export function createCrown() {
     g.quad(A, B, B2, A2, H); g.quad(B, Cc, C2, B2, G); g.quad(Cc, D, D2, C2, L); g.quad(D, A, A2, D2, L);
     g.tri(A2, B2, tip, H); g.tri(B2, C2, tip, G); g.tri(C2, D2, tip, L); g.tri(D2, A2, tip, G);
     g.jit = 0;
-    g.sphere(0.06, top + 0.2, 0, tall ? 0.24 : 0.19, tall ? 0xfff6dc : H, { seg: 6, rings: 4 });
+    g.sphere(0.06, top + 0.2, 0, tall ? 0.24 : 0.19, tall ? 0xfffbea : H, { seg: 6, rings: 4 });
     g.jit = 0.07;
     g.restore();
   }
@@ -43,7 +43,7 @@ export function createCrown() {
     const a = (i * TAU) / 4;
     g.at(0, 0, 0, -a);
     g.tube([[R - 0.05, 1.5, 0], [R - 0.2, 2.5, 0], [R - 0.9, 3.25, 0], [R - 1.7, 3.6, 0], [0.2, 3.62, 0]], 0.13, i % 2 ? G : H, { seg: 4, ph: Math.PI / 4 });
-    for (const [px, py] of [[R - 0.22, 2.55], [R - 0.95, 3.3], [R - 1.72, 3.65]]) g.sphere(px, py + 0.12, 0, 0.11, 0xfff6dc, { seg: 5, rings: 3 });
+    for (const [px, py] of [[R - 0.22, 2.55], [R - 0.95, 3.3], [R - 1.72, 3.65]]) g.sphere(px, py + 0.12, 0, 0.11, 0xfffbea, { seg: 4, rings: 2 });
     g.restore();
   }
   // velvet cap
@@ -54,8 +54,8 @@ export function createCrown() {
   g.cyl(0, 3.5, 0, 0.3, 0.2, L, { seg: 8, rt: 0.22 });
   g.sphere(0, 4.02, 0, 0.42, H, { seg: 8, rings: 5 });
   g.cyl(0, 4.0, 0, 0.44, 0.07, L, { seg: 8, top: false });
-  drawFootball(g, 0, 4.86, 0, 1.25, G, { rz: 0.35 });
-  g.box(0.12, 5.02, 0, 0.5, 0.05, 0.07, 0xfff6dc, { rz: 0.35 });
+  g.jit = 0.05;
+  drawFootball(g, 0, 4.9, 0, 1.45, 0x9a5a34, { rz: 0.3, seg: 8 });
   g.jit = 0;
   // gems set into the band
   const gemCols = [0xff2d55, 0x2f8dff, 0x2fe08a, 0xff2d55, 0xb26bff, 0x2fe08a, 0xff2d55, 0x2f8dff];
@@ -64,7 +64,7 @@ export function createCrown() {
     g.at(0, 1.04, 0, -a); g.cyl(R + 0.1, 0, 0, big ? 0.24 : 0.18, 0.08, L, { seg: 6, rz: -Math.PI / 2 }); g.restore();
     gems.at(0, 1.04, 0, -a); gems.sphere(R + 0.21, 0, 0, big ? 0.19 : 0.14, gemCols[i], { seg: 4, rings: 2, sy: big ? 1.3 : 1 }); gems.restore();
   }
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: 0x7a5200, emissiveIntensity: 0.3 });
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: 0x8a5c08, emissiveIntensity: 0.35 });
   mat.name = 'lw-crown'; own.push(mat);
   addMesh(spin, g, mat, own, 'crown');
   addMesh(spin, gems, glowMat, own, 'gems');
@@ -72,13 +72,13 @@ export function createCrown() {
   for (let k = 0; k < 3; k++) {
     fx.at(0, 2.3, 0, (k * Math.PI) / 3);
     for (let i = 0; i < 12; i++) {
-      const a = (i * TAU) / 12 + k * 0.17, len = i % 2 ? 4.6 : 6.6, w = 0.2;
+      const a = (i * TAU) / 12 + k * 0.17, len = i % 2 ? 4.4 : 6.4, w = 0.13;
       const c = Math.cos(a), s = Math.sin(a), r0 = 1.4;
-      fx.triG([c * r0 - s * w, s * r0 + c * w, 0], [c * r0 + s * w, s * r0 - c * w, 0], [c * len, s * len, 0], 0xffe9a8, 0xffe9a8, 0xffd36b, 0.2, 0.2, 0);
+      fx.triG([c * r0 - s * w, s * r0 + c * w, 0], [c * r0 + s * w, s * r0 - c * w, 0], [c * len, s * len, 0], 0xffdf8a, 0xffdf8a, 0xffc94d, 0.24, 0.24, 0);
     }
     fx.restore();
   }
-  halo(fx, 0, 2.3, 0, 4.4, 0xffd36b, 0.14, 1);
+  halo(fx, 0, 2.3, 0, 3.7, 0xffc94d, 0.07, 1);
   const fxMat = makeAddMaterial(0xffffff, 1); own.push(fxMat);
   const rays = addMesh(group, fx, fxMat, own, 'glory');
   rays.frustumCulled = false;
@@ -93,8 +93,8 @@ export function createCrown() {
     spin.rotation.x = Math.cos(t * 0.47) * 0.04 * m;
     rays.rotation.y = -t * 0.12 * m;
     rays.position.y = spin.position.y;
-    fxMat.opacity = (0.55 + 0.45 * night) * (0.8 + 0.2 * Math.sin(t * 1.7) * m);
-    mat.emissiveIntensity = 0.3 + 0.5 * night + 0.06 * Math.sin(t * 2.3) * m;
+    fxMat.opacity = (0.5 + 0.5 * night) * (0.8 + 0.2 * Math.sin(t * 1.7) * m);
+    mat.emissiveIntensity = 0.35 + 0.55 * night + 0.06 * Math.sin(t * 2.3) * m;
     sp.update(t);
   }, {
     setNight(a) { night = Math.max(0, Math.min(1, a || 0)); },
@@ -153,7 +153,7 @@ export function createGoldGates() {
   for (const sx of [-1, 1]) drawGatePillar(g, sx * 3.3, 0, 3.5, gl);
   g.shadeY(0, 2.2, 0.9);
   addMesh(group, g, flatMat, own, 'pillars');
-  const glowM = makeAddMaterial(0xffffff, 0.5); own.push(glowM);
+  const glowM = makeAddMaterial(0xffffff, 0.3); own.push(glowM);
   addMesh(group, gl, glowM, own, 'lanterns');
   const lg = new Geo(), rg = new Geo();
   drawGateLeaf(lg, 2.66, 2.6, true);
@@ -166,7 +166,7 @@ export function createGoldGates() {
     left.rotation.y = cur * 1.35; right.rotation.y = -cur * 1.35;
   }, {
     setOpen(a) { open = Math.max(0, Math.min(1, a)); },
-    setNight(a) { glowM.opacity = 0.35 + 0.65 * Math.max(0, Math.min(1, a || 0)); },
+    setNight(a) { glowM.opacity = 0.3 + 0.7 * Math.max(0, Math.min(1, a || 0)); },
     colliders: [{ x: -3.3, z: 0, r: 0.75 }, { x: 3.3, z: 0, r: 0.75 }],
     width: 5.4,
   });
@@ -204,7 +204,7 @@ export function createFountain() {
   for (let i = 0; i < 8; i += 2) { const a0 = Math.PI / 8 + (i * TAU) / 8, a1 = a0 + TAU / 8; w.quad([Math.cos(a1) * 0.83, 2.08, Math.sin(a1) * 0.83], [Math.cos(a0) * 0.83, 2.08, Math.sin(a0) * 0.83], [Math.cos(a0) * 0.8, 3.16, Math.sin(a0) * 0.8], [Math.cos(a1) * 0.8, 3.16, Math.sin(a1) * 0.8], C.waterLt); }
   const water = addMesh(group, w, glassMat, own, 'water');
   // droplets: a jet from the top and spray off each rim
-  const dg = new Geo(); dg.sphere(0, 0, 0, 0.07, 0xd6f1ff, { seg: 4, rings: 2, sy: 1.6 });
+  const dg = new Geo(); dg.sphere(0, 0, 0, 0.07, 0xffffff, { seg: 4, rings: 2, sy: 1.6 });
   const dgeo = dg.build(); own.push(dgeo);
   const N = 30, drops = makeParticles(dgeo, flatMat, N), k = new Float32Array(N * 3), r = rng(12);
   drops.mesh.name = 'droplets'; drops.mesh.frustumCulled = true; drops.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 2, 0), 4);
@@ -272,26 +272,25 @@ export function createStreetlight({ flicker = false } = {}) {
 // ---- burning barrel ---------------------------------------------------------------------------------------------
 export function createBurningBarrel() {
   const group = new THREE.Group(); group.name = 'burningBarrel';
-  const own = [], g = new Geo(), f = new Geo(), gl = new Geo({ alpha: true });
+  const own = [], g = new Geo(), gl = new Geo({ alpha: true });
   g.jit = 0.08;
   g.lathe(0, 0, 0, [[0.3, 0, C.rustDk], [0.32, 0.04, C.rust], [0.32, 0.3, 0x6b4a3a], [0.335, 0.33, C.rust], [0.32, 0.36, C.rustDk], [0.32, 0.6, C.rust], [0.335, 0.63, 0x5a4034], [0.32, 0.66, 0x3a2c26], [0.33, 0.9]], C.rust, { seg: 8, capTop: false });
   g.band(0.33, 0.9, 0.29, 0.9, 8, Math.PI / 8, 0x2a2622); g.band(0.29, 0.9, 0.29, 0.55, 8, Math.PI / 8, 0x1c1814);
   g.jit = 0;
   for (const [x, z] of [[-0.24, 0.3], [0.3, 0.2], [0.0, -0.36]]) g.box(x, 0, z, 0.2, 0.09, 0.12, C.brick, { ry: x * 3 });
   addMesh(group, g, flatMat, own, 'barrel');
-  // glowing holes and coals
-  f.fan(0.29, 0.62, 8, Math.PI / 8, 0xff7a1a);
-  for (let i = 0; i < 5; i++) { const a = i * 1.26 + 0.3; f.at(0, 0, 0, -a); f.quad([0.337, 0.14 + (i % 2) * 0.1, 0.05], [0.337, 0.14 + (i % 2) * 0.1, -0.05], [0.337, 0.24 + (i % 2) * 0.1, -0.05], [0.337, 0.24 + (i % 2) * 0.1, 0.05], i % 2 ? 0xffb020 : 0xff6a1f); f.restore(); }
-  addMesh(group, f, glowMat, own, 'coals');
-  // flames: outer orange tongues and a hot core, two meshes that breathe out of phase
-  const tongue = (geo, x, z, r, h, col, col2) => geo.lathe(x, 0.6, z, [[r * 0.7, 0, col], [r, h * 0.25, col], [r * 0.55, h * 0.62, col2], [0, h]], col, { seg: 5, capTop: false });
-  const fa = new Geo(), fb = new Geo();
+  // flames: orange tongues around a hot core, one unlit mesh that breathes and twists
+  const tongue = (geo, x, z, r, h, col, col2) => geo.lathe(x, 0, z, [[r * 0.7, 0, col], [r, h * 0.25, col], [r * 0.55, h * 0.62, col2], [0, h]], col, { seg: 5, capTop: false });
+  const fa = new Geo();
   tongue(fa, -0.08, 0.02, 0.2, 0.9, 0xff5a1a, 0xff8a1a); tongue(fa, 0.12, -0.08, 0.15, 0.62, 0xff6a1f, 0xffa020); tongue(fa, 0.04, 0.13, 0.13, 0.5, 0xff5a1a, 0xff8a1a);
-  tongue(fb, 0.02, 0, 0.13, 0.62, 0xffc93c, 0xffe98a); tongue(fb, -0.1, -0.06, 0.09, 0.4, 0xffd24a, 0xfff0a8);
-  const flameA = addMesh(group, fa, glowMat, own, 'flameA'), flameB = addMesh(group, fb, glowMat, own, 'flameB');
-  for (const fm of [flameA, flameB]) { fm.geometry.translate(0, -0.6, 0); fm.position.y = 0.6; }
-  halo(gl, 0, 1.0, 0, 1.25, 0xff8a2a, 0.2, 1);
-  for (let i = 0; i < 10; i++) { const a0 = (i * TAU) / 10, a1 = ((i + 1) * TAU) / 10; gl.triG([0, 0.05, 0], [Math.cos(a1) * 2.4, 0.05, Math.sin(a1) * 2.4], [Math.cos(a0) * 2.4, 0.05, Math.sin(a0) * 2.4], 0xff8a2a, 0xff8a2a, 0xff8a2a, 0.26, 0, 0); }
+  tongue(fa, 0.02, 0.0, 0.11, 1.0, 0xffc93c, 0xffe98a);
+  const flameA = addMesh(group, fa, glowMat, own, 'flames');
+  flameA.position.y = 0.6;
+  // additive: the glowing rust holes, the coal bed, a halo and a pool of firelight
+  gl.a = 0.9; gl.at(0, 0.62, 0); gl.fan(0.29, 0, 8, Math.PI / 8, 0xff7a1a); gl.restore();
+  for (let i = 0; i < 5; i++) { const a = i * 1.26 + 0.3; gl.at(0, 0, 0, -a); gl.quad([0.337, 0.14 + (i % 2) * 0.1, 0.05], [0.337, 0.14 + (i % 2) * 0.1, -0.05], [0.337, 0.24 + (i % 2) * 0.1, -0.05], [0.337, 0.24 + (i % 2) * 0.1, 0.05], i % 2 ? 0xffb020 : 0xff6a1f); gl.restore(); }
+  halo(gl, 0, 1.0, 0, 1.1, 0xff8a2a, 0.16, 1);
+  for (let i = 0; i < 10; i++) { const a0 = (i * TAU) / 10, a1 = ((i + 1) * TAU) / 10; gl.triG([0, 0.05, 0], [Math.cos(a1) * 2.4, 0.05, Math.sin(a1) * 2.4], [Math.cos(a0) * 2.4, 0.05, Math.sin(a0) * 2.4], 0xff8a2a, 0xff8a2a, 0xff8a2a, 0.24, 0, 0); }
   const glMat = makeAddMaterial(0xffffff, 1); own.push(glMat);
   addMesh(group, gl, glMat, own, 'glow');
   // embers
@@ -304,10 +303,9 @@ export function createBurningBarrel() {
   let night = 0;
   const prop = makeProp(group, own, (dt, t) => {
     const m = motion(), a = flick(t, 1), b = flick(t * 1.3, 5);
-    flameA.scale.set(1 + (a - 0.5) * 0.3 * m, 1 + (a - 0.5) * 0.7 * m, 1 + (b - 0.5) * 0.3 * m);
-    flameB.scale.set(1 + (b - 0.5) * 0.3 * m, 1 + (b - 0.5) * 0.9 * m, 1 + (a - 0.5) * 0.3 * m);
-    flameA.rotation.y = t * 1.7 * m; flameB.rotation.y = -t * 2.3 * m;
-    glMat.opacity = (0.45 + 0.55 * night) * (0.8 + (a - 0.5) * 0.5 * m);
+    flameA.scale.set(1 + (a - 0.5) * 0.3 * m, 1 + (a - 0.5) * 0.8 * m, 1 + (b - 0.5) * 0.3 * m);
+    flameA.rotation.y = t * 1.9 * m;
+    glMat.opacity = (0.5 + 0.5 * night) * (0.8 + (a - 0.5) * 0.5 * m);
     for (let i = 0; i < N; i++) {
       const u = (t * 0.35 * k[i * 3 + 2] * (0.4 + 0.6 * m) + k[i * 3]) % 1, an = k[i * 3 + 1] + u * 3;
       const rr = 0.1 + u * 0.45;
@@ -327,11 +325,11 @@ export function createRainCloud({ radius = 5, height = 9, seed = 1 } = {}) {
   const group = new THREE.Group(); group.name = 'rainCloud';
   const own = [], g = new Geo(), r = rng(seed * 7 + 2), R = radius;
   const dark = 0x525a6b, mid = 0x687182, lite = 0x8a93a3;
-  g.jit = 0.05;
-  g.ico(0, height + R * 0.12, 0, R * 0.6, mid, { detail: 1, jitter: 0.1, rnd: r, sy: 0.62, flat: 0.45 });
-  const puffs = [[-0.55, 0, 0.1, 0.46], [0.55, 0.02, -0.05, 0.5], [0.05, -0.02, 0.5, 0.42], [-0.1, 0.02, -0.5, 0.44], [-0.3, 0.18, -0.2, 0.4], [0.3, 0.2, 0.2, 0.38], [0.85, -0.04, 0.3, 0.3], [-0.9, -0.04, -0.2, 0.3]];
-  for (const [px, py, pz, pr] of puffs) g.ico(px * R, height + py * R + R * 0.06, pz * R, pr * R, r() < 0.5 ? mid : lite, { jitter: 0.12, rnd: r, sy: 0.7, flat: 0.5 });
-  g.shadeY(height - R * 0.3, height + R * 0.45, 0.62);
+  g.jit = 0.035;
+  g.ico(0, height + R * 0.14, 0, R * 0.58, mid, { detail: 1, jitter: 0.05, rnd: r, sy: 0.66, flat: 0.55 });
+  const puffs = [[-0.56, 0, 0.1, 0.42], [0.56, 0.02, -0.05, 0.46], [0.05, -0.02, 0.5, 0.4], [-0.1, 0.02, -0.5, 0.4], [-0.28, 0.2, -0.16, 0.38], [0.3, 0.22, 0.18, 0.36], [0.9, -0.05, 0.25, 0.27], [-0.92, -0.05, -0.15, 0.27]];
+  for (const [px, py, pz, pr] of puffs) g.ico(px * R, height + py * R + R * 0.08, pz * R, pr * R, r() < 0.5 ? mid : lite, { detail: 1, jitter: 0.05, rnd: r, sy: 0.74, flat: 0.6 });
+  g.shadeY(height - R * 0.3, height + R * 0.4, 0.55);
   g.jit = 0;
   void dark;
   const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: 0xcfe0ff, emissiveIntensity: 0 });
@@ -515,7 +513,7 @@ export function createOuthouse() {
   }
   for (const sx of [-1, 1]) g.box(sx * 0.52, 0.1, 0.62, 0.24, 2.45, 0.06, A);
   g.box(0, 2.2, 0.62, 0.8, 0.35, 0.06, shade(A, 1.1));
-  for (const sx of [-1, 1]) g.tri2([sx * 0.65, 2.3, -0.65], [sx * 0.65, 2.3, 0.65], [sx * 0.65, 2.55, 0.65], A);
+  for (const sx of [-1, 1]) g.tri2([sx * 0.65, 2.3, -0.65], [sx * 0.65, 2.3, 0.65], [sx * 0.65, 2.56, 0.65], A);
   // the door, with the traditional moon
   g.box(0, 0.12, 0.65, 0.78, 2.05, 0.05, B);
   for (const y of [0.5, 1.7]) g.box(0, y, 0.68, 0.78, 0.1, 0.02, D);
@@ -526,18 +524,18 @@ export function createOuthouse() {
     g.quad(p(a0, ro), p(a0, ro - k0), p(a1, ro - k1), p(a1, ro), 0x1c1814);
   }
   // roof and vent
-  g.at(0, 2.42, 0, 0, 0.19); g.box(0, 0, 0, 1.75, 0.08, 1.8, 0x5d6b73, { bottom: 0x3f4a50 }); g.restore();
+  g.at(0, 2.44, 0, 0, -0.19); g.box(0, 0, 0, 1.75, 0.08, 1.85, 0x5d6b73, { bottom: 0x3f4a50 }); g.restore();
   g.cyl(0.45, 2.3, -0.4, 0.05, 0.7, C.metalDk, { seg: 5 });
   // a blank board for the world's sign
-  g.box(0, 2.6, 0.62, 1.0, 0.36, 0.04, 0xe9dfc4, { bottom: true });
+  g.box(0, 2.22, 0.665, 0.92, 0.3, 0.03, 0xe9dfc4, { bottom: true });
   g.shadeY(0, 1.0, 0.88);
   addMesh(group, g, flatMat, own, 'outhouse');
   const flies = makeFlySwarm(3, 0.5, 2.4, 5);
   flies.mesh.position.set(0.5, 0, 0.4);
   group.add(flies.mesh);
   return makeProp(group, own, flies.update, {
-    anchors: { sign: V3(0, 2.78, 0.645), door: V3(0, 0, 1.3) },
-    signSize: { w: 0.96, h: 0.32 },
+    anchors: { sign: V3(0, 2.37, 0.685), door: V3(0, 0, 1.3) },
+    signSize: { w: 0.88, h: 0.26 },
     footprint: { w: 1.5, d: 1.5 },
   });
 }

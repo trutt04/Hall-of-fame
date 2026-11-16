@@ -39,7 +39,7 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
 /* ---------- HUD frame: the overlay itself never eats touches, only its controls do ---------- */
 .lw-hud{position:fixed;inset:0;pointer-events:none;z-index:10}
 .lw-hud button,.lw-hud a,.lw-card-wrap,.lw-panel,.lw-stamp,.lw-veil{pointer-events:auto}
-.lw-hud button{font:inherit;color:inherit;margin:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.lw-hud button{font:inherit;margin:0;cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 .lw-hud button:focus-visible,.lw-hud a:focus-visible{outline:3px solid var(--flare);outline-offset:2px}
 .lw-icon{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
@@ -48,7 +48,7 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
 .lw-left{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;flex:1 1 auto}
 
 /* status chip */
-.lw-chip{--accent:var(--gold);display:flex;align-items:center;gap:10px;min-height:52px;max-width:100%;padding:6px 14px 6px 10px;text-align:left;
+.lw-chip{--accent:var(--gold);display:flex;align-items:center;gap:10px;min-height:52px;max-width:100%;padding:6px 14px 6px 10px;text-align:left;color:var(--chalk);
   background:var(--panel);border:1.5px solid var(--line);border-left:5px solid var(--accent);border-radius:8px;box-shadow:0 6px 18px rgba(0,0,0,.35)}
 .lw-chip-rank{font-family:var(--display);font-size:24px;line-height:1;color:var(--gold);letter-spacing:.5px;white-space:nowrap}
 .lw-chip-body{display:flex;flex-direction:column;min-width:0;line-height:1.12}
@@ -134,7 +134,7 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
 }
 
 /* ---------- full-screen panel ---------- */
-.lw-panel{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:rgba(10,16,34,.965)}
+.lw-panel{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;background:linear-gradient(to bottom,#0d1430,#0a1022 40%)}
 .lw-panel.lw-in{animation:lw-fade .2s ease-out both}
 .lw-panel-head{position:relative;flex:0 0 auto;display:flex;align-items:center;min-height:62px;
   padding:calc(8px + var(--sat)) calc(62px + var(--sar)) 8px calc(16px + var(--sal));border-bottom:1.5px solid var(--line)}

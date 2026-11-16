@@ -23,8 +23,10 @@ scene.background = new THREE.Color(night ? 0x0a1022 : 0xbfd8ff);
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 2000);
 
 // The same lighting the world uses.
-const hemi = new THREE.HemisphereLight(0xbfd8ff, 0x4a5a3a, night ? 0.3 : 1.0);
-const sun = new THREE.DirectionalLight(night ? 0x8fa6ff : 0xfff1d6, night ? 0.22 : 1.6);
+// ?light=2 multiplies both intensities (to preview a brighter day without touching the art).
+const LIGHT = parseFloat(q.get('light') || 1);
+const hemi = new THREE.HemisphereLight(0xbfd8ff, 0x4a5a3a, (night ? 0.3 : 1.0) * LIGHT);
+const sun = new THREE.DirectionalLight(night ? 0x8fa6ff : 0xfff1d6, (night ? 0.22 : 1.6) * LIGHT);
 sun.position.set(30, 60, 40);
 scene.add(hemi, sun);
 
@@ -121,11 +123,16 @@ const ITEMS = {
     return { o, label: 'garbage truck' + (tilt ? ' tilted' : ''), w: 10, ref: true };
   })],
   critters: ['characters', () => ['raccoon', 'seagull', 'dog', 'pigeon', 'fly'].map((k) => ({ o: ART.createCritters(k, { count: k === 'fly' ? 10 : 5, radius: 3, seed: 3 }), label: k, w: 8, d: 8 }))],
+  raccoon: ['critter', () => [{ o: ART.createCritters('raccoon', { count: 4, radius: 1.6, seed: 2 }), label: 'raccoon', w: 5, d: 5 }]],
+  dog: ['critter', () => [{ o: ART.createCritters('dog', { count: 3, radius: 1.6, seed: 2 }), label: 'dog', w: 5, d: 5 }]],
+  pigeon: ['critter', () => [{ o: ART.createCritters('pigeon', { count: 5, radius: 1.2, seed: 2 }), label: 'pigeon', w: 4, d: 4 }]],
+  seagull: ['critter', () => [{ o: ART.createCritters('seagull', { count: 4, radius: 3, seed: 2 }), label: 'seagull', w: 8, d: 8 }]],
+  fly: ['critter', () => [{ o: ART.createCritters('fly', { count: 8, radius: 0.6, seed: 2 }), label: 'fly', w: 3, d: 3 }]],
 };
 
 const NEEDS = {
   hill: 'createHome', heights: 'createHome', bubble: 'createHome', park: 'createHome', dump: 'createHome',
-  avatarBack: 'createAvatar',
+  avatarBack: 'createAvatar', raccoon: 'createCritters', dog: 'createCritters', pigeon: 'createCritters', seagull: 'createCritters', fly: 'createCritters',
 };
 const fnOf = (name) => NEEDS[name] || 'create' + name[0].toUpperCase() + name.slice(1);
 

@@ -36,7 +36,7 @@ const ZONES = {
   plaza: { fog: PALETTE.plaza.fog, density: 0.0026, tint: 0xffffff, mix: 0.3, sun: 1.0, murk: 0.05 },
   bubble: { fog: PALETTE.bubble.fog, density: 0.0036, tint: 0xf7efdb, mix: 0.62, sun: 0.94, murk: 0.3 },
   park: { fog: PALETTE.park.fog, density: 0.0045, tint: 0xf5d9a6, mix: 0.68, sun: 0.9, murk: 0.38 },
-  dump: { fog: PALETTE.dump.fog, density: 0.0058, tint: 0xb8c8ac, mix: 0.82, sun: 0.7, murk: 0.7 },
+  dump: { fog: PALETTE.dump.fog, density: 0.0054, tint: 0xc6d2b8, mix: 0.82, sun: 0.82, murk: 0.7 },
 };
 const ZONE_KEYS = Object.keys(ZONES);
 for (const k of ZONE_KEYS) {
@@ -59,8 +59,8 @@ export function createSky({ scene, camera, terrain, quality = 'high' }) {
   const amb = new THREE.AmbientLight(0xffffff, 0.3);
   scene.add(hemi, sun, sun.target, amb);
 
-  const fogColor = new THREE.Color(0xcfe4f3);
-  scene.fog = new THREE.FogExp2(fogColor, 0.0026);
+  scene.fog = new THREE.FogExp2(0xcfe4f3, 0.0026);
+  const fogColor = scene.fog.color; // FogExp2 copies its color, so drive the fog's own object
   scene.background = null;
 
   // ---------------------------------------------------------------- dome

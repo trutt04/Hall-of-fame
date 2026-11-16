@@ -162,13 +162,13 @@ export function makeLayout(counts = {}) {
   const nP = cnt(counts.park, 3);
 
   // ---------------------------------------------------------------- stations, top to bottom
-  const hill = { x: 0, z: -122, y: 23.5 };
-  const fountain = { x: 0, z: -62, y: 13, r: 12, basinR: 3.6, laneR: 8.2 };
-  const plaza = { x: 0, z: 0, y: 6, r: 22 };
+  const hill = { x: 0, z: -122, y: 25.5 };
+  const fountain = { x: 0, z: -61, y: 14.5, r: 12, basinR: 3.6, laneR: 8.2 };
+  const plaza = { x: 0, z: 0, y: 7.5, r: 22 };
 
   const ring = solveRing(nB, LOT_SIZE.bubble.w, 13);
   const grow = Math.max(0, ring.rf - 13);
-  const bulb = { x: 30 + Math.min(5, grow * 0.8), z: 55, y: 2.5, r: ring.rf - 1.5, rf: ring.rf };
+  const bulb = { x: 30 + Math.min(5, grow * 0.8), z: 55, y: 3.5, r: ring.rf - 1.5, rf: ring.rf };
 
   // Bubble lots ring the bulb clockwise in rank order, starting on the uphill side of the entrance.
   const bubbleLots = [];
@@ -200,7 +200,7 @@ export function makeLayout(counts = {}) {
   const laneZ = LANE_Z + shift;
   const fenceZ = laneZ + 19.5;
   const dump = { x: 0, z: fenceZ + 14.5, y: -1.0, r: LOT_SIZE.dump.r };
-  const parkY = 0.8;
+  const parkY = 1.2;
 
   const bounds = { minX: -75, maxX: 75, minZ: -150, maxZ: dump.z + 22 };
 
@@ -213,14 +213,13 @@ export function makeLayout(counts = {}) {
     [0, hill.z + LOT_SIZE.hill.d / 2 + 0.5],
     [1.2, hill.z + 24.5],
     [15.5, hill.z + 32.5],
-    [14, fountain.z - 17.5],
-    fa(-30, fountain.laneR),
-    fa(10, fountain.laneR),
+    [14, fountain.z - 16.5],
+    fa(-20, fountain.laneR),
+    fa(15, fountain.laneR),
     fa(50, fountain.laneR),
-    fa(85, fountain.laneR),
-    [-7, -44.5],
-    [-8, -34],
-    [-4, -22.5],
+    [5, fountain.z + 16.5],
+    [0.5, -34],
+    [-3.5, -22.5],
     [-6.6, -9],
     [-6.6, 6],
     [-3, 22.5],
@@ -293,7 +292,7 @@ export function makeLayout(counts = {}) {
   function baseY(x, z) {
     const ax = Math.abs(x);
     const mesa = 1 - smoothstep(30, 58, ax);
-    shelves[0][2] = 17.5 + (hill.y - 17.5) * mesa;
+    shelves[0][2] = hill.y - 6.5 + 6.5 * mesa;
     let y = shelves[shelves.length - 1][2];
     for (let i = 0; i < shelves.length; i++) {
       const s = shelves[i];
@@ -308,11 +307,11 @@ export function makeLayout(counts = {}) {
     }
     // Valley walls, a backdrop rise behind the mansion, and a berm beyond the landfill.
     const wall = Math.max(0, ax - 58) / 55;
-    y += 26 * (1 - Math.exp(-wall * wall));
+    y += 15 * (1 - Math.exp(-wall * wall));
     const back = Math.max(0, bounds.minZ + 4 - z) / 50;
-    y += 12 * (1 - Math.exp(-back * back));
+    y += 9 * (1 - Math.exp(-back * back));
     const berm = Math.max(0, z - (bounds.maxZ - 6)) / 40;
-    y += 12 * (1 - Math.exp(-berm * berm));
+    y += 5 * (1 - Math.exp(-berm * berm));
     return y;
   }
 
@@ -328,10 +327,10 @@ export function makeLayout(counts = {}) {
   // slips past the fountain). Leagues with more playoff teams get extra terraces just below.
   const heightsLots = [];
   {
-    const rf = 15.5;
+    const rf = 17.5;
     const R = rf + LOT_SIZE.heights.d / 2;
-    const half = Math.atan((LOT_SIZE.heights.w / 2 + 0.8) / rf) / DEG;
-    const ringAngles = nH <= 0 ? [] : nH === 1 ? [205] : nH === 2 ? [205, 30] : [205 + half, 205 - half, 30];
+    const half = Math.atan((LOT_SIZE.heights.w / 2 + 0.8) / rf) / DEG + 1;
+    const ringAngles = nH <= 0 ? [] : nH === 1 ? [180] : nH === 2 ? [180, 8] : [180 + half, 180 - half, 8];
     for (const deg of ringAngles) {
       const a = deg * DEG;
       const x = fountain.x + Math.cos(a) * R;
@@ -345,9 +344,9 @@ export function makeLayout(counts = {}) {
       });
     }
     const overflow = [
-      { x: -31, z: -28.5, y: 8.5, facing: Math.PI / 2 },
-      { x: 33.5, z: -24.5, y: 8.5, facing: -Math.PI / 2 },
-      { x: 52, z: -49, y: 11, facing: -Math.PI / 2 },
+      { x: 33.5, z: -25, y: plaza.y + 2.5, facing: -Math.PI / 2 },
+      { x: -50.5, z: -31, y: plaza.y + 3, facing: Math.PI / 2 },
+      { x: 52.5, z: -50, y: plaza.y + 5, facing: -Math.PI / 2 },
     ];
     for (let i = 0; i < nH - 3 && i < overflow.length; i++) {
       const o = overflow[i];

@@ -57,9 +57,9 @@ export function createAmbulance(count = 1) {
   addMesh(group, g, flatMat, own, 'body');
   // the flash: [red lens + halo][white lens + halo], shown one at a time with drawRange
   const f = new Geo({ alpha: true });
-  f.a = 1; f.box(-0.42, 2.75, 0.55, 0.6, 0.2, 0.32, 0xff2a2a, { bottom: true }); halo(f, -0.42, 2.85, 0.55, 0.85, 0xff3030, 0.4, 1);
+  f.a = 1; f.box(-0.42, 2.75, 0.55, 0.6, 0.2, 0.32, 0xff2a2a, { bottom: true }); halo(f, -0.42, 2.85, 0.55, 0.7, 0xff3030, 0.34, 1);
   const split = f.p.length / 3;
-  f.a = 1; f.box(0.42, 2.75, 0.55, 0.6, 0.2, 0.32, 0xffffff, { bottom: true }); halo(f, 0.42, 2.85, 0.55, 0.85, 0xdfe8ff, 0.4, 1);
+  f.a = 1; f.box(0.42, 2.75, 0.55, 0.6, 0.2, 0.32, 0xffffff, { bottom: true }); halo(f, 0.42, 2.85, 0.55, 0.7, 0xdfe8ff, 0.34, 1);
   const total = f.p.length / 3;
   const flash = addMesh(group, f, addMat, own, 'lightbar');
   group.add(makeBlob(1.5, 3.1));
@@ -157,12 +157,17 @@ export function createMovingTruck(direction = 'up') {
 let wheelGeo = null, bagGeo = null;
 function getWheelGeo() {
   if (wheelGeo) return wheelGeo;
-  const g = new Geo(), r = 0.52, w = 0.34;
+  const g = new Geo(), r = 0.52, w = 0.34, n = 8;
   g.at(-w / 2, 0, 0, 0, 0, -Math.PI / 2);
-  g.band(r, 0, r, w, 10, 0, C.tire);
-  g.band(r, w, r * 0.58, w, 10, 0, shade(C.tire, 1.3)); g.band(r * 0.58, 0, r, 0, 10, 0, shade(C.tire, 1.3));
-  g.fan(r * 0.58, w, 10, 0, C.metalLt); g.fan(r * 0.58, 0, 10, 0, C.metalLt, true);
-  for (let i = 0; i < 5; i++) { const a = (i * TAU) / 5; g.box(Math.cos(a) * 0.17, w, Math.sin(a) * 0.17, 0.08, 0.02, 0.08, C.metalDk); g.box(Math.cos(a) * 0.17, -0.02, Math.sin(a) * 0.17, 0.08, 0.02, 0.08, C.metalDk, { bottom: true }); }
+  g.band(r, 0, r, w, n, 0, C.tire);
+  g.band(r, w, r * 0.58, w, n, 0, shade(C.tire, 1.3)); g.band(r * 0.58, 0, r, 0, n, 0, shade(C.tire, 1.3));
+  g.fan(r * 0.58, w, n, 0, C.metalLt); g.fan(r * 0.58, 0, n, 0, C.metalLt, true);
+  // lug nuts so the spin reads
+  for (let i = 0; i < 4; i++) {
+    const a = (i * TAU) / 4 + 0.4, x = Math.cos(a) * 0.17, z = Math.sin(a) * 0.17, k = 0.045;
+    g.quad([x - k, w + 0.004, z + k], [x + k, w + 0.004, z + k], [x + k, w + 0.004, z - k], [x - k, w + 0.004, z - k], C.metalDk);
+    g.quad([x - k, -0.004, z - k], [x + k, -0.004, z - k], [x + k, -0.004, z + k], [x - k, -0.004, z + k], C.metalDk);
+  }
   g.restore();
   wheelGeo = g.build(); wheelGeo.userData.shared = true;
   return wheelGeo;
@@ -170,14 +175,14 @@ function getWheelGeo() {
 function getBagGeo() {
   if (bagGeo) return bagGeo;
   const g = new Geo();
-  drawBag(g, 0, 0, 0, 1, C.bag, rng(3));
+  drawBag(g, 0, 0, 0, 1, C.bag, rng(3), 0xd7263d, 4);
   bagGeo = g.build(); bagGeo.userData.shared = true;
   return bagGeo;
 }
 
 export function createGarbageTruck() {
   const group = new THREE.Group(); group.name = 'garbageTruck';
-  const own = [], g = new Geo(), cab = 0xf1ead8, body = 0x2f7d63, bodyDk = shade(body, 0.8);
+  const own = [], g = new Geo(), cab = 0xf1ead8, body = 0x3a9a78, bodyDk = shade(body, 0.78);
   // chassis and cab
   g.box(0, 0.5, -0.3, 1.9, 0.36, 6.6, C.iron, { bottom: true });
   g.cloft(0, 0, 2.55, [[0.7, 2.3, 1.8, 0.22], [1.8, 2.3, 1.8, 0.22], [2.6, 2.16, 1.4, 0.2, 0, -0.16]], cab, {});
@@ -197,8 +202,9 @@ export function createGarbageTruck() {
   addMesh(group, g, flatMat, own, 'cab');
 
   // the bed, hinged at the back
-  const pivot = new THREE.Group(); pivot.position.set(0, 0.88, -3.2); group.add(pivot);
+  const pivot = new THREE.Group(); pivot.position.set(0, 0.88, -3.55); group.add(pivot);
   const b = new Geo();
+  b.translate(0, 0, 0.35);
   b.cloft(0, 0, 2.4, [[0, 2.36, 4.6, 0.2], [0.3, 2.44, 4.6, 0.22], [1.9, 2.44, 4.6, 0.22], [2.15, 2.1, 4.3, 0.3]], body, { capBot: bodyDk, capTop: shade(body, 1.1) });
   for (const sx of [-1, 1]) for (const z of [0.7, 4.1]) b.box(sx * 1.23, 0.1, z, 0.08, 1.9, 0.14, bodyDk);
   // tailgate hopper with hazard stripes
@@ -208,7 +214,7 @@ export function createGarbageTruck() {
   b.shadeY(0, 1.2, 0.88);
   addMesh(pivot, b, flatMat, own, 'bed');
   // one mesh, both sides, for the world's lettering
-  const pg = new Geo({ uv: true }), pz0 = 1.0, pz1 = 3.8, py0 = 0.55, py1 = 1.75, px = 1.235;
+  const pg = new Geo({ uv: true }), pz0 = 1.35, pz1 = 4.15, py0 = 0.55, py1 = 1.75, px = 1.235;
   pg.quadUV([px, py0, pz1], [px, py0, pz0], [px, py1, pz0], [px, py1, pz1], 0xffffff, 0, 0, 1, 1);
   pg.quadUV([-px, py0, pz0], [-px, py0, pz1], [-px, py1, pz1], [-px, py1, pz0], 0xffffff, 0, 0, 1, 1);
   const pgeo = pg.build(); pgeo.deleteAttribute('color'); pgeo.computeVertexNormals(); own.push(pgeo);
@@ -224,7 +230,7 @@ export function createGarbageTruck() {
   group.add(wheels);
   // beacon
   const bc = new Geo({ alpha: true });
-  bc.a = 1; bc.ico(0, 2.76, 2.4, 0.15, 0xffb020); halo(bc, 0, 2.76, 2.4, 0.9, 0xffa010, 0.42, 1);
+  bc.a = 1; bc.ico(0, 2.76, 2.4, 0.15, 0xffb020); halo(bc, 0, 2.76, 2.4, 0.6, 0xffa010, 0.3, 0);
   const beaconMat = makeAddMaterial(0xffffff, 1); own.push(beaconMat);
   addMesh(group, bc, beaconMat, own, 'beacon');
   // bags that tumble out when the bed tips
@@ -255,7 +261,7 @@ export function createGarbageTruck() {
       wa[o + 12] = WH[i][0]; wa[o + 13] = 0.52; wa[o + 14] = WH[i][1]; wa[o + 15] = 1;
     }
     wheels.instanceMatrix.needsUpdate = true;
-    pivot.rotation.x = -tilt * 0.82;
+    pivot.rotation.x = -tilt * 0.7;
     // amber beacon: two quick flashes, then a rest
     const k = (t * 1.4) % 1, on = (k < 0.12 || (k > 0.22 && k < 0.34)) ? 1 : 0.12;
     beaconMat.opacity = isReducedMotion() ? 0.6 : on;
@@ -266,7 +272,7 @@ export function createGarbageTruck() {
       for (let i = 0; i < NB; i++) {
         if (tilt > 0.3 + i * 0.1) prog[i] = Math.min(1, prog[i] + dt * 1.3);
         const p = prog[i], sx = ((i * 0.53) % 1 - 0.5) * 1.5, fall = Math.min(1, p / 0.7), roll = Math.max(0, (p - 0.7) / 0.3);
-        const z = -3.5 - fall * (0.7 + i * 0.22) - roll * 0.5, y = Math.max(0, 1.3 * (1 - fall * fall)) + (fall < 1 ? 0 : Math.sin(roll * Math.PI) * 0.18);
+        const z = -3.9 - fall * (0.7 + i * 0.22) - roll * 0.5, y = Math.max(0, 1.3 * (1 - fall * fall)) + (fall < 1 ? 0 : Math.sin(roll * Math.PI) * 0.18);
         placeBag(i, sx, y, z, p > 0 ? 0.85 + (i % 3) * 0.12 : 0.0001, -fall * 2.2 - roll * 1.2 + i);
       }
       bags.instanceMatrix.needsUpdate = true;

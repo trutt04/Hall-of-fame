@@ -10,7 +10,7 @@ import { makeBlob, motion, makeCanvas } from './util.js';
 import { C } from './parts.js';
 
 export const AVATAR_HEIGHT = 1.7;
-const HIP = 0.72, WAIST = 0.74, NECK = 1.25, SHOULDER = 1.17, ELBOW = 0.92, KNEE = 0.41, ARM_X = 0.318, LEG_X = 0.115;
+const HIP = 0.62, WAIST = 0.64, NECK = 1.15, SHOULDER = 1.07, ELBOW = 0.85, KNEE = 0.36, ARM_X = 0.365, LEG_X = 0.125;
 const B = { hips: 0, spine: 1, head: 2, armL: 3, foreL: 4, armR: 5, foreR: 6, legL: 7, shinL: 8, legR: 9, shinR: 10 };
 
 // Palette swatches inside the avatar texture (128 x 128). The number lives in the top-left 96 x 96.
@@ -71,52 +71,50 @@ function buildBody() {
   const g = newGeo(), W = 0xffffff;
   // pelvis (hips bone) and torso (spine bone)
   g.bone(B.hips).pal(SW.pants);
-  g.cloft(0, 0, 0, [[0.6, 0.38, 0.24, 0.07], [0.68, 0.43, 0.27, 0.07], [0.77, 0.43, 0.27, 0.07]], W, { capBot: true, capTop: false });
+  g.cloft(0, 0, 0, [[0.52, 0.42, 0.27, 0.08], [0.67, 0.49, 0.31, 0.08]], W, { capBot: true, capTop: false });
   g.bone(B.spine).pal(SW.jersey);
-  g.cloft(0, 0, 0, [[0.74, 0.44, 0.28, 0.07], [0.98, 0.5, 0.3, 0.08], [1.17, 0.52, 0.29, 0.09], [1.255, 0.3, 0.22, 0.08]], W, { capTop: true });
+  g.cloft(0, 0, 0, [[0.64, 0.5, 0.31, 0.08], [0.88, 0.56, 0.33, 0.09], [1.07, 0.58, 0.32, 0.1], [1.16, 0.34, 0.24, 0.09]], W, { capTop: true });
   g.pal(SW.trim);
-  g.cloft(0, 0, 0, [[0.735, 0.455, 0.29, 0.07], [0.775, 0.455, 0.29, 0.07]], W, { capTop: false });
+  g.cloft(0, 0, 0, [[0.632, 0.515, 0.322, 0.08], [0.675, 0.515, 0.322, 0.08]], W, { capTop: false });
   g.pal(SW.white);
-  g.cloft(0, 0, 0, [[1.225, 0.33, 0.25, 0.08], [1.265, 0.25, 0.2, 0.07]], W, { capTop: true });
+  g.cloft(0, 0, 0, [[1.125, 0.38, 0.275, 0.09], [1.17, 0.29, 0.23, 0.08]], W, { capTop: false });
   // the number, front and back
-  const nw = 0.3, y0 = 0.84, y1 = 1.14, zf = 0.153, zb = -0.149;
-  g.quadUV([-nw / 2, y0, zf], [nw / 2, y0, zf], [nw / 2, y1, zf - 0.006], [-nw / 2, y1, zf - 0.006], W, 0, 0.25, 0.75, 1);
-  g.quadUV([nw / 2, y0, zb], [-nw / 2, y0, zb], [-nw / 2, y1, zb + 0.004], [nw / 2, y1, zb + 0.004], W, 0, 0.25, 0.75, 1);
+  const nw = 0.34, y0 = 0.73, y1 = 1.04, zf = 0.169, zb = -0.169;
+  g.quadUV([-nw / 2, y0, zf], [nw / 2, y0, zf], [nw / 2, y1, zf], [-nw / 2, y1, zf], W, 0, 0.25, 0.75, 1);
+  g.quadUV([nw / 2, y0, zb], [-nw / 2, y0, zb], [-nw / 2, y1, zb], [nw / 2, y1, zb], W, 0, 0.25, 0.75, 1);
 
-  // head
+  // head: big, because toys
   g.bone(B.head).pal(SW.skin);
-  g.cloft(0, 0, 0, [[1.22, 0.2, 0.19, 0.06], [1.28, 0.36, 0.33, 0.1], [1.36, 0.45, 0.41, 0.12], [1.56, 0.46, 0.42, 0.12, 0, 0]], W, { capTop: false });
+  g.cloft(0, 0, 0, [[1.12, 0.24, 0.22, 0.07], [1.19, 0.46, 0.42, 0.13], [1.28, 0.56, 0.5, 0.15], [1.52, 0.57, 0.51, 0.15]], W, { capTop: false });
   g.pal(SW.hair);
-  g.cloft(0, 0, 0, [[1.56, 0.47, 0.43, 0.12, 0, -0.005], [1.66, 0.41, 0.37, 0.13, 0, -0.01], [1.7, 0.26, 0.24, 0.1, 0, -0.01]], W, { capTop: true });
-  g.cloft(0, 0, -0.12, [[1.4, 0.44, 0.2, 0.1], [1.57, 0.47, 0.2, 0.1]], W, { capTop: false });
+  g.cloft(0, 0, 0, [[1.52, 0.585, 0.525, 0.15, 0, -0.005], [1.64, 0.52, 0.46, 0.16, 0, -0.012], [1.7, 0.32, 0.29, 0.12, 0, -0.012]], W, { capTop: true });
+  g.cloft(0, 0, -0.155, [[1.34, 0.56, 0.24, 0.12], [1.53, 0.585, 0.24, 0.12]], W, { capTop: false });
   g.pal(SW.skin);
-  for (const sx of [-1, 1]) g.box(sx * 0.235, 1.4, 0.0, 0.05, 0.1, 0.09, W, { bottom: true });
+  for (const sx of [-1, 1]) g.box(sx * 0.295, 1.32, 0.0, 0.05, 0.11, 0.1, W, { bottom: true });
   g.pal(SW.eye);
-  for (const sx of [-1, 1]) g.quad([sx * 0.095 - 0.026, 1.435, 0.212], [sx * 0.095 + 0.026, 1.435, 0.212], [sx * 0.095 + 0.026, 1.505, 0.212], [sx * 0.095 - 0.026, 1.505, 0.212], W);
+  for (const sx of [-1, 1]) g.quad([sx * 0.118 - 0.031, 1.35, 0.262], [sx * 0.118 + 0.031, 1.35, 0.262], [sx * 0.118 + 0.031, 1.435, 0.262], [sx * 0.118 - 0.031, 1.435, 0.262], W);
 
-  // arms: jersey sleeve, bare arm, mitten
+  // arms: jersey sleeve with a white cuff, bare arm, mitten
   for (const sx of [1, -1]) {
     const up = sx > 0 ? B.armL : B.armR, lo = sx > 0 ? B.foreL : B.foreR, x = sx * ARM_X;
     g.bone(up, lo, ELBOW).pal(SW.jersey);
-    g.cloft(x, 0, 0, [[1.215, 0.13, 0.16, 0.05], [1.19, 0.17, 0.19, 0.05], [1.03, 0.165, 0.18, 0.05]].reverse(), W, { capTop: true, capBot: false });
+    g.cloft(x, 0, 0, [[0.95, 0.185, 0.2, 0.055], [1.09, 0.19, 0.21, 0.055], [1.125, 0.14, 0.17, 0.05]], W, { capTop: true });
     g.pal(SW.white);
-    g.cloft(x, 0, 0, [[0.995, 0.17, 0.185, 0.05], [1.035, 0.17, 0.185, 0.05]], W, { capTop: false, capBot: true });
+    g.cloft(x, 0, 0, [[0.915, 0.192, 0.207, 0.055], [0.955, 0.192, 0.207, 0.055]], W, { capTop: false, capBot: true });
     g.pal(SW.skin);
-    g.cloft(x, 0, 0, [[0.7, 0.12, 0.13, 0.04], [ELBOW, 0.135, 0.15, 0.045], [1.0, 0.14, 0.155, 0.045]], W, { capTop: false });
-    g.cloft(x, 0, 0.01, [[0.52, 0.12, 0.13, 0.05], [0.56, 0.155, 0.17, 0.05], [0.66, 0.16, 0.175, 0.05], [0.71, 0.12, 0.13, 0.04]], W, { capTop: true, capBot: true });
-    g.box(x - sx * 0.02, 0.6, 0.085, 0.07, 0.07, 0.07, W, { bottom: true }); // thumb
+    g.cloft(x, 0, 0, [[0.66, 0.135, 0.15, 0.045], [ELBOW, 0.15, 0.165, 0.045], [0.93, 0.155, 0.17, 0.045]], W, { capTop: false });
+    g.cloft(x, 0, 0.01, [[0.47, 0.14, 0.15, 0.055], [0.53, 0.185, 0.2, 0.06], [0.67, 0.17, 0.185, 0.055]], W, { capTop: false, capBot: true });
+    g.box(x - sx * 0.02, 0.55, 0.1, 0.075, 0.08, 0.075, W, { bottom: true });
   }
-  // legs: pants and shoes
+  // legs: pants and sneakers
   for (const sx of [1, -1]) {
     const up = sx > 0 ? B.legL : B.legR, lo = sx > 0 ? B.shinL : B.shinR, x = sx * LEG_X;
     g.bone(up, lo, KNEE).pal(SW.pants);
-    g.cloft(x, 0, 0, [[0.13, 0.17, 0.19, 0.05], [KNEE, 0.19, 0.21, 0.055], [0.7, 0.21, 0.24, 0.06]], W, { capTop: true });
-    g.pal(SW.pantsDk);
-    g.cloft(x, 0, 0, [[0.1, 0.185, 0.205, 0.05], [0.15, 0.185, 0.205, 0.05]], W, { capTop: false });
-    g.bone(lo).pal(SW.shoe);
-    g.cloft(x, 0, 0.045, [[0, 0.2, 0.33, 0.06], [0.07, 0.2, 0.33, 0.07], [0.13, 0.17, 0.24, 0.06, 0, -0.035]], W, { capTop: true, capBot: true });
-    g.pal(SW.white);
-    g.cloft(x, 0, 0.045, [[0.0, 0.208, 0.338, 0.06], [0.03, 0.208, 0.338, 0.06]], W, { capTop: false });
+    g.cloft(x, 0, 0, [[0.11, 0.2, 0.22, 0.06], [KNEE, 0.22, 0.24, 0.06], [0.6, 0.235, 0.26, 0.065]], W, { capTop: true });
+    g.bone(lo).pal(SW.white);
+    g.cloft(x, 0, 0.05, [[0, 0.24, 0.38, 0.07], [0.04, 0.24, 0.38, 0.07]], W, { capTop: false, capBot: true });
+    g.pal(SW.shoe);
+    g.cloft(x, 0, 0.05, [[0.04, 0.23, 0.37, 0.07], [0.09, 0.23, 0.37, 0.08], [0.15, 0.2, 0.26, 0.06, 0, -0.045]], W, { capTop: true });
   }
   const geo = g.build();
   geo.deleteAttribute('color');
@@ -130,41 +128,41 @@ function buildAccessory(kind) {
   const g = new Geo({ uv: true }), W = 0xffffff;
   g.pal = (k) => { const uv = swatchUV(k); g.u = uv[0]; g.v = uv[1]; return g; };
   if (kind === 'crown') {
-    g.pal(SW.gold);
-    g.at(0, 1.665, -0.01, 0, -0.06, 0.1);
-    g.band(0.2, 0, 0.215, 0.09, 8, 0, W);
-    g.band(0.215, 0.09, 0.2, 0, 8, 0, W);
+    g.at(0, 1.665, -0.012, 0, -0.06, 0.1);
+    const r0 = 0.215, r1 = 0.235;
+    g.pal(SW.goldLo); g.band(r0, 0, r1, 0.1, 8, 0, W);
+    g.pal(SW.trim); g.band(r1, 0.1, r0, 0, 8, 0, W);
     for (let i = 0; i < 8; i++) {
-      const a0 = (i * Math.PI) / 4, a1 = ((i + 1) * Math.PI) / 4, am = (a0 + a1) / 2, r = 0.215, rt = 0.25;
-      const p0 = [Math.cos(a0) * r, 0.09, Math.sin(a0) * r], p1 = [Math.cos(a1) * r, 0.09, Math.sin(a1) * r], t = [Math.cos(am) * rt, 0.24, Math.sin(am) * rt];
+      const a0 = (i * Math.PI) / 4, a1 = ((i + 1) * Math.PI) / 4, am = (a0 + a1) / 2, rt = 0.275;
+      const p0 = [Math.cos(a0) * r1, 0.1, Math.sin(a0) * r1], p1 = [Math.cos(a1) * r1, 0.1, Math.sin(a1) * r1], t = [Math.cos(am) * rt, 0.27, Math.sin(am) * rt];
       g.pal(i % 2 ? SW.gold : SW.goldHi);
-      g.tri2(p1, p0, t, W);
+      g.tri(p1, p0, t, W);
+      g.pal(SW.goldLo);
+      g.tri(p0, p1, t, W);
     }
-    g.pal(SW.trim);
-    g.fan(0.2, 0.05, 8, 0, W);
     g.restore();
   } else if (kind === 'visor') {
     g.pal(SW.white);
-    g.cloft(0, 0, -0.005, [[1.545, 0.5, 0.455, 0.13], [1.615, 0.49, 0.445, 0.13]], W, { capTop: false });
+    g.cloft(0, 0, -0.008, [[1.5, 0.61, 0.555, 0.16], [1.575, 0.6, 0.545, 0.16]], W, { capTop: false });
     g.pal(SW.jersey);
-    g.quad2([-0.2, 1.56, 0.2], [0.2, 1.56, 0.2], [0.15, 1.53, 0.43], [-0.15, 1.53, 0.43], W);
+    g.quad([-0.25, 1.515, 0.26], [0.25, 1.515, 0.26], [0.19, 1.475, 0.54], [-0.19, 1.475, 0.54], W);
     g.pal(SW.trim);
-    g.quad([-0.2, 1.555, 0.2], [-0.15, 1.525, 0.43], [0.15, 1.525, 0.43], [0.2, 1.555, 0.2], W);
+    g.quad([-0.25, 1.51, 0.26], [-0.19, 1.47, 0.54], [0.19, 1.47, 0.54], [0.25, 1.51, 0.26], W);
   } else if (kind === 'cap') {
     g.pal(SW.jersey);
-    g.cloft(0, 0, -0.01, [[1.55, 0.5, 0.46, 0.13], [1.68, 0.46, 0.42, 0.14], [1.75, 0.3, 0.28, 0.11]], W, { capTop: true });
+    g.cloft(0, 0, -0.012, [[1.5, 0.61, 0.555, 0.16], [1.65, 0.56, 0.5, 0.17], [1.73, 0.36, 0.33, 0.13]], W, { capTop: true });
     g.pal(SW.white);
-    g.quad([-0.15, 1.56, 0.224], [0.15, 1.56, 0.224], [0.12, 1.7, 0.196], [-0.12, 1.7, 0.196], W);
+    g.quad([-0.18, 1.51, 0.27], [0.18, 1.51, 0.27], [0.15, 1.655, 0.243], [-0.15, 1.655, 0.243], W);
     g.pal(SW.trim);
-    g.box(0, 1.535, 0.33, 0.36, 0.03, 0.26, W, { tx: 0.8, bottom: true, sz: 0.0 });
-    g.box(0, 1.75, -0.01, 0.06, 0.03, 0.06, W);
+    g.box(0, 1.49, 0.41, 0.44, 0.03, 0.3, W, { tx: 0.8, bottom: true });
+    g.box(0, 1.73, -0.012, 0.07, 0.03, 0.07, W);
   } else if (kind === 'bag') {
-    // a trash bag poncho: head hole on top, ragged hem
+    // a trash bag poncho with a ragged hem
     g.pal(SW.bag);
-    g.cloft(0, 0, 0, [[0.58, 0.66, 0.46, 0.12], [0.8, 0.6, 0.4, 0.1], [1.12, 0.62, 0.38, 0.11], [1.25, 0.36, 0.28, 0.09]], W, { capTop: false });
+    g.cloft(0, 0, 0, [[0.46, 0.76, 0.52, 0.13], [0.7, 0.68, 0.45, 0.12], [1.04, 0.7, 0.43, 0.12], [1.165, 0.42, 0.32, 0.1]], W, { capTop: false });
     g.pal(SW.bagHi);
-    g.cloft(0, 0, 0, [[0.56, 0.69, 0.49, 0.12], [0.64, 0.66, 0.46, 0.12]], W, { capTop: false });
-    g.cloft(0, 0, 0, [[1.24, 0.37, 0.29, 0.09], [1.3, 0.42, 0.34, 0.1]], W, { capTop: false });
+    g.cloft(0, 0, 0, [[0.44, 0.79, 0.55, 0.13], [0.52, 0.76, 0.52, 0.13]], W, { capTop: false });
+    g.cloft(0, 0, 0, [[1.155, 0.43, 0.33, 0.1], [1.215, 0.48, 0.38, 0.11]], W, { capTop: false });
   }
   const geo = g.build();
   geo.deleteAttribute('color');
@@ -204,7 +202,7 @@ const CLIPS = {
   },
   sit(p, t, s) {
     const br = Math.sin(t * 1.6);
-    p[P.hipY] = -0.28; p[P.lLs] = 1.47; p[P.lRs] = 1.47; p[P.kL] = 1.4; p[P.kR] = 1.4; p[P.lLo] = 0.1; p[P.lRo] = 0.1;
+    p[P.hipY] = -0.235; p[P.lLs] = 1.5; p[P.lRs] = 1.5; p[P.kL] = 1.45; p[P.kR] = 1.45; p[P.lLo] = 0.1; p[P.lRo] = 0.1;
     p[P.spX] = 0.03 + 0.012 * br; p[P.aLs] = 0.42; p[P.aRs] = 0.42; p[P.eL] = 0.95; p[P.eR] = 0.95; p[P.aLo] = 0.14; p[P.aRo] = 0.14;
     p[P.hdY] = 0.3 * Math.sin(t * 0.4); p[P.hdX] = 0.02 * br;
   },
@@ -243,7 +241,7 @@ const CLIPS = {
   },
   lounge(p, t, s) {
     const br = Math.sin(t * 1.2);
-    p[P.hipY] = -0.3; p[P.hipZ] = -0.06; p[P.pitch] = -0.62; p[P.spX] = 0.1 + 0.012 * br; p[P.hdX] = 0.3;
+    p[P.hipY] = -0.27; p[P.hipZ] = -0.06; p[P.pitch] = -0.62; p[P.spX] = 0.1 + 0.012 * br; p[P.hdX] = 0.3;
     p[P.lLs] = 1.25; p[P.lRs] = 1.0; p[P.kL] = 0.3; p[P.kR] = 0.75; p[P.lLo] = 0.12; p[P.lRo] = 0.12;
     p[P.aLs] = 2.75; p[P.aLo] = 0.95; p[P.eL] = 2.25; p[P.aRs] = 2.75; p[P.aRo] = 0.95; p[P.eR] = 2.25;
     p[P.hdY] = 0.12 * Math.sin(t * 0.3);
@@ -281,7 +279,7 @@ export function createAvatar({ color = 0xd7263d, number = 1, accessory = null } 
   const skeleton = new THREE.Skeleton(bones);
   mesh.bind(skeleton);
   mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0), 1.6);
-  const blob = makeBlob(0.42, 0.36);
+  const blob = makeBlob(0.46, 0.4);
   group.add(blob);
 
   let acc = null, accKind = null;
@@ -318,7 +316,7 @@ export function createAvatar({ color = 0xd7263d, number = 1, accessory = null } 
   const avatar = {
     group,
     height: AVATAR_HEIGHT,
-    sitOffset: 0.35,           // sitting on a seat of height h: put the group at y = h - sitOffset
+    sitOffset: 0.27,           // sitting on a seat of height h: put the group at y = h - sitOffset
     anim: 'idle',
     setAnim(name) {
       if (!CLIPS[name] || name === anim) return;
@@ -343,7 +341,7 @@ export function createAvatar({ color = 0xd7263d, number = 1, accessory = null } 
       apply(cur);
       // the shadow shrinks a little when the body leaves the ground
       const lift = Math.max(0, cur[P.hipY]);
-      blob.scale.set(0.42 * (1 - lift * 1.5), 1, 0.36 * (1 - lift * 1.5));
+      blob.scale.set(0.46 * (1 - lift * 1.5), 1, 0.4 * (1 - lift * 1.5));
     },
     dispose() {
       tex.dispose(); mat.dispose(); skeleton.dispose();

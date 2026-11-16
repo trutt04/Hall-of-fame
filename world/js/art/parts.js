@@ -16,16 +16,16 @@ export const C = {
   tape: 0x9aa0a6, caution: 0xf2c200, cone: 0xff6a1f, flamingo: 0xff7aa8, flamingoDk: 0xf05a8e,
   brick: 0xa5533c, brickDk: 0x8a4230, dirt: 0x6b5a3e, tarp: 0x2f6fbf, tarpDk: 0x24579a,
   bag: 0x23262b, bagAlt: 0x3a4a3a, bagWhite: 0xd8d8d2, amber: 0xffb020, warm: 0xffe2a8,
-  skin: 0xf0c08a, pants: 0x7d8590, shoe: 0x2c2f38, hair: 0x4a3524,
+  skin: 0xf7d2a4, pants: 0x7d8590, shoe: 0x2c2f38, hair: 0x4a3524,
   water: 0x58b8e8, waterLt: 0xa8e0f8,
 };
 
 // A chunky tied garbage bag sitting on y = 0. About 0.9 m tall at s = 1.
-export function drawBag(g, x, y, z, s, hex, rnd, tie = 0xd7263d) {
+export function drawBag(g, x, y, z, s, hex, rnd, tie = 0xd7263d, seg = 5) {
   const j = g.jit; g.jit = 0.1;
   g.at(x, y, z, rnd() * TAU, (rnd() - 0.5) * 0.3, (rnd() - 0.5) * 0.3);
   g.scale(s * (0.9 + rnd() * 0.3), s * (0.8 + rnd() * 0.3), s * (0.9 + rnd() * 0.3));
-  g.lathe(0, 0, 0, [[0.3, 0], [0.52, 0.26], [0.38, 0.62], [0.08, 0.78, tie], [0.1, 0.83, shade(hex, 1.25)], [0.2, 0.97]], hex, { seg: 5, capTop: shade(hex, 0.7) });
+  g.lathe(0, 0, 0, [[0.3, 0], [0.52, 0.26], [0.38, 0.62], [0.09, 0.8, tie], [0.2, 0.97]], hex, { seg, capTop: shade(hex, 0.7) });
   g.restore(); g.jit = j;
 }
 
@@ -165,18 +165,18 @@ export function drawHedge(g, x0, z0, x1, z1, h = 0.9, w = 0.7, col = C.hedge) {
 export function drawFlamingo(g, x, y, z, s, pose, ry) {
   g.at(x, y, z, ry); g.scale(s);
   const P = C.flamingo, D = C.flamingoDk;
-  g.box(0.05, 0, 0, 0.022, 0.62, 0.022, C.metalDk, { noTop: true });
-  g.box(-0.05, 0, 0.02, 0.022, 0.62, 0.022, C.metalDk, { noTop: true, rx: 0.08 });
-  g.sphere(0, 0.76, 0, 0.2, P, { seg: 6, rings: 3, sz: 1.5, sy: 0.85 });
-  g.tri2([0, 0.8, -0.24], [0.1, 0.72, -0.2], [0, 0.7, -0.48], D).tri2([0, 0.8, -0.24], [0, 0.7, -0.48], [-0.1, 0.72, -0.2], D);
+  g.at(0.05, 0, 0); g.band(0.016, 0, 0.016, 0.62, 3, 0, C.metalDk); g.restore();
+  g.at(-0.05, 0, 0.03); g.band(0.016, 0, 0.016, 0.62, 3, 0, C.metalDk); g.restore();
+  g.sphere(0, 0.76, 0, 0.2, P, { seg: 5, rings: 3, sz: 1.5, sy: 0.85 });
+  g.tri2([0.09, 0.74, -0.2], [-0.09, 0.74, -0.2], [0, 0.7, -0.5], D);
   if (pose) {
-    g.tube([[0, 0.78, 0.22], [0, 0.95, 0.42], [0, 0.72, 0.6], [0, 0.42, 0.58]], 0.05, P, { seg: 4 });
-    g.sphere(0, 0.36, 0.59, 0.085, P, { seg: 5, rings: 3 });
-    g.cone(0, 0.3, 0.6, 0.05, 0.16, C.black, { seg: 4, rx: Math.PI * 0.8 });
+    g.tube([[0, 0.78, 0.22], [0, 0.95, 0.42], [0, 0.72, 0.6], [0, 0.42, 0.58]], 0.05, P, { seg: 3 });
+    g.sphere(0, 0.36, 0.59, 0.085, P, { seg: 4, rings: 2 });
+    g.cone(0, 0.3, 0.6, 0.05, 0.16, C.black, { seg: 3, rx: Math.PI * 0.8 });
   } else {
-    g.tube([[0, 0.8, 0.22], [0, 1.02, 0.4], [0, 1.25, 0.3], [0, 1.45, 0.36]], 0.05, P, { seg: 4 });
-    g.sphere(0, 1.5, 0.4, 0.085, P, { seg: 5, rings: 3 });
-    g.cone(0, 1.49, 0.46, 0.05, 0.17, C.black, { seg: 4, rx: Math.PI * 0.62 });
+    g.tube([[0, 0.8, 0.22], [0, 1.02, 0.4], [0, 1.25, 0.3], [0, 1.45, 0.36]], 0.05, P, { seg: 3 });
+    g.sphere(0, 1.5, 0.4, 0.085, P, { seg: 4, rings: 2 });
+    g.cone(0, 1.49, 0.46, 0.05, 0.17, C.black, { seg: 3, rx: Math.PI * 0.62 });
   }
   g.restore();
 }
@@ -249,7 +249,7 @@ export function drawFence(g, x0, z0, x1, z1, o = {}) {
   g.at(x0, 0, z0, ry);
   g.box(len / 2, 0.22, 0, len, 0.06, 0.06, col);
   g.box(len / 2, h - 0.2, 0, len, 0.06, 0.06, col);
-  const n = Math.round(len / (o.barEvery || 0.62));
+  const n = Math.round(len / (o.barEvery || 0.8));
   for (let i = 1; i < n; i++) {
     if (i % Math.round(n / posts) === 0) continue;
     const bx = (len * i) / n;
@@ -305,11 +305,15 @@ export function drawGateLeaf(g, w, h, flipArch = false) {
   g.cyl(w * 0.52, h * 0.5 - 0.02, -0.06, 0.18, 0.12, dk, { seg: 6, rx: Math.PI / 2, bottom: true });
 }
 
-// A generic football (no laces logo, just the shape) centered at (x, y, z), long axis along X.
+// A generic football centered at (x, y, z), long axis along X. Options: stripe (color or false), laces.
 export function drawFootball(g, x, y, z, len, col = 0x8a4a2a, o = {}) {
-  const r = len * 0.3, h = len / 2;
+  const r = len * 0.29, h = len / 2, st = o.stripe === false ? col : (o.stripe === undefined ? 0xf7f4ea : o.stripe);
   g.at(x, y, z, o.ry, o.rx, o.rz);
   g.rotZ(-Math.PI / 2);
-  g.lathe(0, 0, 0, [[0, -h], [r * 0.62, -h * 0.6], [r, 0], [r * 0.62, h * 0.6], [0, h]], col, { seg: 6, capTop: false });
+  g.lathe(0, 0, 0, [[0, -h, col], [r * 0.56, -h * 0.7, st], [r * 0.72, -h * 0.54, col], [r, 0, col], [r * 0.72, h * 0.54, st], [r * 0.56, h * 0.7, col], [0, h]], col, { seg: o.seg || 6, capTop: false });
+  if (o.laces !== false) {
+    g.box(-r - 0.012 * len, -h * 0.3, 0, 0.03 * len, h * 0.6, 0.045 * len, st, { bottom: true });
+    for (let i = -1; i <= 1; i++) g.box(-r - 0.02 * len, i * h * 0.2 - 0.02 * len, 0, 0.03 * len, 0.04 * len, 0.16 * len, st, { bottom: true });
+  }
   g.restore();
 }

@@ -19,7 +19,7 @@ import { flatMat, makeWindowMaterial, makeAddMaterial } from './materials.js';
 import { rng, pick, V3, halo, motion, flick, stepRand } from './util.js';
 import {
   C, drawBag, drawTire, drawTrafficCone, drawCardboardBox, drawMailbox, drawTree, drawBush, drawHedge,
-  drawPlasticChair, drawFence, drawGatePillar, drawGateLeaf,
+  drawPlasticChair, drawFence, drawGatePillar, drawGateLeaf, drawFlamingo,
 } from './parts.js';
 import { PALETTE } from '../config.js';
 
@@ -317,7 +317,7 @@ function buildHill(color, seed) {
     S.at(x0, TH, z0, ry);
     S.box(len / 2, 0, 0, len, 0.12, 0.3, trim);
     S.box(len / 2, 0.84, 0, len, 0.13, 0.34, trim);
-    for (let i = 0; i < n; i++) S.lathe(((i + 0.5) * len) / n, 0.12, 0, [[0.08, 0], [0.13, 0.22], [0.06, 0.5], [0.09, 0.72]], wall, { seg: 4, capTop: false });
+    for (let i = 0; i < n; i++) S.box(((i + 0.5) * len) / n, 0.12, 0, 0.2, 0.72, 0.2, wall, { noTop: true, tx: 0.5, tz: 0.5 });
     S.restore();
     lineColliders(colliders, x0, z0, x1, z1, 0.5);
   };
@@ -359,20 +359,23 @@ function buildHill(color, seed) {
   colliders.push({ x: 5.6, z: 18.2, r: 0.35 });
   S.shadeY(0, 3.2, 0.9);
 
-  // the flag on the terrace corner
-  S.cyl(-14.0, TH, 6.2, 0.07, 6.2, C.metalLt, { seg: 5 });
-  S.sphere(-14.0, TH + 6.3, 6.2, 0.16, C.goldHi, { seg: 5, rings: 3 });
-  const fg = flagGeo(2.6, 1.5, color, { alt: shade(color, 0.86) });
-  const flag = fg.mesh(flatMat); flag.name = 'flag';
-  flag.position.set(-14.0, TH + 6.05, 6.2);
+  // team flags fly from both wing roofs
+  const flags = [];
+  for (const sx of [-1, 1]) {
+    S.cyl(sx * 11, 10.4, -0.2, 0.06, 3.3, C.metalLt, { seg: 5 });
+    S.sphere(sx * 11, 13.78, -0.2, 0.15, C.goldHi, { seg: 5, rings: 3 });
+    const f = flagGeo(2.4, 1.4, color, { alt: shade(color, 0.86) }).mesh(flatMat);
+    f.name = 'flag'; f.position.set(sx * 11, 13.6, -0.2);
+    flags.push(f);
+  }
 
   return finish('hill', K, {
     lot: { w: 44, d: 40 },
     footprint: { w: 30, d: 12 },
     colliders,
     emissive: 0xffcf7a,
-    children: [flag],
-    own: [flag.geometry],
+    children: flags,
+    own: flags.map((f) => f.geometry),
     anchors: {
       door: V3(0, TH, 7.1), mailbox: V3(5.6, 0, 18.2), lawn: V3(-11.5, 0, 16.2), curb: V3(0, 0, 20), roof: V3(0, 11.9, 0),
       sign: V3(-7.2, 0, 17.6), goalposts: V3(11.5, 0, 16.2), resident: V3(3.2, TH, 10.6), trophy: V3(8.2, 0, 17.4),
@@ -387,8 +390,10 @@ function buildHill(color, seed) {
     },
     update(dt, t) {
       const m = motion();
-      flag.rotation.y = -0.35 + Math.sin(t * 1.1) * 0.22 * m + Math.sin(t * 2.7) * 0.06 * m;
-      flag.scale.x = 1 - 0.05 * m * (0.5 + 0.5 * Math.sin(t * 3.1));
+      for (let i = 0; i < 2; i++) {
+        flags[i].rotation.y = -0.35 + Math.sin(t * 1.1 + i * 1.7) * 0.22 * m + Math.sin(t * 2.7 + i) * 0.06 * m;
+        flags[i].scale.x = 1 - 0.05 * m * (0.5 + 0.5 * Math.sin(t * 3.1 + i * 2));
+      }
     },
   });
 }
@@ -482,9 +487,9 @@ function buildHeights(color, seed) {
   S.box(0, 0, 0.5, 1.6, Y0, 0.9, C.stoneWarm);
   S.restore();
   // chimney
-  S.box(chimSide * 4.95, 0, -1.3, 0.95, 9.4, 1.3, C.brick, { side: C.brickDk });
-  S.box(chimSide * 4.95, 9.4, -1.3, 1.15, 0.16, 1.5, C.stoneWarm);
-  S.cyl(chimSide * 4.95, 9.56, -1.3, 0.2, 0.35, C.brickDk, { seg: 6, top: C.black });
+  S.box(chimSide * 4.95, 0, -1.3, 0.9, 8.9, 1.2, C.brick, { side: C.brickDk });
+  S.box(chimSide * 4.95, 8.9, -1.3, 1.1, 0.16, 1.4, C.stoneWarm);
+  S.cyl(chimSide * 4.95, 9.06, -1.3, 0.2, 0.32, C.brickDk, { seg: 6, top: C.black });
   // foundation shrubs
   for (const bx of [-4.9, 4.9]) drawBush(S, bx, 0, 4.1, 1.05, r, C.hedge);
   drawBush(S, style === 0 ? 0.6 : -4.2, 0, 4.4, 0.8, r, C.leaf);
@@ -511,13 +516,15 @@ function buildHeights(color, seed) {
   S.box(sgx, 0, 7.6, 0.05, 0.75, 0.05, C.metalLt);
   S.box(sgx, 0.42, 7.63, 1.15, 0.42, 0.04, C.white, { bottom: true });
   S.text('#1 LAWN', sgx, 0.54, 7.655, 0.034, C.leafDk);
-  // flag by the door
-  const fpx = dX - 0.95;
-  S.tube([[fpx, Y0 + 1.9, 3.56], [fpx - 0.25, Y0 + 2.9, 4.6]], 0.03, C.metalLt, { seg: 3 });
-  const fg = flagGeo(1.15, 0.8, color, { droop: 0.22 });
+  // a flag on an angled pole, upstairs between the windows
+  const fpx = (mirror ? -1 : 1) * (style === 0 ? -2.15 : 1.45), fz = 3.5;
+  S.box(fpx, Y0 + 3.5, fz + 0.04, 0.16, 0.2, 0.08, trim);
+  S.tube([[fpx, Y0 + 3.6, fz + 0.05], [fpx, Y0 + 4.55, fz + 1.3]], 0.03, C.metalLt, { seg: 3 });
+  S.sphere(fpx, Y0 + 4.58, fz + 1.34, 0.06, C.gold, { seg: 4, rings: 2 });
+  const fg = flagGeo(1.25, 0.85, color, {});
   const flag = fg.mesh(flatMat); flag.name = 'flag';
-  flag.position.set(fpx - 0.25, Y0 + 2.9, 4.6);
-  flag.rotation.set(0, Math.PI / 2 + 0.2, -0.5);
+  flag.position.set(fpx, Y0 + 4.53, fz + 1.27);
+  flag.rotation.set(0, Math.PI / 2, -0.63);
   S.shadeY(0, 2.4, 0.9);
 
   const wallX = dX + 1.3;
@@ -531,12 +538,13 @@ function buildHeights(color, seed) {
     anchors: {
       door: V3(dX, Y0, style === 0 ? 4.6 : 4.4), mailbox: V3(mbx, 0, 9.7), lawn: V3(dX < 0 ? 5.6 : -5.6, 0, 6.9), curb: V3(dX, 0, 10),
       roof: V3(0, top + 2.6, 0), sign: V3(dX + 3.0, 0, 7.4), goalposts: V3(dX < 0 ? 4.6 : -4.6, 0, -6.6), resident: V3(dX + 2.4, 0, 6.6),
-      trophy: V3(dX < 0 ? 7.2 : -7.2, 0, 7.6), plaque: V3(wallX, Y0 + 1.5, style === 0 && !mirror ? 3.6 : 3.6), truck: V3(-dX * 0.6, 0, 12.2),
-      decor: [V3(-3.2, Y0 + 3.2, 3.62), V3(3.0, Y0 + 3.2, mirror === (style === 0) ? 3.62 : 4.42), V3(0, top + 1.3, 1.9), V3(tx, 3.2, -6.8), V3(mbx, 1.45, 9.7), V3(-dX * 1.2 - 2, 0, 6.2)],
+      trophy: V3(dX < 0 ? 7.2 : -7.2, 0, 7.6), plaque: V3(wallX, Y0 + 1.5, 3.6), truck: V3(-dX * 0.6, 0, 12.2),
+      decor: [V3(-4.56, Y0 + 2.2, 0), V3(4.56, Y0 + 2.2, 0), V3(0, top + 1.3, 1.9), V3(tx, 3.2, -6.8), V3(mbx, 1.45, 9.7), V3(dX < 0 ? 4.4 : -4.4, 0, 6.2)],
     },
     update(dt, t) {
-      flag.rotation.z = -0.5 + Math.sin(t * 1.4 + seed) * 0.08 * motion();
-      flag.rotation.y = Math.PI / 2 + 0.2 + Math.sin(t * 0.9 + seed) * 0.2 * motion();
+      const m = motion();
+      flag.rotation.y = Math.PI / 2 + Math.sin(t * 1.3 + seed) * 0.16 * m;
+      flag.rotation.x = Math.sin(t * 2.1 + seed) * 0.05 * m;
     },
   });
 }
@@ -780,7 +788,7 @@ function buildDump(color, seed) {
   const at = (a, d) => { const x = Math.cos(a) * d, z = Math.sin(a) * d; return [x, heapH(x, z), z]; };
 
   // the heap itself
-  const SEG = 18, RINGS = 5, tones = [P.grass, P.path, P.wall, 0x5f5340, 0x6a6048, 0x4f5540];
+  const SEG = 18, RINGS = 5, tones = [P.grass, P.path, 0x5a5f48, 0x5f5340, 0x6a6048, 0x4f5540];
   S.jit = 0.08;
   const ring = [];
   for (let j = 0; j <= RINGS; j++) {
@@ -873,8 +881,19 @@ function buildDump(color, seed) {
     S.cone(p[0], p[1] + 0.05, p[2], 0.07, 0.14, 0xf5d547, { seg: 4 });
   }
 
+  // a few bright things that used to be somebody's
+  { const p = at(5.9, 6.6); drawFlamingo(S, p[0], p[1] - 0.2, p[2], 1.0, 0, 2.0); }
+  {
+    const p = at(0.2, 5.2);
+    S.at(p[0], p[1] + 0.1, p[2], 0.4, 0.5, 0.9);
+    S.cyl(0, 0, 0, 0.02, 1.0, C.metalDk, { seg: 3 });
+    S.jit = 0.12; S.band(0.75, 0.62, 0, 0.95, 6, 0, 0xc23b3b); S.band(0, 0.95, 0.75, 0.62, 6, 0, 0x8a2a2a); S.jit = 0;
+    S.restore();
+  }
+  for (const [a, d, ry] of [[3.1, 7.6, 0.4], [3.2, 7.2, 1.1]]) { const p = at(a, d); S.box(p[0], p[1] + 0.02, p[2], 0.5, 0.06, 0.5, 0xe9e6dc, { ry, rx: 0.3, top: 0xd96b6b }); }
+
   // ---- the tent ------------------------------------------------------------------------------
-  const tent = P.wall, tentDk = shade(tent, 0.8), hw = 1.25, hl = 1.45, th = 1.75;
+  const tent = mix(P.wall, 0xb9b487, 0.55), tentDk = shade(tent, 0.72), hw = 1.45, hl = 1.6, th = 1.95;
   // a pallet for a floor
   for (let i = 0; i < 5; i++) S.box(-1.0 + i * 0.5, H, 0.5, 0.42, 0.07, 4.2, i % 2 ? C.woodLt : C.wood);
   S.at(0, H + 0.07, -0.2);
@@ -935,7 +954,7 @@ function buildDump(color, seed) {
   colliders.push({ x: sx0, z: sz0, r: 0.3 }, { x: pole[0], z: pole[2], r: 0.2 });
   return finish('dump', K, {
     lot: { r: 12 },
-    footprint: { w: 2.5, d: 2.9 },
+    footprint: { w: 2.9, d: 3.2 },
     colliders,
     emissive: 0xff9a3d,
     glow: 1.3,
