@@ -121,6 +121,18 @@ export function createPanels(ctx, api) {
       hillside.appendChild(zone);
     }
     box.appendChild(hillside);
+    // Rides and games: places that are things to do rather than somewhere to live.
+    let extras = [];
+    try {
+      extras = (ctx.world && typeof ctx.world.places === 'function' ? ctx.world.places() : [])
+        .filter((p) => p && (p.kind === 'ride' || p.kind === 'game') && p.name);
+    } catch (err) { extras = []; }
+    if (extras.length) {
+      box.appendChild(el('h3', 'lw-h3', 'Things to do'));
+      const list = el('div', 'lw-list');
+      for (const p of extras) list.appendChild(row(p.name, p.blurb || '', p.kind === 'game' ? 'Play' : 'Ride', () => api.goPlace(p.id)));
+      box.appendChild(list);
+    }
     hud.openPanel({ title: 'Map', contentEl: box });
   }
 
