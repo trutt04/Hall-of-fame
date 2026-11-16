@@ -240,25 +240,25 @@ export function drawPostcard(canvas, d) {
   let tx = M + 4;
   if (d.team) {
     g.fillStyle = hex(d.team.color);
-    roundRect(g, M + 2, y0 + 34, 12, 54, 4);
+    roundRect(g, M + 2, y0 + 38, 12, 60, 4);
     g.fill();
     tx = M + 32;
     const tail = ' · ' + ordinal(d.team.rank) + ' · ' + d.team.record;
     const room = W - M - tx;
-    const s = fit(g, d.team.name + tail, (z) => body(700, z), 48, 34, room);
+    const s = fit(g, d.team.name + tail, (z) => body(700, z), 52, 34, room);
     g.font = body(700, s);
     const name = clip(g, d.team.name, room - g.measureText(tail).width);
     g.fillStyle = C.chalk;
-    g.fillText(name + tail, tx, y0 + 78);
+    g.fillText(name + tail, tx, y0 + 86);
   } else {
-    g.font = body(700, 48);
+    g.font = body(700, 52);
     g.fillStyle = C.chalk;
-    g.fillText('Wish you were here.', tx, y0 + 78);
+    g.fillText('Wish you were here.', tx, y0 + 86);
   }
   if (d.line) {
-    g.font = body(400, 34, true);
+    g.font = body(400, 36, true);
     g.fillStyle = C.stone;
-    wrap(g, d.line, W - M - tx, 2).forEach((line, i) => g.fillText(line, tx, y0 + 130 + i * 42));
+    wrap(g, d.line, W - M - tx, 2).forEach((line, i) => g.fillText(line, tx, y0 + 142 + i * 44));
   }
 
   // footer: league, week, and where to find the world

@@ -120,8 +120,8 @@ export function buildPlayoffs(model, opts = {}) {
     }
     row.style.setProperty('--team', hex(t.color));
     if (opts.teamId === t.id) row.classList.add('lwf-you');
-    if (o.won) row.classList.add('lwf-won');
-    if (o.lost) row.classList.add('lwf-lost');
+    if (o.won) row.classList.add('lwf-po-won');
+    if (o.lost) row.classList.add('lwf-po-lost');
     const name = el('span', 'lwf-po-name', teamName(t));
     if (opts.teamId === t.id) name.appendChild(el('span', 'lwf-po-you', 'You'));
     const score = o.bye ? 'Bye' : typeof pts === 'number' && o.scored ? fmtPts(pts) : '';

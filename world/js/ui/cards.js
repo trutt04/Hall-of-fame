@@ -72,9 +72,9 @@ export function createCards(ctx, api) {
     if (t.history) {
       const titles = t.history.titles || [];
       if (titles.length) rows.push(['Titles', titles.length + ' (' + titles.join(', ') + ')', hs]);
-      else rows.push(['Seasons without a title', String(t.history.seasonsPlayed || 0), hs]);
+      else rows.push(['Titles', 'None in ' + (t.history.seasonsPlayed || 0) + (t.history.seasonsPlayed === 1 ? ' season' : ' seasons'), hs]);
       const n = t.history.nemesis;
-      if (n) rows.push(['Owned by ' + label(n), n.wins + '-' + n.losses + ' all time', hs]);
+      if (n) rows.push(['Owned by', label(n) + ' · ' + n.wins + '-' + n.losses + ' all time', hs]);
     }
     if (t.ir && t.ir.count) rows.push(['On IR', (t.ir.names && t.ir.names.length ? t.ir.names.join(', ') : String(t.ir.count))]);
     if (t.lineupNotes && t.lineupNotes.length) rows.push(['Lineup', t.lineupNotes.join('. ')]);
@@ -213,13 +213,13 @@ export function createCards(ctx, api) {
       return;
     }
     const t = m.teams[g.teamId];
-    let drafted = typeof g.drafted === 'string' ? g.drafted : '';
-    if (!drafted && g.round) {
-      drafted = 'Drafted in round ' + g.round + (g.pick ? ', pick ' + g.pick : '') + (g.overall ? ' (' + ordinal(g.overall) + ' overall)' : '') + '.';
-    }
+    const drafted = (typeof g.drafted === 'string' && g.drafted) || (g.round ? 'Round ' + g.round + (g.pick ? ', pick ' + g.pick : '') : '');
     const body = el('div', 'lwf-grave');
-    if (drafted) body.appendChild(el('p', 'lw-line', drafted));
-    if (g.cause === 'ir' || g.cause === 'gone') body.appendChild(el('p', 'lw-line', g.cause === 'ir' ? 'This pick is on injured reserve.' : 'This pick is no longer on the roster.'));
+    body.appendChild(statList([
+      drafted ? ['Drafted', drafted] : null,
+      g.overall ? ['Overall', ordinal(g.overall) + ' pick'] : null,
+      g.cause === 'ir' ? ['Status', 'On injured reserve'] : g.cause === 'gone' ? ['Status', 'Off the roster'] : null,
+    ]));
     if (g.epitaph) body.appendChild(el('p', 'lw-jab lwf-epitaph', g.epitaph));
     if (t) {
       const by = button('lw-row lwf-grave-team', null, () => home(t.id, { go: true }));

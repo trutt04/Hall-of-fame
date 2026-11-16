@@ -248,8 +248,8 @@ button.lwf-srow:active{transform:scale(.99)}
 @media (min-width:620px){.lwf-paper{padding:24px 28px 26px}.lwf-paper-cols{columns:3}}
 
 /* ---------- cards ---------- */
-.lw-hud .lwf-go{width:100%;margin:0 0 12px;font-weight:700;font-size:16px;letter-spacing:.06em}
-.lwf-home .lw-stats{grid-template-columns:minmax(64px,auto) 1fr;gap:3px 12px}
+
+.lwf-home .lw-stats,.lwf-grave .lw-stats{grid-template-columns:fit-content(38%) 1fr;gap:3px 12px}
 .lwf-years{list-style:none;margin:0 0 8px;padding:0;font-variant-numeric:tabular-nums}
 .lwf-years li{display:flex;align-items:baseline;gap:10px;padding:3px 0;border-bottom:1px solid rgba(245,197,66,.14)}
 .lwf-years b{flex:0 0 auto;color:var(--gold)}
@@ -264,3 +264,47 @@ button.lwf-srow:active{transform:scale(.99)}
 .lwf-fb-story{margin:0 0 12px;padding:10px 12px;background:rgba(24,33,63,.85);border:1.5px solid rgba(245,197,66,.18);border-radius:8px}
 .lwf-fb-story h4{margin:0 0 4px;font-size:17px;line-height:1.2;color:var(--chalk);overflow-wrap:anywhere}
 #fallback .lwf-fb-story p,.lwf-fb-story p{margin:0;color:var(--stone);overflow-wrap:anywhere}
+
+/* ---------- postcard ---------- */
+.lwf-flash{position:absolute;inset:0;z-index:48;background:#fff;pointer-events:none;animation:lwf-flash .4s ease-out both}
+@keyframes lwf-flash{from{opacity:.85}to{opacity:0}}
+.lwf-postcard{display:flex;flex-direction:column;align-items:center;gap:12px}
+.lwf-postcard-img{display:block;width:auto;height:auto;max-width:100%;max-height:calc(100vh - 250px);border-radius:6px;box-shadow:0 12px 34px rgba(0,0,0,.6);
+  -webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}   /* press and hold must work on the picture */
+.lwf-postcard-acts{display:flex;gap:10px;width:100%;max-width:440px}
+.lwf-postcard-acts .lw-btn{flex:1 1 0}
+.lw-hud .lwf-postcard-acts button.lw-btn{font-weight:700;font-size:16px}
+.lwf-postcard .lwf-postcard-note{margin:0;text-align:center;font-size:14.5px}
+.lwf-card-acts{display:flex;gap:8px;margin:0 0 12px}
+.lw-hud .lwf-card-acts .lw-btn{flex:1 1 0;width:auto;margin:0;font-weight:700;font-size:16px;letter-spacing:.06em}
+
+/* ---------- playoff picture ---------- */
+.lwf-po{margin-top:8px;font-variant-numeric:tabular-nums}
+.lwf-po-title{margin:-4px 0 6px;font-weight:700;font-size:12.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--flare)}
+.lwf-po-round{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:12px 0 6px;font-family:var(--display);font-weight:400;font-size:13.5px;color:var(--gold)}
+.lwf-po-week{font-family:var(--body);font-weight:700;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--stone);white-space:nowrap}
+.lwf-po-game{position:relative;margin:0 0 7px;padding:3px;background:rgba(24,33,63,.85);border:1.5px solid rgba(245,197,66,.18);border-radius:8px}
+.lw-hud .lwf-po-side,.lwf-po-side{--team:var(--stone);display:grid;grid-template-columns:20px 6px minmax(0,1fr) auto;align-items:center;column-gap:8px;width:100%;min-height:40px;
+  padding:4px 8px;text-align:left;color:var(--chalk);background:none;border:0;border-radius:6px}
+button.lwf-po-side:hover{background:rgba(245,197,66,.1)}
+.lwf-po-side .lwf-s-chip{height:20px}
+.lwf-po-seed{font-family:var(--display);font-size:14px;line-height:1;color:var(--gold);text-align:center}
+.lwf-po-name{min-width:0;font-weight:600;font-size:16px;line-height:1.15;overflow-wrap:anywhere;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.lwf-po-pts{font-weight:700;font-size:16px;white-space:nowrap}
+.lw-hud .lwf-po-won,.lwf-po-won{background:rgba(245,197,66,.1)}
+.lwf-po-won .lwf-po-name{font-weight:700}
+.lwf-po-won .lwf-po-pts{color:var(--gold)}
+.lwf-po-lost{opacity:.6}
+.lwf-po-tbd .lwf-po-name{color:var(--stone);font-style:italic;font-weight:400}
+.lwf-po-tbd .lwf-s-chip{background:transparent;border:1.5px dashed var(--stone)}
+.lw-hud .lwf-po-side.lwf-you,.lwf-po-side.lwf-you{background:rgba(245,197,66,.17);box-shadow:inset 0 0 0 1.5px var(--gold)}
+.lwf-po-you{margin-left:8px;padding:0 6px;font:700 10px/1.6 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--night);background:var(--gold);border-radius:99px;white-space:nowrap}
+.lwf-po-status{position:absolute;right:10px;top:-8px;padding:0 6px;font-weight:700;font-size:10.5px;line-height:1.5;letter-spacing:.14em;text-transform:uppercase;color:var(--stone);
+  background:var(--night);border-radius:3px}
+.lwf-po-byes .lwf-po-pts{font-weight:600;font-size:12.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--stone)}
+.lwf-po-champ{margin:10px 0 0;font-family:var(--display);font-size:16px;line-height:1.15;color:var(--gold);overflow-wrap:anywhere}
+.lwf-po-bubble{margin:10px 0 4px;padding:8px 12px;font-weight:600;color:var(--chalk);background:rgba(255,106,61,.08);border-left:4px dashed var(--flare);border-radius:0 6px 6px 0;overflow-wrap:anywhere}
+
+/* ---------- headstone card ---------- */
+.lwf-grave .lwf-epitaph{padding:8px 12px;font-size:17px;border-left:3px solid var(--stone)}
+.lw-hud .lwf-grave-team{margin:4px 0 2px}
