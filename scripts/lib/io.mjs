@@ -61,12 +61,13 @@ function inline(value) {
 /**
  * JSON that is pleasant to read and to diff: short objects and arrays stay on one line,
  * long ones are broken up. Always valid JSON, always ends with a newline.
+ * inlineFromDepth: anything nested this deep stays on one line however long (big fixtures).
  */
-export function prettyJson(value, { width = 110, indent = 2 } = {}) {
+export function prettyJson(value, { width = 110, indent = 2, inlineFromDepth = Infinity } = {}) {
   const format = (v, depth) => {
     if (v === null || typeof v !== 'object') return JSON.stringify(v) ?? 'null';
     const oneLine = inline(v);
-    if (depth > 0 && oneLine.length + depth * indent <= width) return oneLine;
+    if (depth > 0 && (depth >= inlineFromDepth || oneLine.length + depth * indent <= width)) return oneLine;
     const pad = ' '.repeat((depth + 1) * indent);
     const end = ' '.repeat(depth * indent);
     if (Array.isArray(v)) {

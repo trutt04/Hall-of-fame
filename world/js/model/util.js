@@ -21,7 +21,7 @@ export function int(v, fallback = 0) {
 
 /** Text from untrusted data: one line, no control characters, trimmed. */
 export function str(v) {
-  if (typeof v !== 'string' && typeof v !== 'number') return '';
+  if (typeof v !== 'string' && !(typeof v === 'number' && Number.isFinite(v))) return '';
   return String(v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 

@@ -59,14 +59,23 @@ function gapText(games, pts) {
 }
 
 /**
- * Bench blunder test. The best bench player has to beat the margin, and when we know the worst
- * starter, the swap itself has to have been enough to flip the result. Returns the points the
- * swap would have left to spare, or 0 when it was not a blunder.
+ * Bench blunder test. The best bench player has to beat the margin. When the worst starter played
+ * the same position (lowPoints is set), the swap itself has to have been enough to flip the
+ * result. Returns a "how bad was it" number, or 0 when it was not a blunder.
  */
 function benchSwing(top, margin) {
   if (!top || !(top.points > margin)) return 0;
-  const swing = top.points - (top.lowPoints != null ? Math.max(0, top.lowPoints) : 0) - margin;
-  return swing > 0 ? swing : 0;
+  if (top.lowPoints != null) {
+    const swing = top.points - Math.max(0, top.lowPoints) - margin;
+    return swing > 0 ? swing : 0;
+  }
+  return (top.points - margin) * 0.6; // no like-for-like swap to point at: a smaller story
+}
+
+/** Two scores side by side. If one decimal would make them look tied, show two. */
+function fmtPair(a, b) {
+  const close = a !== b && Math.abs(a - b) < 0.1;
+  return close ? [a.toFixed(2), b.toFixed(2)] : [fmtPts(a), fmtPts(b)];
 }
 
 function titleCase(s) {
@@ -118,7 +127,9 @@ function pickLine(pool, c, limit, rng, used, key, steps, freshOnly) {
         if (used) used.add(k);
         return s;
       }
-      if (spare && !freshOnly) return spare;
+      // Something fit at this name length but another team has it. Reuse it, or give up on
+      // this pool. Either way, never shorten a name just to find a line nobody else has.
+      if (spare) return freshOnly ? null : spare;
     }
     return null;
   } finally {
@@ -183,6 +194,7 @@ function teamCtx(model, F, id) {
     prevRank: t.prevRank,
     prevOrd: t.prevRank != null ? ordinal(t.prevRank) : '',
     prevTierShort: t.prevTier ? TIER_SHORT[t.prevTier] : '',
+    prevTierLived: t.prevTier ? (t.prevTier === 'hill' ? 'on the Hill' : `in ${TIER_SHORT[t.prevTier]}`) : '',
     tierMove: t.tierMove,
     pf: fmtTotal(t.pointsFor),
     winStreak: t.streak.type === 'W' ? t.streak.length : 0,
@@ -246,12 +258,13 @@ function teamCtx(model, F, id) {
     const scores = [];
     for (const r of model.lastWeek.results) scores.push(r.homePts, r.awayPts);
     const wkRank = 1 + scores.filter((s) => s > lw.pts).length;
+    const [lastPts, lastOppPts] = fmtPair(lw.pts, lw.oppPts);
     f.last = {
       won: lw.won,
       margin: lw.margin,
       m: fmtPts(lw.margin),
-      pts: fmtPts(lw.pts),
-      oppPts: fmtPts(lw.oppPts),
+      pts: lastPts,
+      oppPts: lastOppPts,
       wkRank,
       wkN: scores.length,
       wkOrd: ordinal(wkRank),
@@ -273,11 +286,12 @@ function teamCtx(model, F, id) {
     const tw = t.thisWeek;
     const opp = model.teams[tw.oppId];
     const hasProj = tw.proj != null && tw.oppProj != null && (tw.proj > 0 || tw.oppProj > 0);
+    const [curPts, curOppPts] = fmtPair(tw.pts, tw.oppPts);
     f.cur = {
       status: tw.status,
       winning: tw.winning,
-      pts: fmtPts(tw.pts),
-      oppPts: fmtPts(tw.oppPts),
+      pts: curPts,
+      oppPts: curOppPts,
       scored: tw.pts > 0 || tw.oppPts > 0,
       diff: fmtPts(Math.abs(tw.pts - tw.oppPts)),
       hasProj,
@@ -299,6 +313,11 @@ function teamCtx(model, F, id) {
   f.vic = null;
   if (h) {
     const years = (list) => (list.length <= 3 ? list.join(', ') : `${list.slice(-2).join(', ')} and ${list.length - 2} more`);
+    const yearsProse = (list) => {
+      if (list.length <= 1) return list.join('');
+      if (list.length <= 3) return `${list.slice(0, -1).join(', ')} and ${list[list.length - 1]}`;
+      return `${list.slice(-2).join(', ')} and ${list.length - 2} other years`;
+    };
     // A season that just ended is not in history.json yet. Count it, so nobody who just won
     // the title is told how long it has been since their last one.
     let titles = h.titles;
@@ -322,18 +341,18 @@ function teamCtx(model, F, id) {
       since,
       seasons,
       lastN: lastPlaces.length,
-      lastYears: years(lastPlaces),
+      lastYears: yearsProse(lastPlaces),
       lastYear: lastPlaces.length ? lastPlaces[lastPlaces.length - 1] : 0,
       allTime: h.allTime.text,
       allTimeWinning: h.allTime.wins > h.allTime.losses,
     };
     const rival = (r) => (r.teamId != null ? label(r.teamId) : r.owner || r.teamName);
     if (h.nemesis && rival(h.nemesis)) {
-      f.nem = { w: h.nemesis.wins, l: h.nemesis.losses, teamId: h.nemesis.teamId };
+      f.nem = { w: h.nemesis.wins, l: h.nemesis.losses, teamId: h.nemesis.teamId, lopsided: h.nemesis.wins * 2 <= h.nemesis.losses };
       names.nemName = rival(h.nemesis);
     }
     if (h.victim && rival(h.victim)) {
-      f.vic = { w: h.victim.wins, l: h.victim.losses, teamId: h.victim.teamId };
+      f.vic = { w: h.victim.wins, l: h.victim.losses, teamId: h.victim.teamId, lopsided: h.victim.losses * 2 <= h.victim.wins };
       names.vicName = rival(h.victim);
     }
   }
@@ -547,7 +566,7 @@ const ARRIVAL_SPECIALS = [
       () => `You are in the title game. One more win and the Hill is yours until next fall.`,
       (c) => `Championship week. ${c.rec} and everything after it comes down to one lineup. Check it.`,
       () => `Title game. You are in it. Set the lineup, then stop touching it.`,
-      (c) => `One game for the title, against ${c.opp} of all people. No pressure.`,
+      (c) => `One game for the title, and it is against ${c.opp} of all teams. No pressure.`,
     ],
   },
   {
@@ -665,7 +684,7 @@ const ARRIVAL_SPECIALS = [
     lines: [
       (c) => `Relocated from ${c.prevTierShort} to ${c.tierShort}. The truck did not need directions.`,
       (c) => `Down to ${c.tierShort}. You were ${c.prevOrd} a week ago. Your old house already has new people in it.`,
-      (c) => `Welcome to ${c.tierShort}. You used to live in ${c.prevTierShort}. Nobody here will ask. Much.`,
+      (c) => `Welcome to ${c.tierShort}. You used to live ${c.prevTierLived}. Nobody here will ask. Much.`,
       (c) => `${c.prevOrd} to ${c.ord} in one week. The moving truck is idling. It thinks you are not done.`,
     ],
   },
@@ -746,7 +765,7 @@ const ARRIVAL_SPECIALS = [
     lines: [
       (c) => `Playoff spot clinched at ${c.rec}. You may now rest your starters and blame the bye week.`,
       () => `Clinched. The rest of the regular season is a victory lap with homework.`,
-      (c) => c.left > 0 && `You are in the playoffs. It is official. Try to make the next ${c.leftW} interesting.`,
+      (c) => c.left > 0 && `You are in the playoffs. It is official. Try to make ${c.left === 1 ? 'the last week' : `the next ${c.leftW}`} interesting.`,
       (c) => `${c.rec} and clinched. Nothing can stop you now except everything in the playoffs.`,
     ],
   },
@@ -1097,6 +1116,7 @@ const MAIL_CRIME = [
 const MAIL_EXTRAS = [
   {
     kind: 'last-week',
+    group: 'last-game',
     when: (c) => (lastWeekCounts(c) && !(c.cur && c.cur.sameAsLast) && c.last.won != null ? (c.last.margin < 3 || c.last.margin >= 40 ? 6.6 : 5) : 0),
     lines: [
       (c) => c.last.won && `Last week: beat ${c.lastOpp} by ${c.last.m}.`,
@@ -1107,6 +1127,7 @@ const MAIL_EXTRAS = [
   },
   {
     kind: 'bench',
+    group: 'last-game',
     when: (c) => (lastWeekCounts(c) && c.bench ? 7.6 : 0),
     lines: [
       (c) => `Lost by ${c.last.m} last week with ${c.bench.player} (${c.bench.pts}) on the bench.`,
@@ -1184,18 +1205,22 @@ const MAIL_EXTRAS = [
   {
     kind: 'nemesis',
     when: (c) => (c.nem ? 7 : 0),
+    group: 'rival',
     lines: [
-      (c) => `Owned by ${c.nemName}, ${c.nem.w}-${c.nem.l} all time.`,
+      (c) => c.nem.lopsided && `Owned by ${c.nemName}, ${c.nem.w}-${c.nem.l} all time.`,
+      (c) => c.nem.lopsided && `${c.nemName} has their number: ${c.nem.w}-${c.nem.l} all time.`,
       (c) => `Is ${c.nem.w}-${c.nem.l} all time against ${c.nemName} and knows it.`,
-      (c) => `${c.nemName} has their number: ${c.nem.w}-${c.nem.l} all time.`,
+      (c) => !c.nem.lopsided && `Trails ${c.nemName} ${c.nem.w}-${c.nem.l} all time. It comes up.`,
     ],
   },
   {
     kind: 'victim',
     when: (c) => (c.vic ? 6 : 0),
+    group: 'rival',
     lines: [
-      (c) => `Owns ${c.vicName}, ${c.vic.w}-${c.vic.l} all time.`,
+      (c) => c.vic.lopsided && `Owns ${c.vicName}, ${c.vic.w}-${c.vic.l} all time.`,
       (c) => `Is ${c.vic.w}-${c.vic.l} all time against ${c.vicName} and brings it up.`,
+      (c) => !c.vic.lopsided && `Leads ${c.vicName} ${c.vic.w}-${c.vic.l} all time. Mentions it.`,
     ],
   },
   {
@@ -1277,12 +1302,17 @@ function mailboxFor(c, rng, used) {
 
   const room = COPY_LIMITS.mailboxMax - lines.length - (crime ? 1 : 0);
   let taken = 0;
+  const groups = {};
   for (const x of weigh(MAIL_EXTRAS, c, rng, 1.5)) {
     if (taken >= room) break;
     if (lines.length >= 3 && x.w < 6.5) break; // a fourth line has to be worth reading
+    if (x.item.group && groups[x.item.group]) continue; // one line per subject
     const before = lines.length;
     push(pickLine(x.item.lines, c, limit, rng, used, `mail:${x.item.kind}`));
-    if (lines.length > before) taken++;
+    if (lines.length > before) {
+      taken++;
+      if (x.item.group) groups[x.item.group] = true;
+    }
   }
   push(crime);
   if (lines.length < COPY_LIMITS.mailboxMin) push(pickLine(MAIL_FILLER[c.tier] || MAIL_FILLER.bubble, c, limit, rng, null, 'mail:filler'));
@@ -1333,13 +1363,14 @@ function buildStories(model, F) {
       ? model.lastWeek.results.find((r) => r.winnerId === champ.id && r.playoff && r.bracket !== 'CONSOLATION')
       : null;
     add('champion', 120, final ? [champ.id, lw.oppId] : [champ.id],
-      { rec: champ.record.text, hasFinal: !!final, wp: lw ? fmtPts(lw.pts) : '', lp: lw ? fmtPts(lw.oppPts) : '' },
+      { rec: champ.record.text, hasFinal: !!final, wp: lw ? fmtPts(lw.pts) : '', lp: lw ? fmtPts(lw.oppPts) : '', m: lw ? fmtPts(lw.margin) : '' },
       { T: lab(champ.id), Z: final ? lab(lw.oppId) : '' },
       [(c) => `${c.T} Wins The ${c.season} Title`, (c) => `${c.T} Is Your ${c.season} Champion`, fb((c) => `${c.season} Title Decided. Hill Occupied.`)],
       [
         (c) => c.hasFinal && `${c.T} beat ${c.Z} ${c.wp} to ${c.lp} in the title game. The crown stays on the Hill until next fall.`,
         (c) => !c.hasFinal && `${c.T} finished first after ${withArticle(c.rec)} regular season. The crown stays on the Hill until next fall.`,
-        (c) => `${c.T} is the ${c.season} champion and the engraver has been called. Everyone else has been told to wait until next year.`,
+        (c) => c.hasFinal && `${c.T} is the ${c.season} champion after beating ${c.Z} by ${c.m} in the final. The engraver has been called.`,
+        (c) => !c.hasFinal && `${c.T} is the ${c.season} champion and the engraver has been called. Everyone else has been told to wait until next year.`,
       ],
       [(c) => `${c.T} is your ${c.season} champion`, (c) => `${c.season} champion: ${c.T}`, fb((c) => `The ${c.season} title has been claimed`)]);
     if (N >= 3) {
@@ -1383,7 +1414,7 @@ function buildStories(model, F) {
   const scores = [];
   for (const r of results) scores.push({ id: r.W, pts: r.wp }, { id: r.Z, pts: r.lp });
   const weekRank = (pts) => 1 + scores.filter((s) => s.pts > pts).length;
-  const gameCtx = (r) => ({ m: fmtPts(r.margin), wp: fmtPts(r.wp), lp: fmtPts(r.lp), wrec: team(r.W).record.text, zrec: team(r.Z).record.text, reg: F.mode === 'regular' });
+  const gameCtx = (r) => ({ m: fmtPts(r.margin), wp: fmtPair(r.wp, r.lp)[0], lp: fmtPair(r.wp, r.lp)[1], wrec: team(r.W).record.text, zrec: team(r.Z).record.text, reg: F.mode === 'regular' });
   const gameNames = (r) => ({ W: lab(r.W), Z: lab(r.Z) });
 
   // ----- playoff bracket -----
@@ -1453,11 +1484,13 @@ function buildStories(model, F) {
   const closest = decided.slice().sort((a, b) => a.margin - b.margin)[0];
   if (closest && closest.margin < 5 && closest !== biggest) {
     const m = closest.margin;
-    add('heartbreaker', m < 1 ? 95 : m < 2 ? 85 : 70, [closest.Z, closest.W], gameCtx(closest), gameNames(closest),
+    add('heartbreaker', m < 1 ? 95 : m < 2 ? 85 : 70, [closest.Z, closest.W], Object.assign(gameCtx(closest), { tiny: m < 2 }), gameNames(closest),
       [
-        (c) => `${c.Z} Loses By ${c.m}. Yes, ${c.m}.`,
+        (c) => c.tiny && `${c.Z} Loses By ${c.m}. Yes, ${c.m}.`,
         (c) => `${c.W} Survives ${c.Z} By ${c.m}`,
-        (c) => `${c.W} Wins By ${c.m}, Ages Visibly`,
+        (c) => c.tiny && `${c.W} Wins By ${c.m}, Ages Visibly`,
+        (c) => !c.tiny && `${c.W} Holds On By ${c.m}`,
+        (c) => !c.tiny && `${c.Z} Comes Up ${c.m} Short`,
         fb((c) => `${c.m} Points Decide Week ${c.L} Thriller`),
       ],
       [
@@ -1465,7 +1498,7 @@ function buildStories(model, F) {
         (c) => `${c.Z} lost to ${c.W} by ${c.m} in Week ${c.L}. Every player on that bench is now a suspect.`,
         (c) => `${c.W} beat ${c.Z} by ${c.m}. Nobody involved enjoyed it, including the winner.`,
       ],
-      [(c) => `${c.Z} lost by ${c.m}. Yes, ${c.m}.`, (c) => `${c.W} won by ${c.m}. Breathe.`, fb((c) => `Week ${c.L} was decided by ${c.m} points`)]);
+      [(c) => c.tiny && `${c.Z} lost by ${c.m}. Yes, ${c.m}.`, (c) => `${c.W} won by ${c.m}. Breathe.`, (c) => !c.tiny && `${c.Z} came up ${c.m} short`, fb((c) => `Week ${c.L} was decided by ${c.m} points`)]);
   }
 
   // ----- bench blunder -----
@@ -1532,7 +1565,8 @@ function buildStories(model, F) {
         [(c) => `${c.T} Takes Over First Place`, (c) => `New Tenant On The Hill: ${c.T}`, fb(() => `The Hill Has A New Owner`)],
         [
           (c) => c.hasOld && `${c.T} moved into first place at ${c.rec}. ${c.Old} has been issued a smaller house.`,
-          (c) => `${c.T} is the new owner of the Hill after climbing from ${c.prevOrd}. The gate code has already been changed.`,
+          (c) => c.hasOld && `${c.T} is the new owner of the Hill after climbing from ${c.prevOrd}. ${c.Old} has been asked to hand back the gate code.`,
+          (c) => !c.hasOld && `${c.T} is the new owner of the Hill after climbing from ${c.prevOrd}. The gate code has already been changed.`,
         ],
         [(c) => `${c.T} now runs the Hill`, fb(() => `The Hill has a new owner`)]);
     }
@@ -1547,10 +1581,16 @@ function buildStories(model, F) {
       if (!t) continue;
       const isUp = t.tierMove === 'up';
       add('move', 62 + Math.min(10, Math.abs(t.rankDelta)), [t.id],
-        { rec: t.record.text, ord: ordinal(t.rank), prevOrd: ordinal(t.prevRank), tierTitle: TIER_TITLE[t.tier], lives: TIER_LIVES[t.tier] }, { T: lab(t.id) },
+        { rec: t.record.text, ord: ordinal(t.rank), prevOrd: ordinal(t.prevRank), tierTitle: TIER_TITLE[t.tier], lives: TIER_LIVES[t.tier], fromHill: t.prevTier === 'hill' }, { T: lab(t.id) },
         isUp
           ? [(c) => `${c.T} Moves Up To ${c.tierTitle}`, fb((c) => `Moving Truck Spotted In ${c.tierTitle}`)]
-          : [(c) => `${c.T} Relocated To ${c.tierTitle}`, (c) => `${c.T} Falls To ${c.tierTitle}`, fb((c) => `Moving Truck Spotted In ${c.tierTitle}`)],
+          : [
+            (c) => !c.fromHill && `${c.T} Relocated To ${c.tierTitle}`,
+            (c) => !c.fromHill && `${c.T} Falls To ${c.tierTitle}`,
+            (c) => c.fromHill && `${c.T} Evicted From The Hill`,
+            (c) => c.fromHill && `${c.T} Loses The Hill, Keeps The Memories`,
+            fb((c) => `Moving Truck Spotted In ${c.tierTitle}`),
+          ],
         isUp
           ? [
             (c) => `${c.T} climbed from ${c.prevOrd} to ${c.ord} and changed neighborhoods. The truck is still out front.`,
@@ -1621,7 +1661,7 @@ function buildStories(model, F) {
     add('spotlight', 55, [highId, t.lastWeek.oppId], { pts: fmtPts(t.lastWeek.pts), m: fmtPts(t.lastWeek.margin) }, { T: lab(highId), Opp: lab(t.lastWeek.oppId) },
       [(c) => `${c.T} Drops ${c.pts}, Leads The League`, (c) => `${c.T} Hangs ${c.pts} On ${c.Opp}`, (c) => `Week ${c.L} High: ${c.T} With ${c.pts}`, fb((c) => `Week ${c.L} High Score: ${c.pts}`)],
       [
-        (c) => `${c.T} scored ${c.pts}, the most of anyone in Week ${c.L}. The spotlight is on that house and can be seen from the Dump.`,
+        (c) => `${c.T} scored ${c.pts} against ${c.Opp} in Week ${c.L}, the most of anyone. The spotlight is on that house and can be seen from the Dump.`,
         (c) => `${c.pts} points for ${c.T} in Week ${c.L}. ${c.Opp} was standing closest when it happened and lost by ${c.m}.`,
       ],
       [(c) => `${c.T} scored ${c.pts}. Nobody else did.`, fb((c) => `Week ${c.L} high score: ${c.pts}`)]);

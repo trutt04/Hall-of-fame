@@ -1,37 +1,7 @@
 [
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Herons",
-    "fullName": "Herons D/ST",
-    "id": -16034,
-    "lastName": "D/ST",
-    "proTeamId": 34,
-    "universeId": 2
-  },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Arches",
-    "fullName": "Arches D/ST",
-    "id": -16027,
-    "lastName": "D/ST",
-    "proTeamId": 27,
-    "universeId": 2
-  },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Surf",
-    "fullName": "Surf D/ST",
-    "id": -16026,
-    "lastName": "D/ST",
-    "proTeamId": 26,
-    "universeId": 2
-  },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Herons", "fullName": "Herons D/ST", "id": -16034, "lastName": "D/ST", "proTeamId": 34, "universeId": 2 },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Arches", "fullName": "Arches D/ST", "id": -16027, "lastName": "D/ST", "proTeamId": 27, "universeId": 2 },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Surf", "fullName": "Surf D/ST", "id": -16026, "lastName": "D/ST", "proTeamId": 26, "universeId": 2 },
   {
     "defaultPositionId": 16,
     "droppable": true,
@@ -43,17 +13,7 @@
     "proTeamId": 19,
     "universeId": 2
   },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Outlaws",
-    "fullName": "Outlaws D/ST",
-    "id": -16017,
-    "lastName": "D/ST",
-    "proTeamId": 17,
-    "universeId": 2
-  },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Outlaws", "fullName": "Outlaws D/ST", "id": -16017, "lastName": "D/ST", "proTeamId": 17, "universeId": 2 },
   {
     "defaultPositionId": 16,
     "droppable": true,
@@ -65,50 +25,10 @@
     "proTeamId": 16,
     "universeId": 2
   },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Foxes",
-    "fullName": "Foxes D/ST",
-    "id": -16013,
-    "lastName": "D/ST",
-    "proTeamId": 13,
-    "universeId": 2
-  },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Oaks",
-    "fullName": "Oaks D/ST",
-    "id": -16010,
-    "lastName": "D/ST",
-    "proTeamId": 10,
-    "universeId": 2
-  },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Huskies",
-    "fullName": "Huskies D/ST",
-    "id": -16008,
-    "lastName": "D/ST",
-    "proTeamId": 8,
-    "universeId": 2
-  },
-  {
-    "defaultPositionId": 16,
-    "droppable": true,
-    "eligibleSlots": [16, 20, 21],
-    "firstName": "Breakers",
-    "fullName": "Breakers D/ST",
-    "id": -16007,
-    "lastName": "D/ST",
-    "proTeamId": 7,
-    "universeId": 2
-  },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Foxes", "fullName": "Foxes D/ST", "id": -16013, "lastName": "D/ST", "proTeamId": 13, "universeId": 2 },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Oaks", "fullName": "Oaks D/ST", "id": -16010, "lastName": "D/ST", "proTeamId": 10, "universeId": 2 },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Huskies", "fullName": "Huskies D/ST", "id": -16008, "lastName": "D/ST", "proTeamId": 8, "universeId": 2 },
+  { "defaultPositionId": 16, "droppable": true, "eligibleSlots": [16, 20, 21], "firstName": "Breakers", "fullName": "Breakers D/ST", "id": -16007, "lastName": "D/ST", "proTeamId": 7, "universeId": 2 },
   {
     "defaultPositionId": 16,
     "droppable": true,
@@ -1891,17 +1811,7 @@
     "proTeamId": 21,
     "universeId": 2
   },
-  {
-    "defaultPositionId": 1,
-    "droppable": true,
-    "eligibleSlots": [0, 7, 20, 21],
-    "firstName": "Luca",
-    "fullName": "Luca Dunmore",
-    "id": 4422091,
-    "lastName": "Dunmore",
-    "proTeamId": 5,
-    "universeId": 2
-  },
+  { "defaultPositionId": 1, "droppable": true, "eligibleSlots": [0, 7, 20, 21], "firstName": "Luca", "fullName": "Luca Dunmore", "id": 4422091, "lastName": "Dunmore", "proTeamId": 5, "universeId": 2 },
   {
     "defaultPositionId": 2,
     "droppable": true,
@@ -1968,17 +1878,7 @@
     "proTeamId": 16,
     "universeId": 2
   },
-  {
-    "defaultPositionId": 5,
-    "droppable": true,
-    "eligibleSlots": [17, 20, 21],
-    "firstName": "Cade",
-    "fullName": "Cade Oakhurst",
-    "id": 4422822,
-    "lastName": "Oakhurst",
-    "proTeamId": 8,
-    "universeId": 2
-  },
+  { "defaultPositionId": 5, "droppable": true, "eligibleSlots": [17, 20, 21], "firstName": "Cade", "fullName": "Cade Oakhurst", "id": 4422822, "lastName": "Oakhurst", "proTeamId": 8, "universeId": 2 },
   {
     "defaultPositionId": 1,
     "droppable": true,

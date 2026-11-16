@@ -55,7 +55,7 @@ export const REAL_TEAMS = Object.freeze([
   { id: 9, name: 'Love Machine', abbrev: 'JKE', seed: 5, wins: 6, losses: 3, pf: 1126.7, pa: 1026.5, streak: ['LOSS', 1], firstName: '' },
   { id: 10, name: 'Your Commishness', abbrev: '1', seed: 1, wins: 7, losses: 2, pf: 1344.5, pa: 1057.7, streak: ['WIN', 5], firstName: '' },
   { id: 11, name: '🔥Stafford_Pukas_Lounge🔥', abbrev: 'CCT', seed: 6, wins: 5, losses: 4, pf: 1153.7, pa: 1141.2, streak: ['LOSS', 1], firstName: '' },
-  { id: 12, name: 'On C0k3r w Brown Nabers', abbrev: 'Haha', seed: 9, wins: 4, losses: 5, pf: 972.0, pa: 1146.1, streak: ['WIN', 1], firstName: '' },
+  { id: 12, name: 'On C0k3r w Brown Nabers', abbrev: 'Haha', seed: 9, wins: 4, losses: 5, pf: 972.0, pa: 1146.1, streak: ['WIN', 1], firstName: 'Tim' },
 ]);
 const TEAM_IDS = REAL_TEAMS.map((t) => t.id);
 const WEEKS_PLAYED = 9;
@@ -814,26 +814,30 @@ function buildRosters(rng, pro, season) {
   return { teams, live, week10Pairs };
 }
 
-function statLine(scoringPeriodId, statSourceId, appliedTotal, proTeamId) {
-  return {
-    appliedTotal, externalId: String(scoringPeriodId), id: `${statSourceId}${statSourceId}${SEASON}${scoringPeriodId}`,
-    proTeamId, scoringPeriodId, seasonId: SEASON, statSourceId, statSplitTypeId: scoringPeriodId === 0 ? 0 : 1, stats: {},
-  };
+function statLine(scoringPeriodId, statSourceId, appliedTotal) {
+  // statSplitTypeId 0 is a season total, 1 is a single week. statSourceId 0 is actual, 1 is projected.
+  return { appliedTotal, scoringPeriodId, seasonId: SEASON, statSourceId, statSplitTypeId: scoringPeriodId === 0 ? 0 : 1 };
 }
 
-/** One raw roster entry. `week` picks which week's slot and "applied" total to show. */
-function rosterEntry(p, teamId, week) {
-  const stats = [statLine(0, 0, p.seasonTotal, p.proTeamId)];
-  if (p.pts9 !== null && p.pts9 !== undefined) stats.push(statLine(9, 0, p.pts9, p.proTeamId));
-  if (p.proj9 > 0) stats.push(statLine(9, 1, p.proj9, p.proTeamId));
-  if (week !== 9) {
-    if (p.pts10 !== null && p.pts10 !== undefined) stats.push(statLine(10, 0, p.pts10, p.proTeamId));
-    if (p.proj10 > 0 || p.outThisWeek) stats.push(statLine(10, 1, p.proj10, p.proTeamId));
+/**
+ * One raw roster entry.
+ *   view 'roster'  the plain roster view: this week's slot, season total in appliedStatTotal
+ *   view 'week10'  a matchup roster for the live week: that week's points in appliedStatTotal
+ *   view 'week9'   a matchup roster for last week
+ */
+function rosterEntry(p, teamId, view) {
+  const stats = [];
+  const has = (v) => v !== null && v !== undefined;
+  if (view === 'roster') stats.push(statLine(0, 0, p.seasonTotal));
+  if (view !== 'week10' && has(p.pts9)) stats.push(statLine(9, 0, p.pts9));
+  if (view === 'week9' && p.proj9 > 0) stats.push(statLine(9, 1, p.proj9));
+  if (view !== 'week9') {
+    if (has(p.pts10)) stats.push(statLine(10, 0, p.pts10));
+    if (p.proj10 > 0 || p.outThisWeek) stats.push(statLine(10, 1, p.proj10));
   }
   const player = {
-    active: true, defaultPositionId: POS_ID[p.pos], droppable: true, eligibleSlots: ELIGIBLE[p.pos],
-    firstName: p.firstName, fullName: p.fullName, id: p.id, injured: p.injured, injuryStatus: p.injuryStatus,
-    lastName: p.lastName, proTeamId: p.proTeamId, stats,
+    defaultPositionId: POS_ID[p.pos], fullName: p.fullName, id: p.id, injured: p.injured, injuryStatus: p.injuryStatus,
+    proTeamId: p.proTeamId, stats,
   };
   if (p.isDefense) {
     delete player.injured; // ESPN sends no injury fields for a defense
@@ -841,14 +845,12 @@ function rosterEntry(p, teamId, week) {
   }
   return {
     acquisitionType: p.acquisition,
-    lineupSlotId: week === 9 ? p.slot9 : p.slot10,
+    lineupSlotId: view === 'week9' ? p.slot9 : p.slot10,
     playerId: p.id,
     playerPoolEntry: {
-      // In the plain roster view this is the season total. In a matchup roster it is that week's points.
-      appliedStatTotal: week === 9 ? p.pts9 ?? 0 : week === 10 ? p.pts10 ?? 0 : p.seasonTotal,
-      id: p.id, onTeamId: teamId, player, status: 'ONTEAM',
+      appliedStatTotal: view === 'week9' ? p.pts9 ?? 0 : view === 'week10' ? p.pts10 ?? 0 : p.seasonTotal,
+      id: p.id, onTeamId: teamId, player,
     },
-    status: 'NORMAL',
   };
 }
 
@@ -909,7 +911,7 @@ function buildDraft(rng, rosters, members) {
   const order = rng.shuffle(TEAM_IDS);
   const boards = new Map(
     [...drafted].map(([id, list]) => {
-      const value = (p) => (p.pos === 'K' ? 2 : p.pos === 'DST' ? 2.6 : BASELINE[p.pos] * p.quality * (p.pos === 'QB' ? 0.8 : 1)) * rng.float(0.85, 1.15);
+      const value = (p) => (p.pos === 'K' ? 2 : p.pos === 'DST' ? 2.6 : BASELINE[p.pos] * p.quality * (p.pos === 'QB' ? 0.55 : 1)) * rng.float(0.85, 1.15);
       return [id, list.map((p) => ({ p, v: value(p) })).sort((x, y) => y.v - x.v).map((x) => x.p)];
     }),
   );
@@ -919,10 +921,8 @@ function buildDraft(rng, rosters, members) {
     roundOrder.forEach((teamId, i) => {
       const p = boards.get(teamId)[round - 1];
       picks.push({
-        autoDraftTypeId: 0, bidAmount: 0, id: picks.length + 1, keeper: false,
-        lineupSlotId: p.pos === 'DST' ? 16 : p.pos === 'K' ? 17 : SLOT_ID[p.pos],
-        memberId: members.get(teamId).id, nominatingTeamId: 0, overallPickNumber: picks.length + 1, playerId: p.id,
-        reservedForKeeper: false, roundId: round, roundPickNumber: i + 1, teamId, tradeLocked: false,
+        id: picks.length + 1, keeper: false, lineupSlotId: SLOT_ID[p.pos], memberId: members.get(teamId).id,
+        overallPickNumber: picks.length + 1, playerId: p.id, roundId: round, roundPickNumber: i + 1, teamId,
       });
     });
   }
@@ -1024,7 +1024,7 @@ function build2026(rng) {
       // The record fields are the real numbers, exactly as supplied.
       record: { wins: t.wins, losses: t.losses, pointsFor: t.pf, pointsAgainst: t.pa, streak: t.streak },
       moves: draft.moves.get(t.id),
-      roster: rosters.teams.get(t.id).players.filter((p) => !p.droppedAfterWeek9).map((p) => rosterEntry(p, t.id, 0)),
+      roster: rosters.teams.get(t.id).players.filter((p) => !p.droppedAfterWeek9).map((p) => rosterEntry(p, t.id, 'roster')),
     }),
   );
 
@@ -1048,14 +1048,14 @@ function build2026(rng) {
         const flip = (game.a * 7 + game.b * 13 + week) % 2 === 0;
         const [homeId, awayId] = flip ? [game.b, game.a] : [game.a, game.b];
         const side = (teamId) => {
-          const s = { adjustment: 0, teamId, tiebreak: 0, totalPoints: 0 };
+          const s = { teamId, totalPoints: 0 };
           if (game.final) {
             s.totalPoints = fromCents(teamId === game.a ? game.aPts : game.bPts);
             s.pointsByScoringPeriod = { [String(week)]: s.totalPoints };
           }
           const entries = () => rosters.teams.get(teamId).players
             .filter((p) => (rosterWeek === 9 ? true : !p.droppedAfterWeek9))
-            .map((p) => rosterEntry(p, teamId, rosterWeek));
+            .map((p) => rosterEntry(p, teamId, rosterWeek === 9 ? 'week9' : 'week10'));
           if (week === CURRENT_WEEK) {
             const live = rosters.live.get(teamId);
             s.totalPoints = live.points;
@@ -1266,11 +1266,11 @@ function buildPastSeason(year, members) {
     .sort((a, b) => a.week - b.week)
     .map((g, i) => {
       const item = {
-        home: { adjustment: 0, pointsByScoringPeriod: { [String(g.week)]: g.homePts }, teamId: g.home, tiebreak: 0, totalPoints: g.homePts },
+        home: { teamId: g.home, totalPoints: g.homePts },
         id: i + 1, matchupPeriodId: g.week, playoffTierType: g.tier,
         winner: g.away === null ? 'UNDECIDED' : g.homePts > g.awayPts ? 'HOME' : 'AWAY', // ESPN leaves a bye undecided
       };
-      if (g.away !== null) item.away = { adjustment: 0, pointsByScoringPeriod: { [String(g.week)]: g.awayPts }, teamId: g.away, tiebreak: 0, totalPoints: g.awayPts };
+      if (g.away !== null) item.away = { teamId: g.away, totalPoints: g.awayPts };
       return item;
     });
 
@@ -1328,7 +1328,7 @@ export function buildFixtures() {
 }
 
 export function fixtureText(value) {
-  return prettyJson(value, { width: 150 });
+  return prettyJson(value, { width: 200, inlineFromDepth: 5 });
 }
 
 function main() {

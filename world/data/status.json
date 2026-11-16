@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "ok": false,
+  "reason": "league_private",
+  "detail": "Placeholder data. The league is private, so nothing has come from ESPN yet.",
+  "lastAttempt": "2026-11-16T03:37:54Z",
+  "lastSuccess": null,
+  "consecutiveFailures": 0,
+  "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": null, "fromSample": true }
+}

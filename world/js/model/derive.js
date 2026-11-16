@@ -672,11 +672,13 @@ export function derive(league, history, opts) {
       const low = isObj(row.starterLow) ? row.starterLow : null;
       const lowPoints = low ? num(low.points, NaN) : NaN;
       const lowOk = !!low && !!str(low.name) && Number.isFinite(lowPoints);
+      // "You started X over Y" is only a fair thing to say when X and Y play the same position.
+      const samePos = lowOk && !!str(top.pos) && str(top.pos).toUpperCase() === str(low.pos).toUpperCase();
       benchTop[id] = {
         name: str(top.name),
         points: round2(points),
-        lowName: lowOk ? str(low.name) : '',
-        lowPoints: lowOk ? round2(lowPoints) : null,
+        lowName: samePos ? str(low.name) : '',
+        lowPoints: samePos ? round2(lowPoints) : null,
       };
     }
   }

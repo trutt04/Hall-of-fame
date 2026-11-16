@@ -191,6 +191,7 @@ model = {
     leagueName, season, week, regularSeasonWeeks, playoffTeamCount, teamCount,
     phase,            // 'preseason' | 'regular' | 'playoffs' | 'complete'
     isSample,         // true when league.source !== 'espn'
+    historyIsSample,  // true when history is present and history.source !== 'espn' (label past-season plaques as sample)
     generatedAt,      // ISO string from league.json
     weekStatus,       // 'pre' | 'live' | 'final' for the current week's matchups
     nflLive,          // true if a real NFL game is in progress at `now` (kickoff <= now <= kickoff + 3.5h)
@@ -250,7 +251,8 @@ TeamModel = {
 model.history = {
   champions,          // newest first: [{ season, teamName, owner, ownerKey, teamId, record }]  teamId = that owner's current team id or null
   lastPlaces,         // same shape
-  records,            // [{ id, label, value, text, ownerKey, teamId }]  ids: highWeek, lowWeek, blowout, bestRecord, worstRecord, mostPoints
+  records,            // [{ id, label, value, text, ownerKey, teamId, season, week }]  ids: highWeek, lowWeek, blowout, bestRecord, worstRecord, mostPoints
+                      // value is always a display string ("150.5", "12-2", "1,620.4")
   defendingChamp,     // null or { season, owner, ownerKey, teamName, teamId, rank, condition }  condition: 'shiny' (rank in top quarter) | 'pigeons' | 'cone' (bottom third)
 };
 ```
@@ -262,6 +264,9 @@ bubble and the dump. For N=12, P=6: heights 2-4, bubble 5-8, park 9-11.
 
 Rank is ESPN's `seed` when all seeds are present and unique. Otherwise sort by win percentage,
 then points for. After the season, `finalRank` wins when present for every team.
+
+Byes are left out of `matchups` and `lastWeek.results`; a team on a bye has `thisWeek: null`.
+Names in copy use the owner's first name when present and unique, else the full team name.
 
 Roast copy is template-based with a seeded random pick (seed = team id + week + season) so a
 line stays the same all week and changes next week.

@@ -58,11 +58,12 @@ function makeRoster(teamId, rand, crimes) {
   const starters = [];
   const order = [];
   for (const slot of Object.keys(STARTER_SLOTS)) for (let i = 0; i < STARTER_SLOTS[slot]; i++) order.push(slot);
-  const empty = new Set((crimes && crimes.empty) || []);
+  const empty = ((crimes && crimes.empty) || []).slice();
   const emptyStarters = [];
   order.forEach((slot, i) => {
-    if (empty.has(slot)) {
-      empty.delete(slot);
+    const at = empty.indexOf(slot);
+    if (at !== -1) {
+      empty.splice(at, 1);
       emptyStarters.push(slot);
       return;
     }

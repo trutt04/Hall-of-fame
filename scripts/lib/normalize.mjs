@@ -445,7 +445,7 @@ export function lineupRequestFor(rawMain) {
   const matchups = normalizeMatchups(rawMain, {
     currentWeek: int(rawMain.status?.currentMatchupPeriod),
     regularSeasonWeeks: int(rawMain.settings?.scheduleSettings?.matchupPeriodCount),
-    teamIds: null,
+    teamIds: new Set(usableTeams(rawMain).map((t) => t.id)),
   });
   const week = lastCompletedWeek(matchups);
   if (week < 1) return null;

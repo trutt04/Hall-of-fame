@@ -184,6 +184,7 @@ export function createSky({ scene, camera, terrain, quality = 'high' }) {
   let override = null;
   let hours = 12;
   let live = false;
+  let fogScale = 1;
   const cur = {
     top: new THREE.Color(), hor: new THREE.Color(), sun: new THREE.Color(), hSky: new THREE.Color(), hGnd: new THREE.Color(), cloud: new THREE.Color(),
     sunI: 1, hemiI: 1, amb: 0.3, star: 0, night: 0,
@@ -283,7 +284,7 @@ export function createSky({ scene, camera, terrain, quality = 'high' }) {
     nightTint.setRGB(lerp(1, 0.2, cur.night), lerp(1, 0.25, cur.night), lerp(1, 0.44, cur.night));
     tmpC.multiply(nightTint);
     fogColor.copy(cur.hor).lerp(tmpC, mix);
-    scene.fog.density = density * (1 + 0.25 * cur.night) * (live ? 0.92 : 1);
+    scene.fog.density = density * (1 + 0.25 * cur.night) * (live ? 0.92 : 1) * fogScale;
 
     uniforms.top.value.copy(cur.top).lerp(fogColor, murk);
     uniforms.sunDir.value.copy(sunUp > 0.02 ? sunDir : moonDir);
@@ -353,6 +354,10 @@ export function createSky({ scene, camera, terrain, quality = 'high' }) {
       if (next === live) return;
       live = next;
       events.emit('gameday', live);
+    },
+    // 1 is normal; 0 switches the fog off (map views, debugging)
+    setFogScale(v) {
+      fogScale = Math.max(0, Number(v) || 0);
     },
     on: events.on.bind(events),
     get hours() { return hours; },
