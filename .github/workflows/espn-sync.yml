@@ -44,7 +44,7 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Check out the repo
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Check Node (18 or newer comes with the runner)
         run: |
