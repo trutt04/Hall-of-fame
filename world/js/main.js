@@ -434,8 +434,15 @@ async function boot() {
     roaming = true;
     if (why) console.warn('[lw] the UI flow is unavailable, free roaming instead', why);
     try {
-      for (const node of document.querySelectorAll('[class^="lwf"], [class*=" lwf"]')) node.remove();
-      for (const cls of [...hud.el.classList]) if (cls.startsWith('lwf')) hud.el.classList.remove(cls);
+      // The flow keeps everything it builds under .lwf-root. It also puts state classes on
+      // elements the world owns (the HUD itself, panels), so those are stripped, never removed.
+      for (const node of document.querySelectorAll('.lwf-root')) node.remove();
+      for (const node of document.querySelectorAll('[class^="lwf"], [class*=" lwf"]')) {
+        const owned = node === hud.el || node === document.body || node === document.documentElement
+          || node.id || node.contains(hud.el) || node.contains(canvas) || node.closest('[class^="lw-"], [class*=" lw-"]');
+        if (!owned) { node.remove(); continue; }
+        for (const cls of [...node.classList]) if (cls.startsWith('lwf')) node.classList.remove(cls);
+      }
       hud.closeAll();
       hud.setCue(null);
       frozenSwitch = false;
