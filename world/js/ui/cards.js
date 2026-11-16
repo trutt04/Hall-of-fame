@@ -185,9 +185,10 @@ export function createCards(ctx, api) {
   }
 
   const BUILDINGS = {
-    hof: ['Hall of Fame', 'Every champion, every record and every bad decision since the league began. It has its own page.', 'Visit the Hall of Fame'],
-    graveyard: ['The Graveyard', 'Here lie the seasons that ended in last place. Flowers are welcome. Trash talk is expected.', 'See the full history'],
-    office: ['League Office', 'Rules, rulings and complaints. Complaints are read aloud for fun and then filed in the bin.', 'Visit the league page'],
+    // [title, blurb, button label, the place on the Hall of Fame page that the button opens]
+    hof: ['Hall of Fame', 'The picks that carried a team, cast in gold. It has its own page, and its own soundtrack.', 'Visit the Hall of Fame', 'hall'],
+    graveyard: ['The Graveyard', 'Here lie the picks, not the men. Flowers are welcome. Trash talk is expected.', 'Visit the Graveyard', 'grave'],
+    office: ['League Office', 'The original standings podium. Complaints are read aloud for fun and then filed in the bin.', 'Visit the League Office', 'league'],
   };
   function building(e) {
     const b = BUILDINGS[e.which] || BUILDINGS.hof;
@@ -195,7 +196,7 @@ export function createCards(ctx, api) {
       kicker: 'On the plaza',
       title: b[0],
       lines: [b[1]],
-      actions: [{ label: b[2], href: hallOfFameUrl(), newTab: true }, { label: 'Close', primary: false }],
+      actions: [{ label: b[2], href: hallOfFameUrl(b[3]), newTab: true }, { label: 'Close', primary: false }],
     });
   }
 

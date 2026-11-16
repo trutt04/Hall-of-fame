@@ -51,6 +51,9 @@ button:focus-visible,a:focus-visible{outline:3px solid var(--flare);outline-offs
 button.on{background:var(--gold);color:var(--night);border-color:var(--gold)}
 #music{border-style:dashed}
 #music[aria-pressed="true"]{background:var(--flare);border-color:var(--flare);border-style:solid;color:var(--night)}
+.nav a.world{font-family:var(--body);font-weight:700;font-size:15px;line-height:normal;letter-spacing:.06em;text-transform:uppercase;text-decoration:none;
+  color:var(--gold);background:rgba(10,16,34,.75);border:1.5px solid var(--gold);border-radius:999px;padding:8px 14px;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.nav a.world:hover{background:var(--gold);color:var(--night)}
 
 .caption{position:fixed;left:16px;bottom:16px;max-width:min(440px,calc(100% - 32px));padding:14px 16px;background:var(--panel);
   border-left:4px solid var(--gold);border-radius:4px}
@@ -86,7 +89,9 @@ button.on{background:var(--gold);color:var(--night);border-color:var(--gold)}
   .caption .hint{display:none}
   .card{background:rgba(10,16,34,.97)}
   button{padding:7px 11px;font-size:13.5px}
+  .nav a.world{padding:7px 11px;font-size:13.5px}
 }
+@media (max-width:380px){.nav a.world{padding:7px 8px;letter-spacing:.01em}}
 @media (max-height:480px){
   .caption{max-width:min(330px,calc(100% - 32px));padding:9px 12px;font-size:14.5px}
   .caption h1{font-size:18px}
@@ -108,6 +113,7 @@ button.on{background:var(--gold);color:var(--night);border-color:var(--gold)}
     <button type="button" data-zone="grave">Graveyard</button>
     <button type="button" data-zone="league">League Office</button>
     <button type="button" id="music" aria-pressed="false" hidden>Beat: off</button>
+    <a class="world" href="world/">League World</a>
   </div>
 </header>
 
@@ -841,6 +847,9 @@ function goZone(z){
   closeCard();
 }
 Array.prototype.forEach.call(document.querySelectorAll('[data-zone]'),function(b){b.addEventListener('click',function(){goZone(b.getAttribute('data-zone'));});});
+/* A link ending in #hall, #grave or #league opens straight on that place. League World's buildings use this. */
+function zoneFromHash(){var z=(location.hash||'').slice(1);if(Object.prototype.hasOwnProperty.call(ZONES,z)&&z!==zone)goZone(z);}
+window.addEventListener('hashchange',zoneFromHash);zoneFromHash();
 
 var raycaster=new THREE.Raycaster(), mouse=new THREE.Vector2();
 function getIntersect(e){

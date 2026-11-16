@@ -215,10 +215,14 @@ export function matchupParts(model, team) {
   };
 }
 
-/** The Hall of Fame page. The private preview build overrides the path. */
-export function hallOfFameUrl() {
+/**
+ * The Hall of Fame page, optionally opened on one of its places: 'hall', 'grave' or 'league'.
+ * The private preview build overrides the path.
+ */
+export function hallOfFameUrl(place) {
   const preview = typeof window !== 'undefined' ? window.__LW_PREVIEW : null;
-  return (preview && preview.hallOfFame) || PATHS.hallOfFame;
+  const base = (preview && preview.hallOfFame) || PATHS.hallOfFame;
+  return place ? base.split('#')[0] + '#' + place : base;
 }
 
 export function sampleTag() {

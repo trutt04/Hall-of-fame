@@ -13,10 +13,11 @@ Nothing in the world is edited by hand. It is all built from ESPN data.
 
 ## Where it lives
 
-- The world is the `world/` folder. Once this is merged to `main`, it is at
-  `https://trutt04.github.io/Hall-of-fame/world/`.
-- The original Hall of Fame page (`index.html` and `beat.mp3` at the top of the repo) is not
-  changed by any of this.
+- The world is the `world/` folder. It is at `https://trutt04.github.io/Hall-of-fame/world/`.
+- The original Hall of Fame page (`index.html` and `beat.mp3` at the top of the repo) is the
+  same as before, with two small additions: a "League World" button in its header, and links
+  ending in `#hall`, `#grave` or `#league` now open it on that section. The three buildings on
+  the world's plaza use those links.
 
 ## How the ESPN data gets in
 
