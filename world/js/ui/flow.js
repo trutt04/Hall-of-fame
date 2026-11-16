@@ -38,14 +38,13 @@ let starting = null;
 export function startFlow(ctx) {
   if (active) return Promise.resolve(active);
   if (starting) return starting;
-  starting = new Promise((resolve, reject) => {
+  const attempt = new Promise((resolve, reject) => {
     let settled = false;
     let teardown = null;
     const fail = (err) => {
       if (settled) return false;
       settled = true;
       clearTimeout(timer);
-      starting = null;
       try {
         if (teardown) teardown();
       } catch (e) { /* nothing more to undo */ }
@@ -56,7 +55,6 @@ export function startFlow(ctx) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
-      starting = null;
       active = api;
       try {
         window.__lwFlow = api;
@@ -71,7 +69,14 @@ export function startFlow(ctx) {
       fail(err);
     }
   });
-  return starting;
+  // The first screen can come up (or fail) before the promise above even exists, so the
+  // "starting" marker is cleared here, once it has settled either way.
+  starting = attempt;
+  const clear = () => {
+    if (starting === attempt) starting = null;
+  };
+  attempt.then(clear, clear);
+  return attempt;
 }
 
 export function stopFlow() {

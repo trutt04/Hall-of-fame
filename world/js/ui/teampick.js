@@ -99,6 +99,8 @@ export function openTeamPicker(ctx, opts = {}) {
     stepConfirm.append(cKicker, cName, cLine, withSound, quietly, back);
 
     function showConfirm(t) {
+      // the tap that opened the picker (from a card or the menu) must never land on a row beneath it
+      if (performance.now() - openedAt < 350) return;
       chosen = t;
       if (t) {
         cKicker.textContent = rankBig(t.rank) + ' place · ' + tierName(t.tier);
@@ -148,6 +150,7 @@ export function openTeamPicker(ctx, opts = {}) {
     });
     root.addEventListener('keyup', (e) => e.stopPropagation());
 
+    const openedAt = performance.now();
     let closed = false;
     function finish(result) {
       if (closed) return;

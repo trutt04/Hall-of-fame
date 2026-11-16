@@ -305,7 +305,7 @@ export function createDressing(w) {
     };
     const R = P.culdesac.r;
     const aligned = dx > 0.97; // the line runs straight down the middle of the spur
-    const from = aligned ? -(R + 22) : -R + 0.6;
+    const from = aligned ? -(R + 19.4) : -R + 0.6;
     for (let d = from; d < R + 3.2; d += 2.1) dash(cut.a[0] + dx * d, cut.a[1] + dz * d, cut.a[0] + dx * Math.min(R + 3.4, d + 1.4), cut.a[1] + dz * Math.min(R + 3.4, d + 1.4), 0.3);
     const geo = new THREE.BufferGeometry();
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
@@ -339,7 +339,11 @@ export function createDressing(w) {
     const half = Math.min(R - 0.8, 10.4);
     letter(half, half * 0.22, cut.a[0] - dx * 3.4 + cut.inSide[0] * (half / 2 + 0.5), cut.a[1] - dz * 3.4 + cut.inSide[1] * (half / 2 + 0.5), -cut.angle - Math.PI / 2);
     // along the playoff side of the line: upright from uphill, where the Boulevard comes down
-    if (aligned) letter(12.8, 2.8, cut.a[0] - dx * (R + 10.5) + cut.inSide[0] * 1.9, cut.a[1] - dz * (R + 10.5) + cut.inSide[1] * 1.9, Math.PI - cut.angle);
+    if (aligned) {
+      letter(12.8, 2.8, cut.a[0] - dx * (R + 9.5) + cut.inSide[0] * 1.9, cut.a[1] - dz * (R + 9.5) + cut.inSide[1] * 1.9, Math.PI - cut.angle);
+      // and right across the mouth of the street: the first thing anyone walking in sees
+      letter(6.6, 1.45, cut.a[0] - dx * (R + 21.2), cut.a[1] - dz * (R + 21.2), -cut.angle - Math.PI / 2);
+    }
     else letter(9, 2, cut.a[0] + dx * 1.5 + cut.inSide[0] * 1.6, cut.a[1] + dz * 1.5 + cut.inSide[1] * 1.6, Math.PI - cut.angle);
     // velvet rope: this side is the guest list
     const rope = createVelvetRope(4.4);

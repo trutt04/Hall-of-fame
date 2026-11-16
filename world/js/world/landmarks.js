@@ -93,8 +93,10 @@ export function createLandmarks(w) {
         onUse: () => {
           const to = dumpTarget();
           if (!to) return;
+          // sight down the middle of the valley, on a line that clears the plaza's scoreboards
           const from = tele.position.clone();
-          from.y += 1.7;
+          from.x = tele.entry.lot.x; // straight out through the open gates, over the statue
+          from.y += 3.2;
           scope(from, to, 10, 0.5, 'telescope');
         },
       });

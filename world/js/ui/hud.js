@@ -62,6 +62,21 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 // so a button tapped while a thumb holds the joystick would otherwise never fire. The click that
 // may follow our pointerup is swallowed (one tap, one activation); a click with no pointer pair
 // (keyboard Enter or Space, assistive tech) still activates.
+//
+// When an activation changes what is under the finger (a panel opens, a card closes), the browser's
+// follow-up click would land on whatever is there now. That ghost click is swallowed for everyone.
+let ghostUntil = 0;
+let ghostX = 0;
+let ghostY = 0;
+if (typeof document !== 'undefined') {
+  document.addEventListener('click', (e) => {
+    if (e.detail !== 0 && performance.now() < ghostUntil && Math.hypot(e.clientX - ghostX, e.clientY - ghostY) < 44) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+}
+
 export function onTap(el, fn) {
   let id = null;
   let sx = 0;
@@ -78,6 +93,9 @@ export function onTap(el, fn) {
     id = null;
     if (Math.hypot(e.clientX - sx, e.clientY - sy) > 18) return;
     last = performance.now();
+    ghostUntil = last + 650;
+    ghostX = e.clientX;
+    ghostY = e.clientY;
     fn(e);
   });
   el.addEventListener('pointercancel', (e) => {
