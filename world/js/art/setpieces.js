@@ -1,7 +1,7 @@
 // Set pieces: the crown, the throne, the fountain and the rest of the town furniture.
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, TAU, shade, mix } from './geo.js';
-import { flatMat, glowMat, addMat, glassMat, makeAddMaterial } from './materials.js';
+import { flatMat, glowMat, addMat, glassMat, makeAddMaterial, makeSelfLitMaterial } from './materials.js';
 import { rng, motion, flick, stepRand, makeProp, addMesh, makeBlob, makeSparkles, makeParticles, halo, beam, isReducedMotion, V3 } from './util.js';
 import {
   C, drawBag, drawTree, drawBush, drawTrashCan, drawLawnChair, drawPigeon, drawTrafficCone, drawGatePillar, drawGateLeaf, drawFootball,
@@ -64,8 +64,7 @@ export function createCrown() {
     g.at(0, 1.04, 0, -a); g.cyl(R + 0.1, 0, 0, big ? 0.24 : 0.18, 0.08, L, { seg: 6, rz: -Math.PI / 2 }); g.restore();
     gems.at(0, 1.04, 0, -a); gems.sphere(R + 0.21, 0, 0, big ? 0.19 : 0.14, gemCols[i], { seg: 4, rings: 2, sy: big ? 1.3 : 1 }); gems.restore();
   }
-  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, emissive: 0x8a5c08, emissiveIntensity: 0.35 });
-  mat.name = 'lw-crown'; own.push(mat);
+  const mat = makeSelfLitMaterial(0.3); own.push(mat);
   addMesh(spin, g, mat, own, 'crown');
   addMesh(spin, gems, glowMat, own, 'gems');
   // glory: three crossed fans of rays and a soft halo
@@ -74,11 +73,10 @@ export function createCrown() {
     for (let i = 0; i < 12; i++) {
       const a = (i * TAU) / 12 + k * 0.17, len = i % 2 ? 4.4 : 6.4, w = 0.13;
       const c = Math.cos(a), s = Math.sin(a), r0 = 1.4;
-      fx.triG([c * r0 - s * w, s * r0 + c * w, 0], [c * r0 + s * w, s * r0 - c * w, 0], [c * len, s * len, 0], 0xffdf8a, 0xffdf8a, 0xffc94d, 0.24, 0.24, 0);
+      fx.triG([c * r0 - s * w, s * r0 + c * w, 0], [c * r0 + s * w, s * r0 - c * w, 0], [c * len, s * len, 0], 0xffd35c, 0xffd35c, 0xffb82e, 0.34, 0.34, 0);
     }
     fx.restore();
   }
-  halo(fx, 0, 2.3, 0, 3.7, 0xffc94d, 0.07, 1);
   const fxMat = makeAddMaterial(0xffffff, 1); own.push(fxMat);
   const rays = addMesh(group, fx, fxMat, own, 'glory');
   rays.frustumCulled = false;
@@ -93,8 +91,8 @@ export function createCrown() {
     spin.rotation.x = Math.cos(t * 0.47) * 0.04 * m;
     rays.rotation.y = -t * 0.12 * m;
     rays.position.y = spin.position.y;
-    fxMat.opacity = (0.5 + 0.5 * night) * (0.8 + 0.2 * Math.sin(t * 1.7) * m);
-    mat.emissiveIntensity = 0.35 + 0.55 * night + 0.06 * Math.sin(t * 2.3) * m;
+    fxMat.opacity = (0.45 + 0.55 * night) * (0.8 + 0.2 * Math.sin(t * 1.7) * m);
+    mat.userData.glow.value = 0.28 + 0.5 * night + 0.05 * Math.sin(t * 2.3) * m;
     sp.update(t);
   }, {
     setNight(a) { night = Math.max(0, Math.min(1, a || 0)); },
@@ -209,7 +207,7 @@ export function createFountain() {
   const N = 30, drops = makeParticles(dgeo, flatMat, N), k = new Float32Array(N * 3), r = rng(12);
   drops.mesh.name = 'droplets'; drops.mesh.frustumCulled = true; drops.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 2, 0), 4);
   for (let i = 0; i < N; i++) { k[i * 3] = r() * TAU; k[i * 3 + 1] = r(); k[i * 3 + 2] = 0.7 + r() * 0.5; }
-  group.add(drops.mesh);
+  group.add(drops.mesh); own.push(drops.mesh);
   const prop = makeProp(group, own, (dt, t) => {
     const m = 0.3 + 0.7 * motion();
     for (let i = 0; i < N; i++) {
@@ -228,7 +226,8 @@ export function createFountain() {
 }
 
 // ---- streetlight ----------------------------------------------------------------------------------------------
-export function createStreetlight({ flicker = false } = {}) {
+let streetlights = 0;
+export function createStreetlight({ flicker = false, seed } = {}) {
   const group = new THREE.Group(); group.name = 'streetlight';
   const own = [], g = new Geo(), l = new Geo({ alpha: true }), I = C.iron;
   g.cyl(0, 0, 0, 0.2, 0.14, I, { seg: 6 });
@@ -250,7 +249,7 @@ export function createStreetlight({ flicker = false } = {}) {
   const mat = makeAddMaterial(0xffffff, 1); own.push(mat);
   const glow = addMesh(group, l, mat, own, 'glow');
   let on = true, level = 1;
-  const seed = Math.floor(Math.random() * 100);
+  if (seed === undefined) seed = ++streetlights;   // so two bad bulbs never blink in step
   return makeProp(group, own, (dt, t) => {
     if (!on) return;
     let k = 1;
@@ -299,7 +298,7 @@ export function createBurningBarrel() {
   const N = 10, embers = makeParticles(egeo, addMat, N), k = new Float32Array(N * 3), r = rng(4);
   embers.mesh.name = 'embers'; embers.mesh.frustumCulled = true; embers.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 2, 0), 3);
   for (let i = 0; i < N; i++) { k[i * 3] = r(); k[i * 3 + 1] = r() * TAU; k[i * 3 + 2] = 0.6 + r() * 0.8; }
-  group.add(embers.mesh);
+  group.add(embers.mesh); own.push(embers.mesh);
   let night = 0;
   const prop = makeProp(group, own, (dt, t) => {
     const m = motion(), a = flick(t, 1), b = flick(t * 1.3, 5);
@@ -341,7 +340,7 @@ export function createRainCloud({ radius = 5, height = 9, seed = 1 } = {}) {
   const N = Math.max(16, Math.min(90, Math.round(R * R * 2.2))), rain = makeParticles(sgeo, flatMat, N), k = new Float32Array(N * 3);
   rain.mesh.name = 'rain'; rain.mesh.frustumCulled = true; rain.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, height / 2, 0), Math.max(R, height / 2) + 2);
   for (let i = 0; i < N; i++) { const a = r() * TAU, d = Math.sqrt(r()) * R * 0.85; k[i * 3] = Math.cos(a) * d; k[i * 3 + 1] = Math.sin(a) * d; k[i * 3 + 2] = r(); }
-  group.add(rain.mesh);
+  group.add(rain.mesh); own.push(rain.mesh);
   // lightning bolt
   const b = new Geo(), pts = [[0, height - R * 0.25, 0], [0.5, height * 0.74, 0.2], [-0.3, height * 0.6, -0.1], [0.45, height * 0.4, 0.15], [-0.15, height * 0.22, 0], [0.2, 0.1, 0.1]];
   for (let i = 0; i < pts.length - 1; i++) { const p = pts[i], q = pts[i + 1], w = 0.16 - i * 0.02; b.quad2([p[0] - w, p[1], p[2]], [q[0] - w * 0.7, q[1], q[2]], [q[0] + w * 0.7, q[1], q[2]], [p[0] + w, p[1], p[2]], i % 2 ? 0xfff6c8 : 0xffffff); b.quad2([p[0], p[1], p[2] - w], [q[0], q[1], q[2] - w * 0.7], [q[0], q[1], q[2] + w * 0.7], [p[0], p[1], p[2] + w], 0xfff6c8); }
@@ -532,7 +531,7 @@ export function createOuthouse() {
   addMesh(group, g, flatMat, own, 'outhouse');
   const flies = makeFlySwarm(3, 0.5, 2.4, 5);
   flies.mesh.position.set(0.5, 0, 0.4);
-  group.add(flies.mesh);
+  group.add(flies.mesh); own.push(flies.mesh);
   return makeProp(group, own, flies.update, {
     anchors: { sign: V3(0, 2.37, 0.685), door: V3(0, 0, 1.3) },
     signSize: { w: 0.88, h: 0.26 },
@@ -578,13 +577,13 @@ export function createVelvetRope(length = 4) {
   const own = [], g = new Geo(), len = Math.max(1, length), n = Math.max(1, Math.round(len / 2.2)), colliders = [];
   for (let i = 0; i <= n; i++) {
     const x = -len / 2 + (len * i) / n;
-    g.lathe(x, 0, 0, [[0.19, 0, C.goldLo], [0.19, 0.04, C.gold], [0.06, 0.1, C.gold], [0.035, 0.2, C.gold], [0.035, 0.92, C.goldHi], [0.07, 0.96]], C.gold, { seg: 6 });
-    g.sphere(x, 1.02, 0, 0.07, C.goldHi, { seg: 5, rings: 3 });
+    g.lathe(x, 0, 0, [[0.19, 0, C.goldLo], [0.19, 0.04, C.gold], [0.045, 0.12, C.gold], [0.035, 0.92, C.goldHi], [0.07, 0.96]], C.gold, { seg: 6 });
+    g.sphere(x, 1.02, 0, 0.075, C.goldHi, { seg: 4, rings: 2 });
     colliders.push({ x, z: 0, r: 0.2 });
     if (i < n) {
       const x1 = -len / 2 + (len * (i + 1)) / n, pts = [];
       for (let k = 0; k <= 5; k++) { const t = k / 5; pts.push([x + (x1 - x) * t, 0.9 - Math.sin(t * Math.PI) * 0.26, 0]); }
-      g.tube(pts, 0.04, C.velvet, { seg: 5 });
+      g.tube(pts, 0.042, C.velvet, { seg: 4 });
     }
   }
   const mesh = addMesh(group, g, flatMat, own, 'rope');
@@ -619,13 +618,13 @@ export function createGrill() {
   g.cyl(-0.14, 0.87, 0.06, 0.09, 0.04, 0x6b3a24, { seg: 6 }); g.cyl(0.12, 0.87, -0.1, 0.09, 0.04, 0x7a4428, { seg: 6 });
   g.cyl(0.14, 0.9, 0.14, 0.03, 0.2, 0xc4553e, { seg: 4, rz: Math.PI / 2 });
   addMesh(group, g, flatMat, own, 'grill');
-  for (let i = 0; i < 6; i++) { const a = i * 1.1; f.box(Math.cos(a) * 0.2, 0.862, Math.sin(a) * 0.2, 0.08, 0.004, 0.05, i % 2 ? 0xff7a1a : 0xffb020, { ry: a }); }
+  for (let i = 0; i < 6; i++) { const a = i * 1.1, x = Math.cos(a) * 0.2, z = Math.sin(a) * 0.2; f.quad([x - 0.04, 0.866, z + 0.03], [x + 0.04, 0.866, z + 0.03], [x + 0.04, 0.866, z - 0.03], [x - 0.04, 0.866, z - 0.03], i % 2 ? 0xff7a1a : 0xffb020); }
   addMesh(group, f, glowMat, own, 'coals');
   const pg = new Geo(); pg.ico(0, 0, 0, 0.12, 0xd9dcdf, { jitter: 0.15, rnd: rng(3) });
   const pgeo = pg.build(); own.push(pgeo);
   const N = 6, puffs = makeParticles(pgeo, flatMat, N);
   puffs.mesh.name = 'smoke'; puffs.mesh.frustumCulled = true; puffs.mesh.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 2, 0), 2.5);
-  group.add(puffs.mesh);
+  group.add(puffs.mesh); own.push(puffs.mesh);
   const prop = makeProp(group, own, (dt, t) => {
     const m = 0.35 + 0.65 * motion();
     for (let i = 0; i < N; i++) {

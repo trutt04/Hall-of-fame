@@ -126,18 +126,19 @@ export function createCritters(kind, { count = 4, radius = 4, seed = 1 } = {}) {
     const swarm = makeFlySwarm(N, Math.min(radius, 3), 1.1, seed);
     group.add(swarm.mesh);
     swarm.update(0, 0);
-    return makeProp(group, [], swarm.update);
+    return makeProp(group, [swarm.mesh], swarm.update, { kind, count: N });
   }
 
   if (kind === 'seagull') {
     const body = instanced(geoFor('seagull'), flatMat, N, radius + 4, 8), wings = instanced(geoFor('seagullWing'), flatMat, N, radius + 4, 8);
     body.name = 'gulls'; wings.name = 'gull-wings';
     group.add(body, wings);
+    const ownGulls = [body, wings];
     const ang = new Float32Array(N), w = new Float32Array(N), orb = new Float32Array(N), h = new Float32Array(N), dip = new Float32Array(N), next = new Float32Array(N);
     for (let i = 0; i < N; i++) {
       ang[i] = r() * TAU; w[i] = (0.28 + r() * 0.25) * (r() < 0.5 ? -1 : 1); orb[i] = radius * (0.45 + 0.55 * r()); h[i] = 6 + r() * 4; dip[i] = -1; next[i] = 3 + r() * 9;
     }
-    return started(makeProp(group, [], (dt, t) => {
+    return started(makeProp(group, ownGulls, (dt, t) => {
       const m = motion();
       for (let i = 0; i < N; i++) {
         ang[i] += w[i] * dt;
@@ -153,7 +154,7 @@ export function createCritters(kind, { count = 4, radius = 4, seed = 1 } = {}) {
         put(wings, i, x, y, z, yaw, d * 0.35, roll, 1.3, 1.3 * flap, 1.3);
       }
       body.instanceMatrix.needsUpdate = true; wings.instanceMatrix.needsUpdate = true;
-    }));
+    }, { kind, count: N }));
   }
 
   const cfg = WALK[kind] || WALK.pigeon;
@@ -172,7 +173,7 @@ export function createCritters(kind, { count = 4, radius = 4, seed = 1 } = {}) {
     x[i] = Math.cos(a) * d; z[i] = Math.sin(a) * d; hd[i] = r() * TAU; ph[i] = r() * 10;
     mode[i] = r() < 0.5 ? 0 : 1; timer[i] = r() * 2; pickTarget(i);
   }
-  return started(makeProp(group, [], (dt, t) => {
+  return started(makeProp(group, [body, blobs], (dt, t) => {
     const m = motion();
     for (let i = 0; i < N; i++) {
       let y = 0, pitch = 0, roll = 0;
@@ -210,5 +211,5 @@ export function createCritters(kind, { count = 4, radius = 4, seed = 1 } = {}) {
       put(blobs, i, x[i], 0.03, z[i], hd[i], 0, 0, cfg.blob[0] * s * k, 1, cfg.blob[1] * s * k);
     }
     body.instanceMatrix.needsUpdate = true; blobs.instanceMatrix.needsUpdate = true;
-  }));
+  }, { kind, count: N }));
 }

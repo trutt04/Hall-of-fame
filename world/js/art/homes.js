@@ -517,14 +517,16 @@ function buildHeights(color, seed) {
   S.box(sgx, 0.42, 7.63, 1.15, 0.42, 0.04, C.white, { bottom: true });
   S.text('#1 LAWN', sgx, 0.54, 7.655, 0.034, C.leafDk);
   // a flag on an angled pole, upstairs between the windows
-  const fpx = (mirror ? -1 : 1) * (style === 0 ? -2.15 : 1.45), fz = 3.5;
+  const fpx = (mirror ? -1 : 1) * (style === 0 ? -2.15 : 1.45), fz = 3.5, fside = mirror ? -1 : 1;
+  const tipX = fpx + fside * 0.75, tipY = Y0 + 4.5, tipZ = fz + 1.05;
   S.box(fpx, Y0 + 3.5, fz + 0.04, 0.16, 0.2, 0.08, trim);
-  S.tube([[fpx, Y0 + 3.6, fz + 0.05], [fpx, Y0 + 4.55, fz + 1.3]], 0.03, C.metalLt, { seg: 3 });
-  S.sphere(fpx, Y0 + 4.58, fz + 1.34, 0.06, C.gold, { seg: 4, rings: 2 });
-  const fg = flagGeo(1.25, 0.85, color, {});
+  S.tube([[fpx, Y0 + 3.6, fz + 0.05], [tipX, tipY, tipZ]], 0.03, C.metalLt, { seg: 3 });
+  S.sphere(tipX + fside * 0.03, tipY + 0.04, tipZ + 0.04, 0.06, C.gold, { seg: 4, rings: 2 });
+  const fg = flagGeo(1.2, 0.85, color, {});
   const flag = fg.mesh(flatMat); flag.name = 'flag';
-  flag.position.set(fpx, Y0 + 4.53, fz + 1.27);
-  flag.rotation.set(0, Math.PI / 2, -0.63);
+  flag.position.set(tipX, tipY - 0.03, tipZ);
+  const flagYaw = fside > 0 ? 2.214 : 0.927;
+  flag.rotation.set(0, flagYaw, -0.6);
   S.shadeY(0, 2.4, 0.9);
 
   const wallX = dX + 1.3;
@@ -543,7 +545,7 @@ function buildHeights(color, seed) {
     },
     update(dt, t) {
       const m = motion();
-      flag.rotation.y = Math.PI / 2 + Math.sin(t * 1.3 + seed) * 0.16 * m;
+      flag.rotation.y = flagYaw + Math.sin(t * 1.3 + seed) * 0.16 * m;
       flag.rotation.x = Math.sin(t * 2.1 + seed) * 0.05 * m;
     },
   });
@@ -977,6 +979,10 @@ function buildDump(color, seed) {
 }
 
 export function createHome(tier, { color = 0xd7263d, seed = 1 } = {}) {
+  // seed may be a team id, a slot index or a string: fold it to a small stable number
+  if (typeof seed === 'string') { let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) | 0; seed = Math.abs(h) % 9973; }
+  seed = Number.isFinite(+seed) ? Math.abs(Math.floor(+seed)) % 100000 : 1;
+  color = Number.isFinite(+color) ? +color : 0xd7263d;
   switch (tier) {
     case 'hill': return buildHill(color, seed);
     case 'heights': return buildHeights(color, seed);

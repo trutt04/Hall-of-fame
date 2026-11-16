@@ -334,3 +334,56 @@ Nothing below is built in phase 1, but phase 1 code must not block it:
 - **Mini games (phase 3):** interactable places register through `interact.register({ id, position,
   radius, label, onUse })`. A mini game is just another `onUse`.
 - **First place perks (phase 3):** perks hang off `model.order[0]`, never off a team name.
+
+## Contract 7: the seam between the world and the UI flow
+
+Two halves meet here. The **world** side (`main.js`, `core/`, `world/`) loads data, builds the
+3D town and owns everything in the scene. The **flow** side (`ui/flow.js` and friends) owns what
+the visitor experiences as screens: the team picker, the arrival sequence, the recap, the
+standings/map/newspaper panels, the home cards and the no-WebGL fallback.
+
+`main.js` boots the world, loads data, derives the model, calls `town.apply(model)`, then does:
+
+```js
+const { startFlow } = await import('./ui/flow.js');
+startFlow(ctx);
+```
+
+```js
+ctx = {
+  store, hud, camera, player, audio, interact, sky, engine, terrain, layout,
+  town, world, model,          // model = the current derived model (also store.get('model'))
+  history, status,             // raw history.json / status.json (may be null)
+}
+
+// world side provides
+town.apply(model)              // builds or rebuilds everything data-driven. Safe to call again when data changes.
+town.getHome(teamId) -> HomeInfo | null
+town.homes() -> [HomeInfo]     // rank order, best first
+HomeInfo = {
+  teamId, rank, tier, x, y, z, facing,
+  door:   { x, y, z },         // world position of the front door
+  street: { x, y, z, facing }, // a spot on the street in front of the home: where arrivals and fast travel land
+  view:   { pos: [x, y, z], look: [x, y, z] },   // a flattering camera framing of this home
+}
+world.places() -> [{ id, name, kind, x, z, facing }]   // fast-travel targets: plaza, each neighborhood, the boards
+world.boulevard() -> [[x, y, z], ...]                  // the ride from the crown down to the dump, in order
+world.setPlayerTeam(teamId | null)   // the player's avatar becomes that team's (color, number = rank, tier
+                                     // accessory) and that team's resident NPC steps aside. null = neutral visitor.
+world.idleCamera(on)                 // slow aerial drift over the hillside, used behind the team picker
+
+// events on the store (both sides may listen)
+store.on('model', (model) => {})     // after data changed and town.apply ran
+store.on('use', (e) => {})           // the visitor used something in the world:
+//   { kind: 'home', teamId }        mailbox, door or resident of a home
+//   { kind: 'newspaper' }
+//   { kind: 'standings' } | { kind: 'matchups' }
+//   { kind: 'building', which: 'hof' | 'graveyard' | 'office' }
+//   { kind: 'statue' } | { kind: 'outhouse', season } | { kind: 'plaque', teamId }
+//   { kind: 'throne', allowed: bool } | { kind: 'telescope' } | { kind: 'periscope' }
+// The world side handles its own 3D reactions (sitting, camera cuts). The flow side opens cards and panels.
+
+// flow side provides
+startFlow(ctx)                       // team picker -> arrival -> recap -> free roam; wires HUD buttons and 'use' cards
+renderFallback(el, { league, history, model })   // plain standings + matchups + headlines when WebGL is unavailable
+```

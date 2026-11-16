@@ -17,7 +17,7 @@ import { rectDistance, ROAD_WIDTH } from './layout.js';
 const CELL = 3; // core grid cell, meters
 const COARSE = 24; // outskirts cell, a multiple of CELL
 const PAD_FLAT = 3; // every lot is flat this far beyond its rectangle
-const PAD_BLEND = 4.5;
+const PAD_BLEND = 7;
 
 const LIFT = { pad: 0.035, path: 0.05, road: 0.07, paving: 0.09 };
 
@@ -29,8 +29,8 @@ const GROUND = {
     bubble: C(PALETTE.bubble.grass), park: C(PALETTE.park.grass), dump: C(PALETTE.dump.grass).lerp(C(0x8a8458), 0.45),
   },
   cliff: {
-    hill: C(0xc4ae86), heights: C(0xb9a47f), plaza: C(0xa3936f),
-    bubble: C(0xa39472), park: C(0x7d6c50), dump: C(0x4c463a),
+    hill: C(0xb5a686), heights: C(0xa89d82), plaza: C(0x988f76),
+    bubble: C(0x9c9274), park: C(0x7d6f55), dump: C(0x5a5446),
   },
   dirt: C(PALETTE.park.path),
   mud: C(0x7b6f57),
@@ -370,14 +370,14 @@ export function createTerrain(layout, opts = {}) {
     }
     if (rd < 3.2) out.lerp(GROUND.verge, 0.22 * (1 - smoothstep(1, 3.2, rd)) * (1 - zw.dump));
     out.multiplyScalar(0.84 + 0.16 * smoothstep(0.7, 0.96, ny));
-    const steep = 1 - smoothstep(0.52, 0.76, ny);
+    const steep = 1 - smoothstep(0.5, 0.72, ny);
     if (steep > 0) {
       const strata = 0.86 + 0.22 * valueNoise2(cx * 0.21 + 9, cy * 0.9 + cz * 0.07);
       col.setRGB(cr * strata, cg * strata, cb * strata);
-      out.lerp(col, steep * 0.95);
+      out.lerp(col, steep * 0.9);
     }
-    const outside = Math.max(smoothstep(74, 110, Math.abs(cx)), smoothstep(bounds.maxZ, bounds.maxZ + 40, cz), smoothstep(-bounds.minZ, -bounds.minZ + 40, -cz));
-    if (outside > 0) out.lerp(GROUND.forest, outside * 0.7);
+    const outside = Math.max(smoothstep(72, 95, Math.abs(cx)), smoothstep(bounds.maxZ - 2, bounds.maxZ + 18, cz), smoothstep(-bounds.minZ - 2, -bounds.minZ + 16, -cz));
+    if (outside > 0) out.lerp(GROUND.forest, outside * 0.85);
     out.multiplyScalar(0.955 + 0.09 * rng());
     return out;
   }

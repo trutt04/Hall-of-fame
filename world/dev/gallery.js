@@ -1,7 +1,9 @@
 // Prop gallery: every art export on a ground plane under the world's lighting.
 //   ?show=homes | reactive | setpieces | characters | all | <singleName>   (default homes)
 //   ?night=1        dim the lights, glow the windows, turn porch lights on
-//   ?az=&el=&dist=&cx=&cy=&cz=   camera (degrees / meters), ?t= fixed time, ?labels=0, ?ref=0, ?rm=1 reduced motion
+//   ?az=&el=&dist=&cx=&cy=&cz=   camera (degrees / meters), ?t= fixed time, ?labels=0, ?table=0, ?ref=0 (no scale avatars),
+//   ?rm=1 reduced motion, ?light=2 light multiplier, ?porch=win|lose|neutral, ?on=1 lamps on by day, ?anchors=1 show home anchors and colliders,
+//   ?row=<meters> row width before wrapping
 // Drag to orbit, wheel or pinch to zoom, right-drag (or two fingers) to pan.
 import * as THREE from '../lib/three.module.min.js';
 import * as ART from '../js/art/index.js';
@@ -123,6 +125,24 @@ const ITEMS = {
     return { o, label: 'garbage truck' + (tilt ? ' tilted' : ''), w: 10, ref: true };
   })],
   critters: ['characters', () => ['raccoon', 'seagull', 'dog', 'pigeon', 'fly'].map((k) => ({ o: ART.createCritters(k, { count: k === 'fly' ? 10 : 5, radius: 3, seed: 3 }), label: k, w: 8, d: 8 }))],
+  // how to seat an avatar: put it at anchors.seat and drop it by avatar.sitOffset
+  seated: ['characters', () => {
+    const mk = (prop, anim, acc, colorIdx) => {
+      const a = ART.createAvatar({ color: col(colorIdx), number: 1, accessory: acc });
+      a.setAnim(anim);
+      const seat = prop.anchors.seat;
+      a.group.position.set(seat.x, seat.y - a.sitOffset, seat.z);
+      prop.group.add(a.group);
+      const update = prop.update;
+      prop.update = (dt, t) => { if (update) update(dt, t); a.update(dt, t); };
+      return prop;
+    };
+    return [
+      { o: mk(ART.createThrone(), 'sit', 'crown', 6), label: 'throne + sit', w: 4 },
+      { o: mk(ART.createLawnChair(), 'sit', 'cap', 1), label: 'chair + sit', w: 2.4 },
+      { o: mk(ART.createLawnChair(), 'lounge', 'visor', 9), label: 'chair + lounge', w: 2.4 },
+    ];
+  }],
   raccoon: ['critter', () => [{ o: ART.createCritters('raccoon', { count: 4, radius: 1.6, seed: 2 }), label: 'raccoon', w: 5, d: 5 }]],
   dog: ['critter', () => [{ o: ART.createCritters('dog', { count: 3, radius: 1.6, seed: 2 }), label: 'dog', w: 5, d: 5 }]],
   pigeon: ['critter', () => [{ o: ART.createCritters('pigeon', { count: 5, radius: 1.2, seed: 2 }), label: 'pigeon', w: 4, d: 4 }]],
@@ -132,7 +152,7 @@ const ITEMS = {
 
 const NEEDS = {
   hill: 'createHome', heights: 'createHome', bubble: 'createHome', park: 'createHome', dump: 'createHome',
-  avatarBack: 'createAvatar', raccoon: 'createCritters', dog: 'createCritters', pigeon: 'createCritters', seagull: 'createCritters', fly: 'createCritters',
+  avatarBack: 'createAvatar', seated: 'createAvatar', raccoon: 'createCritters', dog: 'createCritters', pigeon: 'createCritters', seagull: 'createCritters', fly: 'createCritters',
 };
 const fnOf = (name) => NEEDS[name] || 'create' + name[0].toUpperCase() + name.slice(1);
 
@@ -156,15 +176,17 @@ for (const name of names) {
 
 // ---- layout: rows along X, wrapping toward -Z ----------------------------------------------------
 const box = new THREE.Box3(), size = new THREE.Vector3();
-const maxRow = parseFloat(q.get('row') || (show === 'homes' ? 120 : 46));
+const maxRow = parseFloat(q.get('row') || ({ homes: 95, reactive: 30, setpieces: 60, characters: 24, all: 110 }[show] || 46));
 let cx = 0, cz = 0, rowDepth = 0;
 const rows = [[]];
 for (const e of entries) {
   scene.add(e.o.group);
   e.o.group.updateMatrixWorld(true);
   box.setFromObject(e.o.group); box.getSize(size);
-  e.w = e.w || Math.max(1.6, size.x + 1.2);
-  e.d = e.d || Math.max(1.6, size.z + 1.2);
+  const hinted = !!e.w;
+  e.w = e.w || Math.max(1.6, Math.min(size.x + 1.2, 14));
+  e.d = e.d || Math.max(1.6, Math.min(size.z + 1.2, hinted ? e.w * 1.4 : 14));
+  e.h = Math.min(size.y, 16);
   if (cx > 0 && cx + e.w > maxRow) { rows.push([]); cz -= rowDepth + 2; cx = 0; rowDepth = 0; }
   e.x = cx + e.w / 2; e.z = cz - e.d / 2;
   cx += e.w + 1; rowDepth = Math.max(rowDepth, e.d);
@@ -227,14 +249,18 @@ const table = entries.map((e) => Object.assign({ name: e.label }, measure(e.o.gr
 window.__gallery = { table, missing, entries: entries.length };
 
 // ---- camera ---------------------------------------------------------------------------------------
+// frame the layout footprints, not the raw bounds (beams and halos reach for the sky)
 const all = new THREE.Box3();
-for (const e of entries) all.expandByObject(e.o.group);
+for (const e of entries) {
+  all.expandByPoint(new THREE.Vector3(e.x - e.w / 2, 0, e.z - e.d / 2));
+  all.expandByPoint(new THREE.Vector3(e.x + e.w / 2, e.h + (e.lift || 0), e.z + e.d / 2));
+}
 if (all.isEmpty()) all.set(new THREE.Vector3(-2, 0, -2), new THREE.Vector3(2, 2, 2));
 const center = all.getCenter(new THREE.Vector3()), ext = all.getSize(new THREE.Vector3());
 const orbit = {
   az: (parseFloat(q.get('az') || 22) * Math.PI) / 180,
   el: (parseFloat(q.get('el') || 24) * Math.PI) / 180,
-  dist: parseFloat(q.get('dist') || 0) || Math.max(6, Math.max(ext.x * 0.62, ext.y * 1.5, ext.z * 0.9) / Math.tan((camera.fov * Math.PI) / 360) * 0.62),
+  dist: parseFloat(q.get('dist') || 0) || Math.max(5, Math.max(ext.x * 0.56, ext.y * 1.3, ext.z * 0.8) / Math.tan((camera.fov * Math.PI) / 360) * 0.6),
   target: new THREE.Vector3(q.has('cx') ? parseFloat(q.get('cx')) : center.x, q.has('cy') ? parseFloat(q.get('cy')) : Math.min(center.y, ext.y * 0.45), q.has('cz') ? parseFloat(q.get('cz')) : center.z),
 };
 function placeCamera() {
@@ -284,7 +310,7 @@ const link = (label, params, alt) => {
 for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'all']) link(s, { show: s });
 link(night ? 'day' : 'night', { night: night ? null : '1' }, true);
 const tableEl = document.getElementById('table');
-tableEl.textContent = table.length > 34 ? '' : table.map((r) => `${r.name.padEnd(22)} ${String(r.calls).padStart(2)} calls ${String(r.tris).padStart(6)} tris`).join('\n');
+tableEl.textContent = (table.length > 34 || q.get('table') === '0') ? '' : table.map((r) => `${r.name.padEnd(22)} ${String(r.calls).padStart(2)} calls ${String(r.tris).padStart(6)} tris`).join('\n');
 const labelsEl = document.getElementById('labels');
 const labelEls = wantLabels ? entries.map((e) => { const d = document.createElement('div'); d.className = 'label'; d.textContent = e.label; labelsEl.appendChild(d); return d; }) : [];
 const statsEl = document.getElementById('stats');

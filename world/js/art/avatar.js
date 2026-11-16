@@ -243,7 +243,8 @@ const CLIPS = {
     const br = Math.sin(t * 1.2);
     p[P.hipY] = -0.27; p[P.hipZ] = -0.06; p[P.pitch] = -0.62; p[P.spX] = 0.1 + 0.012 * br; p[P.hdX] = 0.3;
     p[P.lLs] = 1.25; p[P.lRs] = 1.0; p[P.kL] = 0.3; p[P.kR] = 0.75; p[P.lLo] = 0.12; p[P.lRo] = 0.12;
-    p[P.aLs] = 2.75; p[P.aLo] = 0.95; p[P.eL] = 2.25; p[P.aRs] = 2.75; p[P.aRo] = 0.95; p[P.eR] = 2.25;
+    // hands behind the head
+    p[P.aLo] = 2.5; p[P.eL] = 2.3; p[P.aLt] = -2.0; p[P.aRo] = 2.5; p[P.eR] = 2.3; p[P.aRt] = -2.0;
     p[P.hdY] = 0.12 * Math.sin(t * 0.3);
   },
 };
@@ -267,6 +268,7 @@ export function createAvatar({ color = 0xd7263d, number = 1, accessory = null } 
   const head = bone('head', spine, 0, NECK - WAIST, 0);
   const armL = bone('armL', spine, ARM_X, SHOULDER - WAIST, 0), foreL = bone('foreL', armL, 0, ELBOW - SHOULDER, 0);
   const armR = bone('armR', spine, -ARM_X, SHOULDER - WAIST, 0), foreR = bone('foreR', armR, 0, ELBOW - SHOULDER, 0);
+  armL.rotation.order = 'XZY'; armR.rotation.order = 'XZY';   // twist first (about the arm), then out, then swing
   const legL = bone('legL', hips, LEG_X, 0, 0), shinL = bone('shinL', legL, 0, KNEE - HIP, 0);
   const legR = bone('legR', hips, -LEG_X, 0, 0), shinR = bone('shinR', legR, 0, KNEE - HIP, 0);
 

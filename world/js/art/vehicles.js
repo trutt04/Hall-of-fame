@@ -227,7 +227,7 @@ export function createGarbageTruck() {
   const wheels = new THREE.InstancedMesh(getWheelGeo(), flatMat, WH.length);
   wheels.name = 'wheels'; wheels.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   wheels.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.5, 0), 4.5);
-  group.add(wheels);
+  group.add(wheels); own.push(wheels);
   // beacon
   const bc = new Geo({ alpha: true });
   bc.a = 1; bc.ico(0, 2.76, 2.4, 0.15, 0xffb020); halo(bc, 0, 2.76, 2.4, 0.6, 0xffa010, 0.3, 0);
@@ -236,7 +236,7 @@ export function createGarbageTruck() {
   // bags that tumble out when the bed tips
   const NB = 5, bags = new THREE.InstancedMesh(getBagGeo(), flatMat, NB);
   bags.name = 'bags'; bags.instanceMatrix.setUsage(THREE.DynamicDrawUsage); bags.frustumCulled = false; bags.visible = false;
-  group.add(bags);
+  group.add(bags); own.push(bags);
   const prog = new Float32Array(NB);
   group.add(makeBlob(1.7, 4.2));
 

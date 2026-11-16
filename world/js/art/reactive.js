@@ -23,14 +23,14 @@ export function createTrashPile(count = 0) {
     if (n >= 6) g.disc(0.1, 0.03, 0, 1.15, 0x4a4a36, { seg: 7, sx: 1.25 });
     for (let i = 0; i < n; i++) {
       const s = BAG_SPOTS[i];
-      drawBag(g, s[0], s[1] - 0.03, s[2], s[3], BAG_COLORS[i], r, i % 4 === 1 ? C.caution : C.red, 4);
+      drawBag(g, s[0], s[1] - 0.03, s[2], s[3], BAG_COLORS[i], r, i % 4 === 1 ? C.caution : C.red, n <= 6 ? 5 : 4);
     }
     if (n >= 3) { g.box(0.95, 0, 0.75, 0.3, 0.05, 0.3, C.cardboard, { ry: 0.4 }); g.cyl(-0.9, 0.05, 0.85, 0.05, 0.16, C.metalLt, { seg: 5, rz: Math.PI / 2 }); }
     g.shadeY(0, 0.6, 0.82);
     addMesh(group, g, flatMat, own, 'bags');
     if (n >= 4) {
       flies = makeFlySwarm(n >= 9 ? 4 : n >= 6 ? 3 : 2, 0.55 + n * 0.03, 0.9 + (n >= 8 ? 0.5 : 0.2), n);
-      group.add(flies.mesh);
+      group.add(flies.mesh); own.push(flies.mesh);
     }
   }
   return makeProp(group, own, flies ? flies.update : null, { count: n });
@@ -89,7 +89,8 @@ export function createGoalposts(state = 'up') {
 }
 
 // ---- FOR SALE? ---------------------------------------------------------------------------------------
-export function createForSaleSign() {
+let saleSigns = 0;
+export function createForSaleSign({ seed } = {}) {
   const group = new THREE.Group(); group.name = 'forSaleSign';
   const own = [], g = new Geo(), n = new Geo();
   g.box(0, 0, 0, 0.1, 2.05, 0.1, C.white);
@@ -105,7 +106,7 @@ export function createForSaleSign() {
   addMesh(group, g, flatMat, own, 'post');
   const mat = makeGlowMaterial(0xffffff); own.push(mat);
   addMesh(group, n, mat, own, 'neon');
-  const seed = 3;
+  if (seed === undefined) seed = ++saleSigns;   // each sign fails on its own schedule
   return makeProp(group, own, (dt, t) => {
     // failing neon: mostly on, random dropouts, now and then a long sulk
     const m = motion();
@@ -214,15 +215,13 @@ export function createHorseshoe() {
   g.box(0, 0, 0, 0.09, 0.95, 0.07, C.wood);
   g.box(0, 0.62, 0.04, 0.78, 0.86, 0.05, C.woodLt, { bottom: true, back: C.wood });
   g.box(0, 0.6, 0.04, 0.84, 0.05, 0.07, C.wood); g.box(0, 1.47, 0.04, 0.84, 0.05, 0.07, C.wood);
-  const pts = [];
-  for (let i = 0; i <= 8; i++) { const a = Math.PI * (1.0 + 0.16) + (i / 8) * Math.PI * (1 - 0.32) + Math.PI * 0; pts.push([Math.cos(a) * 0.25 * (1 + 0 * i), 1.1 + Math.sin(a) * 0.3, 0.09]); }
   // open end up, so the luck stays in
-  const u = pts.map((p) => [p[0], 2.2 - p[1] - 0.06 + 0.0, p[2]]).map((p) => [p[0], 2.14 - p[1] + 0.0, p[2]]);
+  const u = [];
+  for (let i = 0; i <= 10; i++) { const a = Math.PI * 0.74 + (i / 10) * Math.PI * 1.52; u.push([Math.cos(a) * 0.25, 1.06 + Math.sin(a) * 0.3, 0.1]); }
   g.jit = 0.06;
-  g.tube(u, 0.055, S, { seg: 4, ph: Math.PI / 4 });
+  g.tube(u, 0.058, S, { seg: 4, ph: Math.PI / 4, caps: true });
   g.jit = 0;
-  for (const p of [u[1], u[3], u[5], u[7]]) g.box(p[0], p[1] - 0.02, p[2] + 0.055, 0.035, 0.035, 0.012, S2, { bottom: true });
-  g.box(u[0][0], u[0][1] - 0.02, 0.09, 0.14, 0.07, 0.1, S); g.box(u[8][0], u[8][1] - 0.02, 0.09, 0.14, 0.07, 0.1, S);
+  for (const i of [2, 4, 6, 8]) g.box(u[i][0], u[i][1] - 0.018, u[i][2] + 0.045, 0.036, 0.036, 0.012, S2, { bottom: true });
   addMesh(group, g, flatMat, own, 'horseshoe');
   const sp = makeSparkles([[0.3, 1.38, 0.16, 0.13], [-0.26, 0.92, 0.16, 0.1]], 0xffffff, 2.9);
   group.add(sp.mesh); own.push(sp.mesh.geometry);

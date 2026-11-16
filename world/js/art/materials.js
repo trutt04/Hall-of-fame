@@ -51,3 +51,19 @@ export function makeAddMaterial(color = 0xffffff, opacity = 1) {
   m.name = 'lw-add-own';
   return m;
 }
+
+// Lit like flatMat, plus a glow in the surface's OWN color: emissive = vertex color * intensity.
+// Used by the crown so gold glows gold and velvet glows red. Set material.userData.glow.value.
+export function makeSelfLitMaterial(intensity = 0.3) {
+  const m = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  m.name = 'lw-selflit';
+  m.userData.glow = { value: intensity };
+  m.onBeforeCompile = (shader) => {
+    shader.uniforms.lwGlow = m.userData.glow;
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float lwGlow;')
+      .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\n\ttotalEmissiveRadiance += vColor.rgb * lwGlow;');
+  };
+  m.customProgramCacheKey = () => 'lw-selflit';
+  return m;
+}
