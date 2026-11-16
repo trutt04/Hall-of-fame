@@ -170,12 +170,17 @@ export function runArrival(ctx, o = {}) {
   welcome.append(welcomeRank, welcomeText);
   root.append(title, counter, lower, skipHint);
 
-  function showTick(t, own) {
+  function showCount(t) {
     counterNum.textContent = rankBig(t.rank);
+    counter.classList.toggle('lwf-wide', t.rank >= 10);
     counter.style.setProperty('--tier', TIER_CSS[t.tier] || TIER_CSS.hill);
     counter.classList.remove('lwf-tick');
     void counter.offsetWidth;
     counter.classList.add('lwf-tick', 'lwf-on');
+  }
+
+  function showTick(t, own) {
+    showCount(t);
     lowerName.textContent = teamName(t);
     lowerName.style.color = readable(t.color);
     lower.style.setProperty('--team', hex(t.color));
@@ -228,6 +233,7 @@ export function runArrival(ctx, o = {}) {
   // The stop is over: the cinematic lets go, the camera settles in and the avatar walks out to the street.
   async function handoff() {
     phase = 'handoff';
+    hideTags(false);
     if (home) standAtDoor();
     landed = true;
     camera.skip();
@@ -243,24 +249,33 @@ export function runArrival(ctx, o = {}) {
     return {
       dur: 60,
       ease: 'linear',
-      pos: (u, t) => mix(view.pos, view.look, Math.min(0.12, t * 0.011)),
+      pos: (u, t) => mix(view.pos, view.look, Math.min(0.06, t * 0.008)),
       look: () => view.look,
       onStart,
     };
   }
 
+  // The floating name tags are useful on the way down, but at the stop the home should be clear.
+  const hideTags = (on) => {
+    try {
+      if (ctx.world && 'hideTags' in ctx.world) ctx.world.hideTags = !!on;
+    } catch (err) { /* older world build */ }
+  };
+
   async function stamp(small) {
     phase = 'stamp';
     stampAt = performance.now();
+    hideTags(true);
     root.classList.add('lwf-stamped');
     if (small) hud.el.classList.add('lwf-small-stamp');
+    hud.el.classList.toggle('lwf-wide-stamp', team.rank >= 10); // "12TH" is a character wider than "9TH"
     sfx('stamp');
     const sting = team.rank === 1 ? 'fanfare' : team.rank === count ? 'sadTrombone' : 'pop';
     later(() => {
       if (phase === 'stamp') sfx(sting);
     }, 480);
     await race(hud.stamp({ big: rankBig(team.rank), sub: tierName(team.tier), line: team.roast ? team.roast.arrival : '', color: TIER_CSS[team.tier], ms: 3800 }));
-    hud.el.classList.remove('lwf-small-stamp');
+    hud.el.classList.remove('lwf-small-stamp', 'lwf-wide-stamp');
   }
 
   // ---------------------------------------------------------------- the scripts
@@ -340,6 +355,7 @@ export function runArrival(ctx, o = {}) {
               showTick(model.teams[homes[next].teamId], next === n - 1);
               next++;
             }
+            if (u > 0.82) hideTags(true);
             const d = dStop * rideEase(u);
             const wAB = smooth(t / tAB);
             const wBC = smooth((t - (T.ride - tBC)) / tBC);
@@ -411,12 +427,7 @@ export function runArrival(ctx, o = {}) {
           },
           pos: (u, t) => {
             while (next < n && u >= ticks[next]) {
-              const h = model.teams[homes[next].teamId];
-              counterNum.textContent = rankBig(h.rank);
-              counter.style.setProperty('--tier', TIER_CSS[h.tier]);
-              counter.classList.remove('lwf-tick');
-              void counter.offsetWidth;
-              counter.classList.add('lwf-tick', 'lwf-on');
+              showCount(model.teams[homes[next].teamId]);
               sfx('tick', { volume: 0.6 });
               next++;
             }
@@ -536,6 +547,7 @@ export function runArrival(ctx, o = {}) {
     window.removeEventListener('keydown', onSkip, true);
     const wasStamp = phase === 'stamp';
     phase = 'done';
+    hideTags(false);
     try {
       if (aborted && !cancelled && !landed) await hud.fade(true, 110);
       if (wasStamp || aborted) hud.closeAll();
@@ -551,7 +563,7 @@ export function runArrival(ctx, o = {}) {
     } catch (err) {
       console.error('[lw] arrival could not land cleanly', err);
     }
-    hud.el.classList.remove('lwf-cine', 'lwf-small-stamp');
+    hud.el.classList.remove('lwf-cine', 'lwf-small-stamp', 'lwf-wide-stamp');
     root.classList.add('lwf-out');
     setTimeout(() => root.remove(), 420);
     hud.fade(false, 240);

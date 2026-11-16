@@ -63,12 +63,15 @@ export function openTeamPicker(ctx, opts = {}) {
     visitor.appendChild(vmain);
     list.appendChild(visitor);
     rows.push(visitor);
+    const head = el('div', 'lwf-pick-head');
+    head.appendChild(q);
     if (opts.canCancel) {
-      const cancel = button('lwf-pick-link', 'Never mind, go back', () => finish({ cancelled: true }));
-      list.appendChild(cancel);
+      // switching teams from the menu: the way back out sits in the header, always in reach
+      const cancel = button('lwf-pick-link lwf-pick-cancel', 'Never mind', () => finish({ cancelled: true }));
+      head.appendChild(cancel);
       rows.push(cancel);
     }
-    stepList.append(q, list);
+    stepList.append(head, list);
 
     // ------------------------------------------------------------ step 2: confirm and choose sound
     const stepConfirm = el('div', 'lwf-pick-step lwf-pick-confirm');

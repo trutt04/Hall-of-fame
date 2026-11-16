@@ -7,7 +7,7 @@
 //   cards.sample() / cards.visitor()
 
 import {
-  el, hex, rankBig, tierName, teamName, firstTeam, lastTeam, streakLong, matchupParts, ordinal, hallOfFameUrl, sampleTag,
+  el, button, rankBig, tierName, teamName, firstTeam, lastTeam, streakLong, matchupParts, ordinal, hallOfFameUrl, sampleTag,
 } from './dom.js';
 import { modelOf, getHome } from './seam.js';
 import { pts1 } from './lists.js';
@@ -36,7 +36,9 @@ export function createCards(ctx, api) {
       audio.sfx('tick');
     } catch (err) { /* sound is optional */ }
   };
-  const label = (rec) => (rec ? rec.owner || rec.teamName || 'Somebody' : 'Somebody');
+  // history records carry raw names: give long_underscored ones somewhere to wrap
+  const soft = (text) => String(text || '').replace(/([_./-])(?=\S)/g, '$1\u200b');
+  const label = (rec) => (rec ? rec.owner || soft(rec.teamName) || 'Somebody' : 'Somebody');
 
   function statList(rows) {
     const dl = el('dl', 'lw-stats');
@@ -57,15 +59,15 @@ export function createCards(ctx, api) {
     const hs = !!m.meta.historyIsSample;
     const rows = [];
     if (t.owner) rows.push(['Owner', t.owner]);
-    rows.push(['Record', t.record.text]);
     const streak = streakLong(t.streak);
-    if (streak) rows.push(['Streak', streak]);
-    rows.push(['Points', pts1(t.pointsFor) + ' for, ' + pts1(t.pointsAgainst) + ' against']);
+    rows.push(['Record', t.record.text + (streak ? ' · ' + streak : '')]);
+    rows.push(['Points', pts1(t.pointsFor) + ' for · ' + pts1(t.pointsAgainst) + ' against']);
     const mp = matchupParts(m, t);
-    rows.push(['This week', mp ? mp.opponent + ' · ' + mp.score : 'Bye week']);
+    if (mp) rows.push(['This week', mp.opponent], ['', mp.score]);
+    else rows.push(['This week', 'Bye week']);
     if (t.luck && (t.luck.allPlayWins || t.luck.allPlayLosses)) {
-      const tag = t.luckTag === 'luckiest' ? ' · luckiest team in the league' : t.luckTag === 'unluckiest' ? ' · unluckiest team in the league' : '';
-      rows.push(['Against everyone', t.luck.allPlayWins + '-' + t.luck.allPlayLosses + tag]);
+      const tag = t.luckTag === 'luckiest' ? ' · luckiest in the league' : t.luckTag === 'unluckiest' ? ' · unluckiest in the league' : '';
+      rows.push(['All-play', t.luck.allPlayWins + '-' + t.luck.allPlayLosses + ' vs everyone' + tag]);
     }
     if (t.history) {
       const titles = t.history.titles || [];
@@ -78,23 +80,25 @@ export function createCards(ctx, api) {
     if (t.lineupNotes && t.lineupNotes.length) rows.push(['Lineup', t.lineupNotes.join('. ')]);
 
     const body = el('div', 'lwf-home');
-    body.appendChild(statList(rows));
-    const lines = (t.roast && t.roast.mailbox) || [];
-    lines.forEach((line, i) => body.appendChild(el('p', i === lines.length - 1 ? 'lw-jab' : 'lw-line', line)));
-
-    // offer the trip when asked, or when the visitor is nowhere near this house
+    // offer the trip when asked, or when the visitor is nowhere near this house. It sits at the
+    // top so it is in reach on a small phone without scrolling the card.
     let far = !!o.go;
     const h = getHome(ctx, t.id);
     if (!far && h) far = Math.hypot(player.position.x - h.street.x, player.position.z - h.street.z) > 32;
-    const actions = [];
-    if (far && h) actions.push({ label: mine ? 'Go home' : 'Go to their house', onClick: () => api.goHome(t.id) });
-    actions.push({ label: 'Close', primary: !actions.length });
+    if (far && h) {
+      body.appendChild(button('lw-btn lw-btn-primary lwf-go', mine ? 'Go home' : 'Go to their house', () => {
+        hud.closeCard();
+        api.goHome(t.id);
+      }));
+    }
+    body.appendChild(statList(rows));
+    const lines = (t.roast && t.roast.mailbox) || [];
+    lines.forEach((line, i) => body.appendChild(el('p', i === lines.length - 1 ? 'lw-jab' : 'lw-line', line)));
     hud.openCard({
       kicker: rankBig(t.rank) + ' · ' + tierName(t.tier) + (mine ? ' · Your house' : ''),
       title: teamName(t),
       contentEl: body,
       accentColor: t.color,
-      actions,
     });
   }
 
@@ -124,7 +128,7 @@ export function createCards(ctx, api) {
       const list = el('ol', 'lwf-years');
       for (const c of champs) {
         const li = el('li');
-        li.append(el('b', null, c.season), el('span', null, c.teamName || label(c)), el('i', null, c.record || ''));
+        li.append(el('b', null, c.season), el('span', null, soft(c.teamName) || label(c)), el('i', null, c.record || ''));
         list.appendChild(li);
       }
       body.appendChild(list);
@@ -132,7 +136,7 @@ export function createCards(ctx, api) {
     const dc = hist ? hist.defendingChamp : null;
     hud.openCard({
       kicker: 'The statue',
-      title: dc ? dc.teamName || label(dc) : 'No champion yet',
+      title: dc ? soft(dc.teamName) || label(dc) : 'No champion yet',
       lines: [dc
         ? 'Defending champion, ' + dc.season + '. Currently ' + ordinal(dc.rank) + ' ' + (CONDITION_LINE[dc.condition] || CONDITION_LINE.pigeons)
         : 'The pedestal is empty until somebody wins this thing.'],
@@ -152,7 +156,7 @@ export function createCards(ctx, api) {
     const body = statList([['Finished', 'Last place', !!m.meta.historyIsSample], rec.record ? ['Record', rec.record] : null, rec.owner ? ['Owner', rec.owner] : null]);
     hud.openCard({
       kicker: 'Outhouse Row · ' + rec.season,
-      title: rec.teamName || label(rec),
+      title: soft(rec.teamName) || label(rec),
       contentEl: body,
       jab: 'One outhouse per last place finish. The door still sticks.',
       actions: [{ label: 'Close' }],

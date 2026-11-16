@@ -21,7 +21,7 @@ export function buildStandings(model, opts = {}) {
   const box = el('div', 'lwf-standings');
   const head = el('div', 'lwf-shead');
   head.setAttribute('aria-hidden', 'true');
-  head.append(el('span', null, '#'), el('span'), el('span', null, 'Team'), el('span', null, 'W-L'), el('span', null, 'PF'), el('span', null, 'Strk'));
+  head.append(el('span', null, '#'), el('span'), el('span', null, 'Team'), el('span', null, 'W-L'), el('span', null, 'PF'));
   box.appendChild(head);
   const order = model.order || [];
   for (const tier of TIER_KEYS) {
@@ -47,7 +47,9 @@ export function buildStandings(model, opts = {}) {
       if (sub) name.appendChild(el('span', 'lwf-s-owner', sub));
       const strk = el('span', 'lwf-s-strk', streakShort(t.streak));
       if (t.streak && t.streak.type) strk.classList.add('lwf-' + t.streak.type);
-      row.append(el('span', 'lwf-s-rank', t.rank), el('span', 'lwf-s-chip'), name, el('span', 'lwf-s-rec', t.record.text), el('span', 'lwf-s-pf', pts1(t.pointsFor)), strk);
+      const wl = el('span', 'lwf-s-wl');
+      wl.append(el('span', 'lwf-s-rec', t.record.text), strk);
+      row.append(el('span', 'lwf-s-rank', t.rank), el('span', 'lwf-s-chip'), name, wl, el('span', 'lwf-s-pf', pts1(t.pointsFor)));
       box.appendChild(row);
       if (t.rank === model.cutLine && order.length > model.cutLine) {
         const cut = el('div', 'lwf-cut');
@@ -93,10 +95,13 @@ const KIND_LABEL = {
   forecast: 'Forecast', history: 'From the archives', luck: 'Luck report', toilet: 'Awards', record: 'Record book',
 };
 
+// let long_underscored_names wrap inside a narrow newspaper column
+const soft = (text) => String(text || '').replace(/([_/])(?=\S)/g, '$1\u200b');
+
 function story(h, lead) {
   const a = el('article', lead ? 'lwf-lead' : 'lwf-story');
   const kind = KIND_LABEL[h.kind] || (h.kind ? String(h.kind).replace(/[-_]/g, ' ') : 'News');
-  a.append(el('p', 'lwf-story-kind', kind), el(lead ? 'h2' : 'h3', 'lwf-story-head', h.headline || ''), el('p', 'lwf-story-body', h.body || ''));
+  a.append(el('p', 'lwf-story-kind', kind), el(lead ? 'h2' : 'h3', 'lwf-story-head', soft(h.headline)), el('p', 'lwf-story-body', soft(h.body)));
   return a;
 }
 
@@ -108,8 +113,8 @@ export function buildPaper(model) {
   const ears = el('div', 'lwf-paper-ears');
   ears.append(el('span', null, 'Vol. ' + (meta.season || '') + ', No. ' + (meta.week || 1)), el('span', null, 'Price: your dignity'));
   const date = el('div', 'lwf-paper-date');
-  date.append(el('span', null, 'Week ' + (meta.week || 1) + ' edition'), el('span', null, meta.leagueName || ''), el('span', null, 'All the news that hurts'));
-  head.append(ears, el('h1', 'lwf-paper-name', PAPER_NAME), date);
+  date.append(el('span', null, 'Week ' + (meta.week || 1) + ' edition'), el('span', null, meta.leagueName || ''));
+  head.append(ears, el('h1', 'lwf-paper-name', PAPER_NAME), el('p', 'lwf-paper-motto', 'All the news that hurts'), date);
   paper.appendChild(head);
   if (meta.isSample) paper.appendChild(el('p', 'lwf-paper-sample', 'Sample edition. These scores and stories are placeholders until the league goes public on ESPN.'));
   const stories = model.headlines || [];

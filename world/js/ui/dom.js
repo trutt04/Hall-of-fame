@@ -129,8 +129,11 @@ export function tierName(tier) {
   return tier === 'plaza' ? 'The Plaza' : TIERS[tier] ? TIERS[tier].name : '';
 }
 
+// Names like "Some_Long_Team_Name" have nowhere to wrap, so an invisible break goes in after
+// each underscore, dot, slash or hyphen. The text itself is untouched.
 export function teamName(t) {
-  return t ? (t.name && String(t.name).trim()) || 'Team ' + t.id : '';
+  const name = t ? (t.name && String(t.name).trim()) || 'Team ' + t.id : '';
+  return name.replace(/([_./-])(?=\S)/g, '$1\u200b');
 }
 
 export function firstTeam(model) {
