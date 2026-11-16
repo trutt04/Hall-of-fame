@@ -145,9 +145,22 @@ async function boot() {
     },
   }, 50);
 
+  // `camera` is the camera module (follow rig + cinematic sequencer: camera.play, camera.flyAlong).
+  // The raw three.js camera is `camera3D` (also engine.camera, and camera.object).
   const world = {
-    THREE, engine, scene, camera, store, hud, input, rig, audio, net, layout, terrain, sky, colliders, player, interact, markers,
+    THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, markers,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
+    // The ride from the gold gates down to the dump, in order: [[x, y, z], ...] (Contract 7).
+    boulevard() {
+      return layout.road.map((p) => [p[0], terrain.heightAt(p[0], p[1]), p[1]]);
+    },
+    // Fast-travel targets (Contract 7): the plaza and one street spot per neighborhood.
+    places() {
+      const spots = travelSpots();
+      return ['hill', 'heights', 'plaza', 'bubble', 'park', 'dump'].map((id) => ({
+        id, kind: id === 'plaza' ? 'plaza' : 'neighborhood', name: world.zoneName(id), x: spots[id].x, z: spots[id].z, facing: spots[id].facing ?? 0,
+      }));
+    },
     // Movement off while something scripted is happening. Returns a function that releases it.
     freezePlayer() {
       freezeCount++;
@@ -464,7 +477,8 @@ async function boot() {
     if (!hinted && !input.hasMoved) hud.showHint(coarse ? HINT_TEXT : HINT_TEXT_DESKTOP);
   };
 
-  if (params.get('nointro') === '1') {
+  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (params.get('nointro') === '1' || calm) {
     showHint();
   } else {
     // A short establishing shot: the whole valley, then down behind the visitor.

@@ -96,6 +96,11 @@ export function createEngine({ canvas, quality = 'auto' }) {
   let slowFor = 0;
   let fastFor = 0;
   let cooldown = 3;
+  // A display's refresh rate hides how much headroom is left, so stepping back up is a careful
+  // experiment: try it after a calm spell, and if it backfires, wait much longer before retrying.
+  let lastStepUp = -1000;
+  let upBlockedUntil = 0;
+  let upFailures = 0;
 
   function adapt(rawDt) {
     if (mode !== 'auto') return;
@@ -113,7 +118,7 @@ export function createEngine({ canvas, quality = 'auto' }) {
     if (avgMs > PERF.slowFrameMs) {
       slowFor += span;
       fastFor = 0;
-    } else if (avgMs < PERF.slowFrameMs * 0.62) {
+    } else if (avgMs < PERF.slowFrameMs * 0.78) {
       fastFor += span;
       slowFor = 0;
     } else {
@@ -121,11 +126,16 @@ export function createEngine({ canvas, quality = 'auto' }) {
       fastFor = 0;
     }
     if (slowFor >= 2 && pixelRatio > PERF.minPixelRatio) {
+      if (time - lastStepUp < 12) {
+        upFailures++;
+        upBlockedUntil = time + Math.min(600, 45 * Math.pow(2, upFailures));
+      }
       setPixelRatio(pixelRatio - 0.25);
       slowFor = 0;
       cooldown = 1.5;
-    } else if (fastFor >= 6 && pixelRatio < cap) {
+    } else if (fastFor >= 8 && pixelRatio < cap && time >= upBlockedUntil) {
       setPixelRatio(pixelRatio + 0.25);
+      lastStepUp = time;
       fastFor = 0;
       cooldown = 3;
     }

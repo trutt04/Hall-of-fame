@@ -12,14 +12,14 @@
 import * as THREE from '../../lib/three.module.min.js';
 import { PALETTE } from '../config.js';
 import { clamp, lerp, smoothstep, valueNoise2, mulberry32, TAU } from '../core/util.js';
-import { rectDistance, ROAD_WIDTH } from './layout.js';
+import { rectDistance, resample, ROAD_WIDTH } from './layout.js';
 
 const CELL = 3; // core grid cell, meters
 const COARSE = 24; // outskirts cell, a multiple of CELL
 const PAD_FLAT = 3; // every lot is flat this far beyond its rectangle
 const PAD_BLEND = 7;
 
-const LIFT = { pad: 0.035, path: 0.05, road: 0.07, paving: 0.09 };
+const LIFT = { pad: 0.035, path: 0.05, spur: 0.07, road: 0.09, paving: 0.11 };
 
 const C = (hex) => new THREE.Color(hex);
 
@@ -88,7 +88,7 @@ class Soup {
 export function createTerrain(layout, opts = {}) {
   const quality = opts.quality === 'low' ? 'low' : 'high';
   const bounds = layout.bounds;
-  const { fenceZ, plaza, fountain, bulb, dump } = layout.stations;
+  const { fenceZ, plaza, fountain, bulb } = layout.stations;
   const weightsAt = layout.zones.weightsAt;
   const zoneKeys = layout.zones.keys;
 
@@ -154,21 +154,25 @@ export function createTerrain(layout, opts = {}) {
       if (d < PAD_FLAT + PAD_BLEND) h = lerp(h, r.y, 1 - smoothstep(PAD_FLAT, PAD_FLAT + PAD_BLEND, d));
       if (d === 0) lot = i;
     }
+    // Order matters: yards first, then the round pavements, then streets (which stay level across
+    // their width right up to a pavement), and last the exact flats nothing may disturb.
     let road = Infinity;
+    let core = null;
+    for (const d of discs) {
+      const dist = Math.hypot(x - d.x, z - d.z);
+      if (dist < d.r + d.blend) h = lerp(h, d.y, 1 - smoothstep(d.r, d.r + d.blend, dist));
+      if (dist <= d.r) {
+        core = d;
+        if (dist - d.r + 1 < road) road = dist - d.r + 1;
+      }
+    }
     for (const c of corridors) {
       if (x < c.minX || x > c.maxX || z < c.minZ || z > c.maxZ) continue;
       const n = nearestOnCorridor(c, x, z);
       if (n.d - c.half < road) road = n.d - c.half;
       if (n.d < c.blend) h = lerp(h, n.y, 1 - smoothstep(c.flat, c.blend, n.d));
     }
-    for (const d of discs) {
-      const dist = Math.hypot(x - d.x, z - d.z);
-      if (dist < d.r + d.blend) h = lerp(h, d.y, 1 - smoothstep(d.r, d.r + d.blend, dist));
-      if (dist <= d.r) {
-        h = d.y;
-        if (dist - d.r + 1 < road) road = dist - d.r + 1;
-      }
-    }
+    if (core) h = core.y;
     if (lot >= 0) h = rects[lot].y;
     if (info) {
       info.road = road;
@@ -546,28 +550,31 @@ export function createTerrain(layout, opts = {}) {
     const hw = ROAD_WIDTH / 2;
 
     // The Boulevard: dark asphalt, pale edge lines, dashed center line.
-    ribbon(soup, layout.road, {
+    // Tessellated finer than the ground (1 m by about 1 m) so the ground's facets can never poke
+    // through it, even on the twisting grade below the gates.
+    ribbon(soup, resample(layout.road, 1), {
       half: hw, lift: LIFT.road, skip: inDisc,
-      offsets: (h) => [-h, -h + 0.3, -0.16, 0.16, h - 0.3, h],
-      color: (s, i) => (s === 0 || s === 4 ? edgeC : s === 2 ? (i % 2 === 0 ? lineC : roadC) : (i % 2 ? roadC : roadC2)),
+      offsets: (h) => [-h, -h + 0.3, -2.1, -1.05, -0.16, 0.16, 1.05, 2.1, h - 0.3, h],
+      color: (s, i) => (s === 0 || s === 8 ? edgeC : s === 4 ? (i % 4 < 2 ? lineC : roadC) : ((i >> 1) % 2 ? roadC : roadC2)),
     });
     // Cul-de-sac spur and bulb.
     const spur = layout.places.culdesac.spur;
     const curbB = C(PALETTE.bubble.path);
-    ribbon(soup, spur, {
-      half: hw, lift: LIFT.road,
+    ribbon(soup, resample(spur, 1.5), {
+      half: hw, lift: LIFT.spur,
       skip: (x, z) => Math.hypot(x - bulb.x, z - bulb.z) < bulb.r - 0.6,
-      offsets: (h) => [-h, -h + 0.3, h - 0.3, h],
-      color: (s, i) => (s === 1 ? (i % 2 ? roadC : roadC2) : curbB),
+      offsets: (h) => [-h, -h + 0.3, -1.6, 0, 1.6, h - 0.3, h],
+      color: (s, i) => (s === 0 || s === 5 ? curbB : (i % 2 ? roadC : roadC2)),
     });
     band(soup, bulb.x, bulb.z, 0, bulb.r - 0.5, 20, (i) => (i % 2 ? roadC : roadC2), LIFT.paving);
     band(soup, bulb.x, bulb.z, bulb.r - 0.5, bulb.r, 20, curbB, LIFT.paving);
 
     // Heights fountain circle.
     const curbH = C(PALETTE.heights.path);
-    band(soup, fountain.x, fountain.z, fountain.basinR - 0.2, fountain.basinR + 0.7, 16, curbH, LIFT.paving);
-    band(soup, fountain.x, fountain.z, fountain.basinR + 0.7, fountain.r - 0.7, 20, (i) => (i % 2 ? roadC : roadC2), LIFT.paving);
-    band(soup, fountain.x, fountain.z, fountain.r - 0.7, fountain.r, 20, curbH, LIFT.paving);
+    // (every ring of one pavement uses the same segment count, so shared edges meet exactly)
+    band(soup, fountain.x, fountain.z, fountain.basinR - 0.2, fountain.basinR + 0.7, 24, curbH, LIFT.paving);
+    band(soup, fountain.x, fountain.z, fountain.basinR + 0.7, fountain.r - 0.7, 24, (i) => (i % 2 ? roadC : roadC2), LIFT.paving);
+    band(soup, fountain.x, fountain.z, fountain.r - 0.7, fountain.r, 24, curbH, LIFT.paving);
 
     // Plaza paving: rings of wedges in two stone tones with gold bands.
     const stoneA = C(PALETTE.plaza.path);
@@ -576,13 +583,14 @@ export function createTerrain(layout, opts = {}) {
     const gold = C(0xd9b24a);
     const navy = C(0x27335c);
     const R = plaza.r;
-    band(soup, plaza.x, plaza.z, 0, 3.4, 12, navy, LIFT.paving);
-    band(soup, plaza.x, plaza.z, 3.4, 4.1, 12, gold, LIFT.paving);
-    band(soup, plaza.x, plaza.z, 4.1, R * 0.5, 12, (i) => (i % 2 ? stoneA : stoneB), LIFT.paving);
-    band(soup, plaza.x, plaza.z, R * 0.5, R * 0.5 + 0.7, 24, gold, LIFT.paving);
-    band(soup, plaza.x, plaza.z, R * 0.5 + 0.7, R - 1.6, 24, (i) => (i % 2 ? stoneB : stoneA), LIFT.paving, TAU / 48);
-    band(soup, plaza.x, plaza.z, R - 1.6, R - 0.9, 24, navy, LIFT.paving);
-    band(soup, plaza.x, plaza.z, R - 0.9, R, 24, stoneC, LIFT.paving);
+    const SEG = 48;
+    band(soup, plaza.x, plaza.z, 0, 3.4, SEG, navy, LIFT.paving);
+    band(soup, plaza.x, plaza.z, 3.4, 4.1, SEG, gold, LIFT.paving);
+    band(soup, plaza.x, plaza.z, 4.1, R * 0.5, SEG, (i) => ((i >> 2) % 2 ? stoneA : stoneB), LIFT.paving);
+    band(soup, plaza.x, plaza.z, R * 0.5, R * 0.5 + 0.7, SEG, gold, LIFT.paving);
+    band(soup, plaza.x, plaza.z, R * 0.5 + 0.7, R - 1.6, SEG, (i) => (((i + 1) >> 1) % 2 ? stoneB : stoneA), LIFT.paving);
+    band(soup, plaza.x, plaza.z, R - 1.6, R - 0.9, SEG, navy, LIFT.paving);
+    band(soup, plaza.x, plaza.z, R - 0.9, R, SEG, stoneC, LIFT.paving);
 
     // Park lane: packed dirt, ragged edges.
     const dirtA = C(PALETTE.park.path);
@@ -594,27 +602,23 @@ export function createTerrain(layout, opts = {}) {
     });
 
     // Driveways and footpaths from each lot's curb to its street.
-    const drive = (lot, half, color) => {
-      const [ax, az] = lot.curb;
-      const [bx, bz] = lot.street;
-      const len = Math.hypot(bx - ax, bz - az);
-      if (len < 0.4 || len > 26) return;
-      const steps = Math.max(1, Math.ceil(len / 1.2));
-      const pts = [];
-      for (let i = 0; i <= steps; i++) pts.push([lerp(ax, bx, i / steps), lerp(az, bz, i / steps)]);
-      ribbon(soup, pts, { half, lift: LIFT.path, offsets: (h) => [-h, 0, h], color: () => color });
-    };
     const pathC = { heights: C(PALETTE.heights.path), bubble: C(PALETTE.bubble.path), park: C(PALETTE.park.path).multiplyScalar(1.1) };
-    for (const lot of layout.lots.heights) drive(lot, 1.7, pathC.heights);
-    for (const lot of layout.lots.bubble) drive(lot, 1.6, pathC.bubble);
-    for (const lot of layout.lots.park) drive(lot, 0.9, pathC.park);
+    for (const tier of ['heights', 'bubble', 'park']) {
+      for (const lot of layout.lots[tier]) {
+        if (!lot.drive) continue;
+        ribbon(soup, lot.drive.pts, { half: lot.drive.half, lift: LIFT.path, offsets: (h) => [-h, -h / 2, 0, h / 2, h], color: () => pathC[tier] });
+      }
+    }
     // The Hill: a pale stone apron where the Boulevard meets the gates.
     const hillLot = layout.lots.hill[0];
     const apron = C(PALETTE.hill.path);
-    for (let i = 0; i < 8; i++) {
-      const a0 = (i / 8) * Math.PI;
-      const a1 = ((i + 1) / 8) * Math.PI;
-      soup.tri(V(hillLot.curb[0], hillLot.curb[1], LIFT.path), V(hillLot.curb[0] + Math.cos(a0) * 8, hillLot.curb[1] + Math.sin(a0) * 5, LIFT.path), V(hillLot.curb[0] + Math.cos(a1) * 8, hillLot.curb[1] + Math.sin(a1) * 5, LIFT.path), apron);
+    // (kept inside the flat margin of the mansion's pad, so it lies dead level)
+    for (let i = -10; i < 10; i++) {
+      for (let j = 0; j < 3; j++) {
+        const x0 = hillLot.curb[0] + i * 0.9;
+        const z0 = hillLot.curb[1] - 0.2 + j * 0.9;
+        soup.quad(V(x0, z0, LIFT.path), V(x0 + 0.9, z0, LIFT.path), V(x0 + 0.9, z0 + 0.9, LIFT.path), V(x0, z0 + 0.9, LIFT.path), apron);
+      }
     }
     // Where the Boulevard gives up: a splash of churned mud at the dump.
     const end = layout.road[layout.road.length - 1];
@@ -793,7 +797,7 @@ export function createTerrain(layout, opts = {}) {
   const scatterPoints = [];
   {
     const r2 = mulberry32(4242);
-    const density = { hill: 0.5, heights: 0.5, plaza: 0.42, bubble: 0.3, park: 0.3, dump: 0.34 };
+    const density = { hill: 0.5, heights: 0.5, plaza: 0.42, bubble: 0.3, park: 0.5, dump: 0.34 };
     const kinds = {
       hill: [['tree', 0.6], ['bush', 1]],
       heights: [['tree', 0.5], ['bush', 1]],

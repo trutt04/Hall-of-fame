@@ -263,7 +263,7 @@ export function makeLayout(counts = {}) {
   anchors.push([sJunction - 8, sJunction + 8, bulb.y]);
   const sLane = sAt(ROAD_X, laneZ);
   anchors.push([sLane - 6, sLane + 7, parkY]);
-  anchors.push([roadLength - 1.5, roadLength, dump.y + 0.1]);
+  anchors.push([roadLength - 4, roadLength, dump.y]);
   const roadYAt = (s) => {
     if (s <= anchors[0][1]) return anchors[0][2];
     for (let i = 0; i < anchors.length; i++) {
@@ -276,7 +276,7 @@ export function makeLayout(counts = {}) {
   };
   const roadY = roadS.map(roadYAt);
 
-  const junction = [JX + ROAD_WIDTH / 2 - 0.2, bulb.z];
+  const junction = [JX + 1.5, bulb.z];
   const spur = resample([junction, [bulb.x - bulb.r + 0.3, bulb.z]], 2);
 
   // ---------------------------------------------------------------- base ground profile
@@ -501,6 +501,19 @@ export function makeLayout(counts = {}) {
 
   // ---------------------------------------------------------------- what the terrain must flatten
   const allLots = [hillLot, ...heightsLots, ...bubbleLots, ...parkLots];
+  const driveHalf = { heights: 1.7, bubble: 1.6, park: 0.9 };
+  const drives = [];
+  for (const lot of allLots) {
+    const half = driveHalf[lot.tier];
+    if (!half) continue;
+    const len = Math.hypot(lot.street[0] - lot.curb[0], lot.street[1] - lot.curb[1]);
+    if (len < 0.4 || len > 26) continue;
+    const pts = resample([lot.curb, lot.street], 1);
+    const near = nearestOnPolyline(road, lot.street[0], lot.street[1]);
+    const endY = lot.tier === 'park' ? parkY : lot.tier === 'bubble' ? bulb.y : near.d < ROAD_WIDTH ? lerp(roadY[near.i], roadY[Math.min(road.length - 1, near.i + 1)], near.t) : fountain.y;
+    lot.drive = { pts, half };
+    drives.push({ kind: 'drive', tier: lot.tier, pts, ys: pts.map((p, i) => lerp(lot.y, endY, i / Math.max(1, pts.length - 1))), half, flat: half + 1.3, blend: half + 4 });
+  }
   const pads = {
     rects: allLots.map((l) => ({ x: l.x, z: l.z, w: l.w, d: l.d, facing: l.facing, y: l.y, tier: l.tier, index: l.index }))
       .concat(Object.keys(buildings).map((k) => Object.assign({ tier: 'plaza', kind: k }, buildings[k]))),
@@ -511,6 +524,7 @@ export function makeLayout(counts = {}) {
       { x: dump.x, z: dump.z, r: dump.r + 1, y: dump.y, blend: 6, kind: 'dump' },
     ],
     corridors: [
+      ...drives,
       { kind: 'boulevard', pts: road, ys: roadY, half: ROAD_WIDTH / 2, flat: ROAD_WIDTH / 2 + 3.8, blend: ROAD_WIDTH / 2 + 9.5 },
       { kind: 'spur', pts: spur, ys: spur.map(() => bulb.y), half: ROAD_WIDTH / 2, flat: ROAD_WIDTH / 2 + 3.8, blend: ROAD_WIDTH / 2 + 8.5 },
       { kind: 'lane', pts: parkLane, ys: parkLane.map(() => parkY), half: 2.1, flat: 5.5, blend: 10 },

@@ -312,6 +312,8 @@ export function createCameraRig({ camera, engine, terrain, input }) {
         if (v.instant) dist = distTarget;
       }
     },
+    // The three.js camera this rig drives.
+    object: camera,
     // World-space point the camera is currently looking at (follow pivot or cinematic look).
     get lookTarget() { return cLook; },
     get yaw() { return yaw; },
