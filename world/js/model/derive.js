@@ -193,6 +193,28 @@ function orderByRecord(teams, rows) {
 }
 
 /**
+ * Before week 1 there is no table yet, so everyone keeps the address they earned last season:
+ * the champion stays on The Hill until somebody plays a game. Teams that were not in the league
+ * last season go to the back, in id order. Returns null when there is no earlier season to use.
+ */
+function lastSeasonOrder(history, season, teams) {
+  const earlier = arr(isObj(history) ? history.seasons : null)
+    .filter((s) => isObj(s) && int(s.season) > 0 && (season <= 0 || int(s.season) < season))
+    .sort((a, b) => int(b.season) - int(a.season));
+  if (!earlier.length) return null;
+  const finish = new Map();
+  for (const t of arr(earlier[0].teams)) {
+    if (isObj(t) && t.id != null && int(t.finalRank) > 0 && !finish.has(String(t.id))) finish.set(String(t.id), int(t.finalRank));
+  }
+  if (!teams.some((t) => finish.has(String(t.id)))) return null;
+  const spot = (t) => (finish.has(String(t.id)) ? finish.get(String(t.id)) : Number.MAX_SAFE_INTEGER);
+  return teams
+    .slice()
+    .sort((a, b) => spot(a) - spot(b) || compareIds(a.id, b.id))
+    .map((t) => t.id);
+}
+
+/**
  * Conservative clinch and elimination math, tiebreakers ignored.
  * rows: [{ id, value (wins, a tie is half), max (value + games left) }]
  */
@@ -335,8 +357,10 @@ export function derive(league, history, opts) {
   const seedOk = uniquePositive(teams.map((t) => t.seed));
   const finalOk = lg.seasonComplete === true && uniquePositive(teams.map((t) => t.finalRank));
   const seedOrder = seedOk ? teams.slice().sort((a, b) => a.seed - b.seed).map((t) => t.id) : null;
+  const carriedOrder = phase === 'preseason' ? lastSeasonOrder(history, season, teams) : null;
   let order;
   if (finalOk) order = teams.slice().sort((a, b) => a.finalRank - b.finalRank).map((t) => t.id);
+  else if (carriedOrder) order = carriedOrder;
   else if (seedOrder) order = seedOrder;
   else order = orderByRecord(teams, recordRows);
 

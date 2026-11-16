@@ -110,9 +110,14 @@ test('world/data: the placeholder files are exactly what the fixtures normalize 
   const historyFile = path.join(DEFAULT_DATA_DIR, 'history.json');
   if (!fs.existsSync(leagueFile)) return t.skip('world/data/league.json does not exist yet (run npm run sample)');
   const saved = JSON.parse(fs.readFileSync(leagueFile, 'utf8'));
-  if (saved.source !== 'placeholder' || saved.nfl?.source !== 'placeholder') return t.skip('world/data holds real ESPN data now');
+  if (saved.source !== 'placeholder') return t.skip('world/data/league.json holds the real ESPN league now');
   const league = normalizeLeague(rawSeason(), { source: 'placeholder', generatedAt: NOW });
-  assert.ok(sameIgnoringStamp(saved, league), 'world/data/league.json is stale: run npm run sample');
+  // The NFL kickoff list is public, so the sync replaces it with the real one long before the
+  // league itself is readable. Compare everything else.
+  const { nfl: _savedNfl, ...savedRest } = saved;
+  const { nfl: _freshNfl, ...freshRest } = league;
+  assert.ok(sameIgnoringStamp(savedRest, freshRest), 'world/data/league.json is stale: run npm run sample');
+  if (saved.nfl?.source === 'placeholder') assert.ok(sameIgnoringStamp(saved, league), 'world/data/league.json kickoffs are stale: run npm run sample');
   const savedHistory = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
   if (savedHistory.source !== 'placeholder') return undefined;
   const history = buildHistory(PAST_YEARS.map((y) => normalizeSeason(loadFixture(`espn-${y}.json`))), { source: 'placeholder', generatedAt: NOW });

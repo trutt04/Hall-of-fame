@@ -6,6 +6,7 @@
   "scripts": {
     "sync": "node scripts/sync-espn.mjs",
     "sample": "node scripts/sync-espn.mjs --sample",
+    "preloads": "node scripts/preloads.mjs",
     "test": "node --test \"scripts/test/*.test.mjs\""
   }
 }

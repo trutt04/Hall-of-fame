@@ -67,4 +67,6 @@ all past seasons) is invented so the world has something to show.
   and where phases 2 and 3 plug in.
 - `npm test` runs the checks for the sync and the league logic. No install step is needed.
 - `npm run sample` rebuilds the sample data. It refuses to overwrite real ESPN data.
+- `npm run preloads` refreshes the list of files the page loads up front. Run it after adding
+  or removing a file under `world/js/`. `npm test` tells you if you forgot.
 - There is no build step. The files in `world/` are served as they are.

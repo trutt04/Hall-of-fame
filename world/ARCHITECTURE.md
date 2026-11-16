@@ -387,3 +387,42 @@ store.on('use', (e) => {})           // the visitor used something in the world:
 startFlow(ctx)                       // team picker -> arrival -> recap -> free roam; wires HUD buttons and 'use' cards
 renderFallback(el, { league, history, model })   // plain standings + matchups + headlines when WebGL is unavailable
 ```
+
+### Contract 7 as built
+
+The code grew a little past the sketch above. These are the differences that matter:
+
+- `ctx.model`, `ctx.history`, `ctx.status` and `ctx.league` are live getters, so they always
+  return the newest data after a refresh. `ctx.league` (the raw `league.json`) is extra.
+- There is no `ctx.input`. The flow reaches input through `ctx.world.input`.
+- `world.places()` entries also carry `blurb` and `color` for the map panel.
+- `world.freezePlayer()` takes no argument and returns a function that releases the freeze.
+- Extra world helpers the flow uses: `world.travelTo(placeOrSpot)`, `world.playerTeam`,
+  `world.hideTags`, `world.zoneName(key)`, `town.entry(teamId)` and `town.special(name)`
+  (`'throne' | 'telescope' | 'periscope' | 'crown' | 'cloud'`).
+- `startFlow(ctx)` returns a promise. If it rejects, `main.js` falls back to plain free roam.
+- Before week 1 (`meta.phase === 'preseason'`) the model orders teams by last season's final
+  standings when `history.json` has one, so the champion keeps The Hill until a game is played.
+
+### Test and preview switches
+
+None of these are needed by visitors. They exist so the world can be tested and previewed.
+
+| Switch | What it does |
+|---|---|
+| `?team=<id>` | Arrive as that team without the picker. |
+| `?nointro=1` | Skip the arrival ride. |
+| `?noflow=1` | No picker, panels or cards. Plain free roam. |
+| `?time=<hour>` | Fix the time of day (0 to 24). |
+| `?quality=low` or `high` | Fix the quality level instead of adapting. |
+| `?debug=1` | On-screen stats, zone weights and lot labels. |
+| `window.__lw` | The world object, for tests and the console. |
+| `window.__lwFlow` | The flow state (`phase`, `teamId`). |
+| `window.__LW_DATA = { league, history, status }` | Set before the page script runs to supply data without fetching files. |
+| `window.__LW_PREVIEW = { hallOfFame: url }` | Overrides where the Hall of Fame links point. Used by the single-file preview. |
+
+### Loading
+
+`world/index.html` lists every module in `<link rel="modulepreload">` tags so a phone fetches
+them all at once. `npm run preloads` rewrites that list from the real imports, and `npm test`
+fails if it is out of date.

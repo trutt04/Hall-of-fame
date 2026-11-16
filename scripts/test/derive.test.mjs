@@ -882,6 +882,32 @@ test('preseason: nothing played, nothing thrown, everyone still gets copy', () =
     assert.ok(model.headlines.length >= 1);
     checkCopy(model, 'preseason');
   }
+  // With a past season on file, everyone keeps last season's address until a game is played.
+  for (const seeds of ['ok', 'missing']) {
+    const league = makeLeague({ seed: 50, currentWeek: 1, weekState: 'pre', seeds });
+    const history = makeHistory({ seed: 5 });
+    const last = history.seasons.slice().sort((a, b) => b.season - a.season)[0];
+    const expected = last.teams.slice().sort((a, b) => a.finalRank - b.finalRank).map((t) => t.id);
+    const model = derive(league, history, { now: new Date('2026-08-01T00:00:00Z') });
+    assert.deepEqual(model.order, expected, 'preseason order follows last season');
+    assert.equal(model.teams[expected[0]].tier, 'hill');
+    assert.equal(model.teams[expected[expected.length - 1]].tier, 'dump');
+    // A team that was not in the league last season goes to the back.
+    const fresh = JSON.parse(JSON.stringify(history));
+    const gone = fresh.seasons.find((s) => s.season === last.season).teams.find((t) => t.finalRank === 1).id;
+    for (const s of fresh.seasons) s.teams = s.teams.filter((t) => t.id !== gone);
+    const moved = derive(league, fresh, { now: new Date('2026-08-01T00:00:00Z') });
+    assert.equal(moved.order[moved.order.length - 1], gone);
+    checkShape(moved);
+  }
+  // Once a game has been played, last season stops mattering.
+  {
+    const league = makeLeague({ seed: 50, currentWeek: 2, weekState: 'pre' });
+    const model = derive(league, makeHistory({ seed: 5 }), { now: NOW });
+    assert.notEqual(model.meta.phase, 'preseason');
+    const bySeed = league.teams.slice().sort((a, b) => a.seed - b.seed).map((t) => t.id);
+    assert.deepEqual(model.order, bySeed);
+  }
   // No matchups at all, as before the schedule exists.
   const bare = makeLeague({ seed: 50, currentWeek: 1, weekState: 'pre', seeds: 'missing', rosters: false, lineups: false, kickoffs: false });
   bare.matchups = [];
