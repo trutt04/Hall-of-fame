@@ -1,19 +1,15 @@
-// League World boot. Creates the engine, the empty town and all the machinery, then runs an
-// ordered list of systems every frame. Stage 2 adds the data, the homes and the residents on top
-// of the `world` object built here.
+// League World boot. Loads the league data, derives the model, builds the hillside for exactly
+// that many teams per neighborhood, populates it, then hands over to the UI flow (Contract 7).
 //
 // URL parameters (for testing):
 //   ?time=17.5        freeze the time of day (hours, 0..24)
 //   ?team=3           choose a team id
 //   ?quality=low|high skip the adaptive quality controller
 //   ?debug=1          stats readout, zone weights, lot labels
-//   ?nointro=1        skip the establishing shot
-//   ?lots=3,4,3       heights,bubble,park lot counts (until real data drives them)
-//   ?labels=0         hide the stage 1 lot labels
+//   ?noflow=1         skip ui/flow.js and free roam with the built-in stand-in HUD
 
 import * as THREE from '../lib/three.module.min.js';
-import { TIERS, TIER_ORDER, PATHS } from './config.js';
-import { safeStorageGet, safeStorageSet } from './core/util.js';
+import { TIERS } from './config.js';
 import { createEngine } from './core/engine.js';
 import { createStore } from './core/store.js';
 import { createInput } from './core/input.js';
@@ -21,17 +17,20 @@ import { createCameraRig } from './core/camera.js';
 import { createColliders } from './core/colliders.js';
 import { createAudio } from './core/audio.js';
 import { createNet } from './core/net.js';
+import { createData } from './core/data.js';
 import { makeLayout } from './world/layout.js';
 import { createTerrain } from './world/terrain.js';
 import { createSky } from './world/sky.js';
 import { createPlayer, RUN_SPEED } from './world/player.js';
 import { createInteract } from './world/interact.js';
-import { createMarkers } from './world/markers.js';
+import { createTown } from './world/town.js';
+import { createResidents, accessoryFor } from './world/residents.js';
+import { createDressing } from './world/dressing.js';
+import { createTraffic } from './world/traffic.js';
+import { createLandmarks } from './world/landmarks.js';
+import { startFreeRoam } from './world/freeroam.js';
+import { createAvatar, setReducedMotion } from './art/index.js';
 import { createHud } from './ui/hud.js';
-
-const HINT_KEY = 'lw.hinted';
-const HINT_TEXT = 'Drag left side to walk. Drag right side to look. Tap anything.';
-const HINT_TEXT_DESKTOP = 'WASD to walk, drag to look, click anything. E to use.';
 
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 
@@ -50,10 +49,11 @@ function showFallback(message) {
   const box = document.getElementById('fallback');
   const veil = document.getElementById('veil');
   if (veil) veil.hidden = true;
-  if (!box) return;
+  if (!box) return null;
   const msg = document.getElementById('fallback-msg');
   if (msg && message) msg.textContent = message;
   box.hidden = false;
+  return document.getElementById('fallback-list');
 }
 
 function hideFallback() {
@@ -61,11 +61,32 @@ function hideFallback() {
   if (box) box.hidden = true;
 }
 
-function parseLots(raw) {
-  if (!raw) return null;
-  const n = raw.split(',').map((s) => parseInt(s, 10));
-  if (n.length !== 3 || n.some((v) => !Number.isFinite(v))) return null;
-  return { heights: n[0], bubble: n[1], park: n[2] };
+// The plain version: used when WebGL is unavailable. The flow side owns the nice one.
+async function plainFallback(store, message) {
+  const list = showFallback(message);
+  const data = createData({ store });
+  try {
+    await data.load();
+  } catch (err) {
+    return;
+  }
+  if (!list) return;
+  try {
+    const flow = await import('./ui/flow.js');
+    if (typeof flow.renderFallback === 'function') {
+      flow.renderFallback(list, { league: data.league, history: data.history, model: data.model });
+      return;
+    }
+  } catch (err) { /* fall through to the built-in list */ }
+  const m = data.model;
+  const ol = document.createElement('ol');
+  for (const id of m.order) {
+    const t = m.teams[id];
+    const li = document.createElement('li');
+    li.textContent = t.name + '  ' + t.record.text + '  (' + TIERS[t.tier].name + ')';
+    ol.appendChild(li);
+  }
+  list.replaceChildren(ol);
 }
 
 async function boot() {
@@ -74,7 +95,9 @@ async function boot() {
   const store = createStore();
   const params = store.params;
   const debug = store.get('debug');
-  hud.setLoading(0.1, 'Painting the yard lines');
+  const calm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  setReducedMotion(calm);
+  hud.setLoading(0.08, 'Checking the standings');
 
   // ------------------------------------------------------------------ engine
   let engine;
@@ -82,24 +105,36 @@ async function boot() {
     engine = createEngine({ canvas, quality: params.get('quality') || 'auto' });
   } catch (err) {
     console.warn('[lw] WebGL is not available', err);
-    showFallback('This device could not start the 3D world, so here is the plain version.');
     window.__lw = { store, hud, failed: 'webgl' };
+    await plainFallback(store, 'This device could not start the 3D world, so here is the plain version.');
     return;
   }
   const { scene, camera } = engine;
   engine.on('contextlost', () => showFallback('The 3D view was interrupted. It will come back by itself, or reload the page.'));
   engine.on('contextrestored', hideFallback);
 
-  await fontsReady();
+  // ------------------------------------------------------------------ data first: the town plan depends on it
+  const data = createData({ store });
+  try {
+    await Promise.all([data.load(), fontsReady()]);
+  } catch (err) {
+    console.warn('[lw] no league data', err);
+    window.__lw = { store, hud, failed: 'data' };
+    showFallback('The league data did not load. Check your connection and reload. Nothing is broken on your end.');
+    return;
+  }
+  let model = data.model;
+  store.set('model', model);
   hud.setLoading(0.3, 'Grading the hillside');
   await nextFrame();
 
-  // ------------------------------------------------------------------ the town
+  // ------------------------------------------------------------------ the hillside
   const contentQuality = engine.quality === 'low' ? 'low' : 'high';
-  const layout = makeLayout(parseLots(params.get('lots')) || { heights: 3, bubble: 4, park: 3 });
+  const counts = (m) => ({ heights: m.tiers.heights.length, bubble: m.tiers.bubble.length, park: m.tiers.park.length });
+  const layout = makeLayout(counts(model));
   const terrain = createTerrain(layout, { quality: contentQuality });
   scene.add(terrain.group);
-  hud.setLoading(0.6, 'Hanging the sky');
+  hud.setLoading(0.5, 'Hanging the sky');
   await nextFrame();
 
   const sky = createSky({ scene, camera, terrain, quality: contentQuality });
@@ -115,52 +150,95 @@ async function boot() {
   const net = createNet();
   const player = createPlayer({ scene, terrain, colliders, input, rig, audio, hud, store });
   const interact = createInteract({ player, camera, hud, canvas });
-
   const spawn = layout.places.spawnPlaza;
   player.place(spawn.x, spawn.z, spawn.facing);
 
-  // Stage 1 stand-ins: labels on every lot and place.
-  const markers = createMarkers(layout, terrain);
-  scene.add(markers.group);
-  if (params.get('labels') === '0') markers.setVisible(false);
-
-  hud.setLoading(0.85, 'Opening the gates');
-
-  // ------------------------------------------------------------------ systems, in order
+  // ------------------------------------------------------------------ the world object (Contract 7)
   let freezeCount = 0;
-  const zone = {};
-  const listener = { x: 0, z: 0, yaw: 0 };
-  engine.addSystem({ update: () => input.update() }, 0);
-  engine.addSystem({ update: (dt, t) => { player.frozen = rig.isCinematic || freezeCount > 0; player.update(dt, t); } }, 10);
-  engine.addSystem(interact, 20);
-  engine.addSystem(rig, 30);
-  engine.addSystem({ update: (dt, t) => sky.update(dt, t, player.position) }, 40);
-  engine.addSystem({
-    update(dt) {
-      terrain.zoneAt(player.position.x, player.position.z, zone);
-      listener.x = player.position.x;
-      listener.z = player.position.z;
-      listener.yaw = rig.yaw;
-      audio.update(dt, zone, listener);
-    },
-  }, 50);
+  let playerTeam = null;
+  let idle = false;
+  const ZONE_CSS = { hill: '#f5c542', heights: '#5fb8e8', plaza: '#f3eedd', bubble: '#c9b58a', park: '#ff9a3d', dump: '#9bbf5a' };
 
-  // `camera` is the camera module (follow rig + cinematic sequencer: camera.play, camera.flyAlong).
-  // The raw three.js camera is `camera3D` (also engine.camera, and camera.object).
+  function neighborhoodSpots() {
+    const st = layout.stations;
+    const lastPark = layout.lots.park[layout.lots.park.length - 1];
+    return {
+      hill: { x: 2.5, z: st.hill.z + 24.5, facing: Math.PI },
+      heights: { x: st.fountain.x + 6, z: st.fountain.z + 15, facing: Math.PI },
+      plaza: layout.places.spawnPlaza,
+      bubble: { x: st.bulb.x - st.bulb.r - 4, z: st.bulb.z + 1.5, facing: Math.PI / 2 },
+      park: { x: lastPark ? lastPark.x + 6 : 0, z: st.laneZ - 1, facing: 0 },
+      dump: { x: layout.places.landfillGate.x, z: st.fenceZ + 2.5, facing: 0 },
+    };
+  }
+  function inFrontOf(p, dist) {
+    return { x: p.x + Math.sin(p.facing) * dist, z: p.z + Math.cos(p.facing) * dist, facing: p.facing + Math.PI };
+  }
+
   const world = {
-    THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, markers,
+    THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, data,
+    town: null, residents: null, dressing: null, traffic: null, landmarks: null, hideTags: false,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
-    // The ride from the gold gates down to the dump, in order: [[x, y, z], ...] (Contract 7).
+    get model() { return model; },
+    get playerTeam() { return playerTeam; },
+
+    // Fast-travel targets: the plaza, each neighborhood, the boards.
+    places() {
+      const spots = neighborhoodSpots();
+      const out = ['plaza', 'hill', 'heights', 'bubble', 'park', 'dump'].map((id) => ({
+        id, kind: id === 'plaza' ? 'plaza' : 'neighborhood', name: world.zoneName(id),
+        blurb: id === 'plaza' ? 'Standings, matchups, the statue and the paper.' : TIERS[id].blurb, color: ZONE_CSS[id],
+        x: spots[id].x, z: spots[id].z, facing: spots[id].facing ?? 0,
+      }));
+      const s = inFrontOf(layout.places.standingsBoard, 9);
+      const m = inFrontOf(layout.places.matchupBoard, 8);
+      out.push({ id: 'standings', kind: 'board', name: 'Standings board', x: s.x, z: s.z, facing: s.facing });
+      out.push({ id: 'matchups', kind: 'board', name: 'Matchup board', x: m.x, z: m.z, facing: m.facing });
+      return out;
+    },
+    // The ride from the crown down to the dump, in order.
     boulevard() {
       return layout.road.map((p) => [p[0], terrain.heightAt(p[0], p[1]), p[1]]);
     },
-    // Fast-travel targets (Contract 7): the plaza and one street spot per neighborhood.
-    places() {
-      const spots = travelSpots();
-      return ['hill', 'heights', 'plaza', 'bubble', 'park', 'dump'].map((id) => ({
-        id, kind: id === 'plaza' ? 'plaza' : 'neighborhood', name: world.zoneName(id), x: spots[id].x, z: spots[id].z, facing: spots[id].facing ?? 0,
-      }));
+    // The visitor becomes that team's resident (color, rank number, tier accessory). null = neutral visitor.
+    setPlayerTeam(teamId) {
+      const team = teamId !== null && teamId !== undefined ? model.teams[teamId] : null;
+      playerTeam = team ? team.id : null;
+      player.setAvatar(createAvatar({ color: team ? team.color : 0x8d939e, number: team ? team.rank : null, accessory: team ? accessoryFor(team) : null }));
+      if (world.residents) world.residents.setPlayerTeam(playerTeam);
+      if (world.dressing) world.dressing.setPlayerTeam(playerTeam);
+      store.set('playerTeam', playerTeam);
+      return playerTeam;
     },
+    // Slow aerial drift over the hillside, for behind the team picker.
+    idleCamera(on) {
+      on = !!on;
+      if (on === idle) return;
+      idle = on;
+      if (!on) {
+        sky.setFogScale(1);
+        world.hideTags = false;
+        rig.skip();
+        return;
+      }
+      sky.setFogScale(0.45);
+      world.hideTags = true;
+      const zEnd = layout.bounds.maxZ;
+      const portrait = camera.aspect < 1;
+      const drift = (u, sec) => {
+        const a = sec * 0.045;
+        return [34 * Math.sin(a), 62 + 6 * Math.sin(a * 0.6) + (portrait ? 14 : 0), zEnd + 58 + (portrait ? 26 : 0) + 12 * Math.cos(a * 0.8)];
+      };
+      rig.play([{ cut: true, dur: 1e7, ease: 'linear', fov: portrait ? 56 : 44, pos: drift, look: (u, sec) => [6 * Math.sin(sec * 0.03), 8, -14] }], { skippable: false, handoff: 1.2 })
+        .then(() => {
+          if (idle) {
+            idle = false;
+            sky.setFogScale(1);
+            world.hideTags = false;
+          }
+        });
+    },
+    get idle() { return idle; },
     // Movement off while something scripted is happening. Returns a function that releases it.
     freezePlayer() {
       freezeCount++;
@@ -171,9 +249,8 @@ async function boot() {
         freezeCount = Math.max(0, freezeCount - 1);
       };
     },
-    // Fast travel to a named place or a point.
     travelTo(target) {
-      const p = typeof target === 'string' ? travelSpots()[target] : target;
+      const p = typeof target === 'string' ? world.places().find((q) => q.id === target) : target;
       if (!p) return Promise.resolve(false);
       return player.teleport(p.x, p.z, p.facing ?? player.heading).then(() => true);
     },
@@ -182,30 +259,57 @@ async function boot() {
     },
   };
 
-  function travelSpots() {
-    const st = layout.stations;
-    const L = layout.lots;
-    const firstPark = L.park[L.park.length - 1];
-    return {
-      hill: { x: 4, z: st.hill.z + 24.5, facing: 0 },
-      heights: { x: st.fountain.x + 6, z: st.fountain.z + 15, facing: Math.PI },
-      plaza: layout.places.spawnPlaza,
-      bubble: { x: st.bulb.x - st.bulb.r - 4, z: st.bulb.z + 1.5, facing: Math.PI / 2 },
-      park: { x: firstPark ? firstPark.x + 6 : 0, z: st.laneZ - 1, facing: 0 },
-      dump: { x: layout.places.landfillGate.x, z: st.fenceZ + 2.5, facing: 0 },
-    };
+  // ------------------------------------------------------------------ populate
+  hud.setLoading(0.65, 'Moving everybody in');
+  await nextFrame();
+  const town = (world.town = createTown(world));
+  town.apply(model);
+  const residents = (world.residents = createResidents(world));
+  residents.apply(model);
+  hud.setLoading(0.8, 'Mowing the nice lawns');
+  await nextFrame();
+  const dressing = (world.dressing = createDressing(world));
+  dressing.apply(model);
+  const traffic = (world.traffic = createTraffic(world));
+  traffic.apply(model);
+  const landmarks = (world.landmarks = createLandmarks(world));
+  world.setPlayerTeam(null);
+
+  let markers = null;
+  if (debug) {
+    const { createMarkers } = await import('./world/markers.js');
+    markers = createMarkers(layout, terrain);
+    scene.add(markers.group);
+    world.markers = markers;
   }
 
-  // ------------------------------------------------------------------ input wiring
+  // ------------------------------------------------------------------ systems, in order
+  const zone = {};
+  const listener = { x: 0, z: 0, yaw: 0 };
+  engine.addSystem({ update: () => input.update() }, 0);
+  engine.addSystem({ update: (dt, t) => { player.frozen = rig.isCinematic || freezeCount > 0; player.update(dt, t); } }, 10);
+  engine.addSystem(interact, 20);
+  engine.addSystem(rig, 30);
+  engine.addSystem({ update: (dt, t) => sky.update(dt, t, player.position) }, 40);
+  engine.addSystem(town, 45);
+  engine.addSystem(residents, 46);
+  engine.addSystem(dressing, 47);
+  engine.addSystem(traffic, 48);
+  engine.addSystem(landmarks, 49);
+  engine.addSystem({
+    update(dt) {
+      terrain.zoneAt(player.position.x, player.position.z, zone);
+      listener.x = player.position.x;
+      listener.z = player.position.z;
+      listener.yaw = rig.yaw;
+      audio.update(dt, zone, listener);
+    },
+  }, 50);
+
+  // ------------------------------------------------------------------ input wiring (world side)
   hud.on('modal', (open) => input.setSuspended(open));
   hud.onAction(() => interact.use());
   input.on('use', () => interact.use());
-  input.on('map', () => openTravel());
-  input.on('firstmove', () => {
-    hud.hideHint();
-    safeStorageSet(HINT_KEY, '1');
-  });
-
   const raycaster = new THREE.Raycaster();
   const ndc = new THREE.Vector2();
   const hit = new THREE.Vector3();
@@ -226,17 +330,8 @@ async function boot() {
     if (p.x < b.minX - 6 || p.x > b.maxX + 6 || p.z < b.minZ - 6 || p.z > b.maxZ + 6) return;
     player.walkTo(p.x, p.z);
   });
-
-  // ------------------------------------------------------------------ sound
-  const syncSound = () => hud.setButton('sound', { pressed: audio.enabled, label: audio.enabled ? 'Sound on' : 'Sound off' });
-  audio.on('change', syncSound);
-  hud.onButton('sound', () => {
-    const on = audio.toggle();
-    if (on) audio.sfx('pop');
-    hud.toast(on ? 'Sound on' : 'Sound off', { ms: 1200 });
-  });
   if (audio.wanted) {
-    // The visitor chose sound before; browsers only allow it to start from a gesture.
+    // The visitor chose sound before; browsers only let it start from a gesture.
     const arm = () => {
       window.removeEventListener('pointerdown', arm, true);
       window.removeEventListener('keydown', arm, true);
@@ -245,197 +340,35 @@ async function boot() {
     window.addEventListener('pointerdown', arm, true);
     window.addEventListener('keydown', arm, true);
   }
-  syncSound();
 
-  // ------------------------------------------------------------------ stage 1 HUD content
-  hud.setStatus({ rankText: '', teamName: 'League World', recordText: 'Empty town', tierName: 'Stage 1' });
-  hud.onButton('status', () => {
-    hud.openCard({
-      kicker: 'League World',
-      title: 'The town is built. The neighbors move in next.',
-      lines: ['Walk the Boulevard from the gold gates down to the landfill. Every lot is waiting for a team.'],
-      actions: [{ label: 'Got it' }],
-    });
-  });
-
-  function button(title, sub, tag, color, onClick) {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'lw-row';
-    if (color) b.style.setProperty('--accent', color);
-    const main = document.createElement('span');
-    main.className = 'lw-row-main';
-    const t = document.createElement('span');
-    t.className = 'lw-row-title';
-    t.textContent = title;
-    const s = document.createElement('span');
-    s.className = 'lw-row-sub';
-    s.textContent = sub;
-    main.append(t, s);
-    b.appendChild(main);
-    if (tag) {
-      const g = document.createElement('span');
-      g.className = 'lw-row-tag';
-      g.textContent = tag;
-      b.appendChild(g);
-    }
-    b.addEventListener('click', onClick);
-    return b;
-  }
-
-  const ZONE_CSS = { hill: '#f5c542', heights: '#5fb8e8', plaza: '#f3eedd', bubble: '#c9b58a', park: '#ff9a3d', dump: '#9bbf5a' };
-  function openTravel() {
-    if (hud.panelOpen) {
-      hud.closePanel();
-      return;
-    }
-    const box = document.createElement('div');
-    const note = document.createElement('p');
-    note.className = 'lw-note';
-    note.textContent = 'Top of the hill is first place. Bottom is the dump. Tap a neighborhood to go there.';
-    const list = document.createElement('div');
-    list.className = 'lw-list';
-    const blurbs = Object.assign({ plaza: { name: 'The Plaza', blurb: 'Standings board, matchups, the statue and the paper.' } }, TIERS);
-    for (const key of ['hill', 'heights', 'plaza', 'bubble', 'park', 'dump']) {
-      const y = Math.round(layout.zones[key].y);
-      list.appendChild(button(blurbs[key].name, blurbs[key].blurb, y + ' m', ZONE_CSS[key], () => {
-        hud.closePanel();
-        world.travelTo(key);
-      }));
-    }
-    box.append(note, list);
-    hud.openPanel({ title: 'Map', contentEl: box });
-  }
-  hud.onButton('map', openTravel);
-
-  hud.onButton('standings', () => {
-    const box = document.createElement('div');
-    const note = document.createElement('p');
-    note.className = 'lw-note';
-    note.textContent = 'The standings arrive with the league data. For now, here is who would live where.';
-    const list = document.createElement('div');
-    list.className = 'lw-list';
-    let rank = 1;
-    for (const tier of TIER_ORDER) {
-      for (const lot of layout.lots[tier]) {
-        const r = rank++;
-        list.appendChild(button('Rank ' + r, TIERS[tier].name, '#' + r, ZONE_CSS[tier], () => {
-          hud.closePanel();
-          const fx = Math.sin(lot.facing);
-          const fz = Math.cos(lot.facing);
-          player.teleport(lot.curb[0] + fx * 2, lot.curb[1] + fz * 2, lot.facing + Math.PI);
-        }));
-      }
-    }
-    box.append(note, list);
-    hud.openPanel({ title: 'Standings', contentEl: box });
-  });
-
-  hud.onButton('menu', () => {
-    const box = document.createElement('div');
-    const list = document.createElement('div');
-    list.className = 'lw-list';
-    const soundRow = button('Sound', audio.enabled ? 'On. Tap to turn it off.' : 'Off. Tap to turn it on.', audio.enabled ? 'ON' : 'OFF', null, () => {
-      audio.toggle();
-      hud.closePanel();
-    });
-    const q = engine.quality;
-    const qualityRow = button('Graphics', q === 'low' ? 'Battery saver. Tap for automatic.' : 'Automatic. Tap for battery saver.', q === 'low' ? 'LOW' : 'AUTO', null, () => {
-      engine.setQuality(q === 'low' ? 'auto' : 'low');
-      hud.closePanel();
-      hud.toast(q === 'low' ? 'Graphics: automatic' : 'Graphics: battery saver');
-    });
-    const hof = document.createElement('a');
-    hof.className = 'lw-row';
-    hof.href = PATHS.hallOfFame;
-    const hm = document.createElement('span');
-    hm.className = 'lw-row-main';
-    const ht = document.createElement('span');
-    ht.className = 'lw-row-title';
-    ht.textContent = 'Hall of Fame';
-    const hs = document.createElement('span');
-    hs.className = 'lw-row-sub';
-    hs.textContent = 'Leave the world and visit the old stadium.';
-    hm.append(ht, hs);
-    hof.appendChild(hm);
-    hof.style.textDecoration = 'none';
-    list.append(soundRow, qualityRow, hof);
-    const h = document.createElement('h3');
-    h.className = 'lw-h3';
-    h.textContent = 'How to get around';
-    const help = document.createElement('p');
-    help.className = 'lw-note';
-    help.textContent = 'Phone: drag the left side to walk, drag the right side to look, pinch to zoom, tap the ground to walk there. Keyboard: WASD or arrows, Shift to walk, drag to look, wheel to zoom, E to use, M for the map.';
-    box.append(list, h, help);
-    hud.openPanel({ title: 'Menu', contentEl: box });
-  });
-
-  // Stage 1 stand-in interactables: every lot and landmark can be walked to and inspected, which
-  // exercises the same path the real mailboxes, boards and doors will use.
-  {
-    let rank = 1;
-    for (const tier of TIER_ORDER) {
-      for (const lot of layout.lots[tier]) {
-        const r = rank++;
-        const fx = Math.sin(lot.facing);
-        const fz = Math.cos(lot.facing);
-        const reach = tier === 'dump' ? lot.r - 2 : lot.d / 2 - 2.5;
-        const at = new THREE.Vector3(lot.x + fx * reach, 0, lot.z + fz * reach);
-        at.y = terrain.heightAt(at.x, at.z);
-        interact.register({
-          id: 'lot:' + tier + ':' + lot.index,
-          position: at,
-          radius: 3.2,
-          label: 'Inspect lot',
-          onUse: () => {
-            audio.sfx('tick');
-            hud.openCard({
-              kicker: 'Rank ' + r + ' lives here',
-              title: TIERS[tier].name,
-              stats: [['Altitude', lot.y.toFixed(1) + ' m'], ['Lot', lot.w + ' x ' + lot.d + ' m'], ['Spot', (lot.index + 1) + ' of ' + layout.lots[tier].length]],
-              lines: [TIERS[tier].blurb],
-              jab: 'Vacant until the standings move somebody in.',
-              accentColor: ZONE_CSS[tier],
-              actions: [{ label: 'Close' }],
-            });
-          },
-        });
-      }
-    }
-    const places = [
-      ['statue', 'Statue', 'The defending champion will stand here, in whatever condition they have earned.'],
-      ['standingsBoard', 'Standings board', 'The whole league, top to bottom, on one board.'],
-      ['matchupBoard', 'Matchup board', 'This week\'s games and who is winning them.'],
-      ['newspaperBox', 'Newspaper box', 'The weekly paper. Mostly bad news for somebody.'],
-      ['fountain', 'Fountain', 'Playoff Heights gathers around it and says "we" a lot.'],
-      ['burningBarrel', 'Burning barrel', 'Warmth, and somewhere to throw last week\'s lineup.'],
-      ['landfillGate', 'Landfill gate', 'Past here it is just the dump and whoever is in last place.'],
-    ];
-    for (const [key, label, line] of places) {
-      const p = layout.places[key];
-      if (!p) continue;
-      const off = key === 'statue' || key === 'fountain' ? 5 : 0;
-      const at = new THREE.Vector3(p.x, 0, p.z + off);
-      at.y = terrain.heightAt(at.x, at.z);
-      interact.register({
-        id: 'place:' + key,
-        position: at,
-        radius: key === 'statue' || key === 'fountain' ? 4 : 2.8,
-        label: 'Look',
-        priority: 1,
-        onUse: () => {
-          audio.sfx('tick');
-          hud.openCard({ kicker: 'Coming soon', title: label, lines: [line], actions: [{ label: 'Close' }] });
-        },
-      });
-    }
-  }
-
-  // ------------------------------------------------------------------ presence seam
+  // ------------------------------------------------------------------ presence seam, live data
   store.on('player', (state) => net.sendState(state));
   net.connect({ teamId: store.get('teamId') });
 
-  // ------------------------------------------------------------------ debug readout
+  data.start((next, prev) => {
+    const a = counts(next);
+    const b = counts(prev);
+    if (a.heights !== b.heights || a.bubble !== b.bubble || a.park !== b.park || next.order.length !== prev.order.length) {
+      window.location.reload(); // the town plan itself changed: rebuild from scratch
+      return;
+    }
+    model = next;
+    town.apply(model);
+    residents.apply(model);
+    dressing.apply(model);
+    traffic.apply(model);
+    if (playerTeam !== null) {
+      const t = model.teams[playerTeam];
+      const av = player.avatar;
+      if (t && av && av.setNumber) {
+        av.setNumber(t.rank);
+        av.setAccessory(accessoryFor(t));
+      }
+    }
+    store.set('model', model);
+  });
+
+  // ------------------------------------------------------------------ debug readout and handle
   if (debug) {
     let clock = 0;
     engine.addSystem({
@@ -456,8 +389,6 @@ async function boot() {
       },
     }, 90);
   }
-
-  // ------------------------------------------------------------------ debug handle (testers rely on this)
   window.__lw = Object.assign(world, {
     teleport: (x, z, facing) => player.place(x, z, facing ?? player.heading),
     stats: () => engine.stats(),
@@ -469,25 +400,32 @@ async function boot() {
   await nextFrame();
   await nextFrame();
   hud.setLoading(1, 'Welcome');
-  hud.hideLoading();
 
-  const coarse = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
-  const hinted = safeStorageGet(HINT_KEY) === '1';
-  const showHint = () => {
-    if (!hinted && !input.hasMoved) hud.showHint(coarse ? HINT_TEXT : HINT_TEXT_DESKTOP);
+  const ctx = {
+    store, hud, camera: rig, player, audio, interact, sky, engine, terrain, layout, town, world,
+    get model() { return model; },
+    get history() { return data.history; },
+    get status() { return data.status; },
+    get league() { return data.league; },
   };
-
-  const calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (params.get('nointro') === '1' || calm) {
-    showHint();
-  } else {
-    // A short establishing shot: the whole valley, then down behind the visitor.
-    const st = layout.stations;
-    rig.play([
-      { cut: true, dur: 0.01, pos: [26, st.plaza.y + 62, 118], look: [0, 12, -40] },
-      { dur: 2.6, ease: 'inOut', pos: [8, st.plaza.y + 24, 52], look: [0, 13, -60] },
-    ], { skippable: true, handoff: 1.1 }).then(showHint);
+  let flowStarted = false;
+  if (params.get('noflow') !== '1') {
+    try {
+      const flow = await import('./ui/flow.js');
+      await flow.startFlow(ctx);
+      flowStarted = true;
+    } catch (err) {
+      console.warn('[lw] the UI flow is unavailable, free roaming instead', err);
+    }
   }
+  if (!flowStarted) {
+    try {
+      startFreeRoam(ctx);
+    } catch (err) {
+      console.error('[lw] free roam failed to start', err);
+    }
+  }
+  hud.hideLoading();
 }
 
 boot().catch((err) => {
