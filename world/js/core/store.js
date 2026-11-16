@@ -5,6 +5,7 @@
 //   store.get('teamId')                    -> number | null
 //   store.set('teamId', 3)                 emits 'teamId' (value, previous) and 'change' (key, value)
 //   store.on('teamId', fn)                 -> unsubscribe function
+//   store.emit('use', { kind: 'home', teamId })   one-off events share the same on()/off()
 //   store.setTeam(id, { persist: true })   also remembers the choice in localStorage
 //   store.params                           URLSearchParams of the page
 //
@@ -58,6 +59,10 @@ export function createStore(initial = {}) {
     set,
     on: events.on.bind(events),
     off: events.off.bind(events),
+    // Fire a one-off event that is not a stored value (for example 'use', see Contract 7).
+    emit(name, payload) {
+      events.emit(name, payload);
+    },
     params,
     setTeam(id, opts = {}) {
       const value = parseTeamId(id);
