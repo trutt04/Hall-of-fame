@@ -11,6 +11,22 @@ around a hillside town where your address is your place in the standings.
 
 Nothing in the world is edited by hand. It is all built from ESPN data.
 
+## Things to do in the world
+
+- **Ride the garbage truck.** It waits at the "Truck stop" sign by the gold gates on The Hill,
+  then drives down to The Dump and tips you out with the trash.
+- **Kick field goals.** There is a practice field beside the plaza. Swipe up to kick. Your best
+  distance is saved on your own phone.
+- **Send a postcard.** The camera button, or the "Postcard" button on any home's card, makes a
+  picture you can save or share to the group chat. You always see it before it goes anywhere.
+- **Check the playoff picture.** It is in the standings panel. During the regular season it
+  shows what the bracket would be if the season ended today. In the playoffs it follows the
+  real games.
+- **Visit the headstones.** Beside the Graveyard building there is a plot for early draft picks
+  that are no longer on the team that drafted them, or are stuck on its injured reserve.
+
+The map has all of these under "Things to do".
+
 ## Where it lives
 
 - The world is the `world/` folder. It is at `https://trutt04.github.io/Hall-of-fame/world/`.
