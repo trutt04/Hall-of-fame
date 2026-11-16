@@ -13,6 +13,34 @@ export const TIER_CSS = { hill: '#f5c542', heights: '#5fb8e8', plaza: '#f3eedd',
 export const PLAZA_LINE = 'The Plaza. Standings board, the paper, and a statue of whoever won last year.';
 export const HINT_KEY = 'lw.hinted';
 
+export const ROOT_CLASS = 'lwf-root';
+
+/** The one element everything the flow adds to the page lives under. Remove it and the flow's DOM is gone. */
+export function flowRoot(hud) {
+  let root = hud.el.querySelector(':scope > .' + ROOT_CLASS);
+  if (!root) {
+    root = document.createElement('div');
+    root.className = ROOT_CLASS;
+    hud.el.appendChild(root);
+  }
+  return root;
+}
+
+/** "Week 10", or "Preseason" before week 1, or "Final" once the season is over. */
+export function weekLabel(meta) {
+  if (!meta) return '';
+  if (meta.phase === 'preseason') return 'Preseason';
+  if (meta.phase === 'complete') return 'Final';
+  return 'Week ' + (meta.week || 1);
+}
+
+/** What to say about this week for a team with no game on the board. */
+export function idleWeekText(meta) {
+  if (meta && meta.phase === 'preseason') return 'Season has not started';
+  if (meta && meta.phase === 'complete') return 'Season over';
+  return 'Bye week';
+}
+
 export function el(tag, className, text) {
   const node = document.createElement(tag);
   if (className) node.className = className;

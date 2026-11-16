@@ -7,7 +7,7 @@
 //   cards.sample() / cards.visitor()
 
 import {
-  el, button, rankBig, tierName, teamName, firstTeam, lastTeam, streakLong, matchupParts, ordinal, hallOfFameUrl, sampleTag,
+  el, button, rankBig, tierName, teamName, firstTeam, lastTeam, streakLong, matchupParts, idleWeekText, ordinal, hallOfFameUrl, sampleTag,
 } from './dom.js';
 import { modelOf, getHome } from './seam.js';
 import { pts1 } from './lists.js';
@@ -64,7 +64,7 @@ export function createCards(ctx, api) {
     rows.push(['Points', pts1(t.pointsFor) + ' for · ' + pts1(t.pointsAgainst) + ' against']);
     const mp = matchupParts(m, t);
     if (mp) rows.push(['This week', mp.opponent], ['', mp.score]);
-    else rows.push(['This week', 'Bye week']);
+    else rows.push(['This week', idleWeekText(m.meta)]);
     if (t.luck && (t.luck.allPlayWins || t.luck.allPlayLosses)) {
       const tag = t.luckTag === 'luckiest' ? ' · luckiest in the league' : t.luckTag === 'unluckiest' ? ' · unluckiest in the league' : '';
       rows.push(['All-play', t.luck.allPlayWins + '-' + t.luck.allPlayLosses + ' vs everyone' + tag]);

@@ -6,7 +6,7 @@
 //
 // The picker is only DOM. The flow starts and stops the aerial camera behind it.
 
-import { el, button, hex, tierName, teamName, rankBig, TIER_CSS } from './dom.js';
+import { el, button, hex, tierName, teamName, rankBig, weekLabel, flowRoot, TIER_CSS } from './dom.js';
 import { modelOf } from './seam.js';
 
 export function openTeamPicker(ctx, opts = {}) {
@@ -26,7 +26,7 @@ export function openTeamPicker(ctx, opts = {}) {
     hero.append(
       el('p', 'lwf-pick-league', meta.leagueName || 'Fantasy league'),
       el('h1', 'lwf-pick-title', 'League World'),
-      el('p', 'lwf-pick-week', meta.week ? 'Week ' + meta.week : 'Preseason'),
+      el('p', 'lwf-pick-week', weekLabel(meta) || 'Preseason'),
     );
 
     // ------------------------------------------------------------ step 1: the list
@@ -161,7 +161,7 @@ export function openTeamPicker(ctx, opts = {}) {
     sheet.append(stepList, stepConfirm);
     root.append(hero, sheet);
     hud.el.classList.add('lwf-picking');
-    hud.el.appendChild(root);
+    flowRoot(hud).appendChild(root);
     root.focus({ preventScroll: true });
   });
 }

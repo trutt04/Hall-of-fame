@@ -126,9 +126,29 @@ export function createInput({ canvas, stick = null }) {
     }
   }
 
+  // A finger that was already down when world input came back (a card closed under the thumb):
+  // pick it up as if it had just landed, so it works without lifting. It can never count as a tap.
+  function adopt(e) {
+    const p = {
+      id: e.pointerId, type: e.pointerType, role: 'look',
+      sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, t0: now() - TAP_MS, dragging: true, far: 99,
+    };
+    if (joy.id === null && !pinch && inStickZone(p.x, p.y)) {
+      let waiting = false;
+      for (const q of pointers.values()) if (q.role === 'joyWait' || q.role === 'joy') waiting = true;
+      if (!waiting) p.role = 'joyWait';
+    }
+    pointers.set(p.id, p);
+    return p;
+  }
+
   function onMove(e) {
-    const p = pointers.get(e.pointerId);
-    if (!p) return;
+    let p = pointers.get(e.pointerId);
+    if (!p) {
+      if (suspended || e.pointerType === 'mouse') return;
+      if (!canvas.hasPointerCapture || !canvas.hasPointerCapture(e.pointerId)) return;
+      p = adopt(e);
+    }
     const dx = e.clientX - p.x;
     const dy = e.clientY - p.y;
     p.x = e.clientX;
@@ -215,6 +235,11 @@ export function createInput({ canvas, stick = null }) {
       events.emit('escape');
       return;
     }
+    // M toggles the map, so it must also arrive while a panel has world input suspended.
+    if (e.code === 'KeyM') {
+      if (!e.repeat) events.emit('map');
+      return;
+    }
     if (suspended) return;
     if (MOVE_KEYS.has(e.code)) {
       keys.add(e.code);
@@ -227,8 +252,6 @@ export function createInput({ canvas, stick = null }) {
       if (a && a !== document.body && a.closest && a.closest('button, a, [role="button"]') && e.code !== 'KeyE') return;
       e.preventDefault();
       events.emit('use');
-    } else if (e.code === 'KeyM') {
-      events.emit('map');
     }
   }
   function onKeyUp(e) {

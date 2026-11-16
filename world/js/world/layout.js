@@ -428,8 +428,8 @@ export function makeLayout(counts = {}) {
   // ---------------------------------------------------------------- zones
   // Blended along the valley. `edges` are the z values where one neighborhood hands over to the next.
   const zoneKeys = ['hill', 'heights', 'plaza', 'bubble', 'park', 'dump'];
-  const edges = [hill.z + 23, -36, 29, laneZ - 6.5, fenceZ];
-  const blends = [9, 9, 9, 7, 5];
+  const edges = [hill.z + 30, -36, 29, laneZ - 6.5, fenceZ];
+  const blends = [7, 9, 9, 7, 5];
   function weightsAt(x, z, out = {}) {
     let prev = 1;
     for (let i = 0; i < zoneKeys.length; i++) {

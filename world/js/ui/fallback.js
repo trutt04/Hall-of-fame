@@ -6,7 +6,7 @@
 
 import { derive } from '../model/derive.js';
 import { PAPER_NAME } from '../model/roasts.js';
-import { el } from './dom.js';
+import { el, weekLabel } from './dom.js';
 import { buildStandings, buildMatchups } from './lists.js';
 
 export function renderFallback(target, data = {}) {
@@ -28,7 +28,7 @@ export function renderFallback(target, data = {}) {
   const meta = model.meta || {};
   box.append(
     el('h2', 'lwf-fb-league', meta.leagueName || 'League'),
-    el('p', 'lwf-fb-week', 'Week ' + (meta.week || 1) + ' · ' + (meta.season || '') + (model.cutLine ? ' · Top ' + model.cutLine + ' make the playoffs' : '')),
+    el('p', 'lwf-fb-week', [weekLabel(meta), meta.season, model.cutLine ? 'Top ' + model.cutLine + ' make the playoffs' : ''].filter(Boolean).join(' · ')),
   );
   if (meta.isSample) box.appendChild(el('p', 'lw-note', 'Sample data: the league is still private on ESPN, so these scores are placeholders for now.'));
   box.append(el('h3', 'lw-h3', 'Standings'), buildStandings(model, {}), el('h3', 'lw-h3', 'This week'), buildMatchups(model, {}));

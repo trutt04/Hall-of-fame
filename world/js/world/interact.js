@@ -102,14 +102,19 @@ export function createInteract({ player, camera, hud = null, canvas = null }) {
     ray.setFromCamera(ndc, camera);
     let best = null;
     let bestD = Infinity;
+    // tag everything first: a throne standing inside a home's group must resolve to the throne
+    for (const item of items.values()) if (item.object3D) item.object3D.userData.interactId = item.id;
     for (const item of items.values()) {
       if (item.enabled === false || !item.object3D) continue;
-      item.object3D.userData.interactId = item.id;
       hitsBuf.length = 0;
       ray.intersectObject(item.object3D, true, hitsBuf);
-      if (hitsBuf.length && hitsBuf[0].distance < bestD) {
-        bestD = hitsBuf[0].distance;
-        best = ownerOf(hitsBuf[0].object) || item;
+      if (!hitsBuf.length) continue;
+      const owner = ownerOf(hitsBuf[0].object) || item;
+      if (owner.enabled === false) continue;
+      const d = hitsBuf[0].distance;
+      if (d < bestD - 0.01 || (Math.abs(d - bestD) <= 0.01 && best && owner.priority > best.priority)) {
+        bestD = d;
+        best = owner;
       }
     }
     if (best) return best;

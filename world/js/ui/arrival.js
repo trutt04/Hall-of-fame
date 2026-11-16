@@ -14,10 +14,12 @@
 //   await arrival.done      always resolves, always with the avatar standing in the end state
 //   arrival.cancel()        stop without landing (the team is being switched)
 //
-// A tap or any key skips at any moment. Everything is wrapped in try/finally with a watchdog, so
-// the camera and the controls can never be left stuck.
+// Skipping never happens by accident: the Skip button (or Escape) skips at once, and a touch or key
+// anywhere else only offers "tap again to skip". A skipped ride still lands with a short stamp.
+// Everything is wrapped in try/finally with a watchdog, so the camera and the controls can never be
+// left stuck.
 
-import { el, hex, readable, wait, rankBig, tierName, teamName, ordinal, TIER_CSS } from './dom.js';
+import { el, button, hex, readable, wait, rankBig, tierName, teamName, ordinal, weekLabel, flowRoot, coarsePointer, TIER_CSS } from './dom.js';
 import { modelOf, getHome, allHomes, boulevard, places, setPlayerTeam, groundY } from './seam.js';
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -136,6 +138,7 @@ export function runArrival(ctx, o = {}) {
   let cancelled = false;
   let stampAt = 0;
   let stampDismissed = false;
+  let stampShown = false;
   let abortNow = null;
   const aborting = new Promise((resolve) => {
     abortNow = resolve;
@@ -153,9 +156,8 @@ export function runArrival(ctx, o = {}) {
   // ---------------------------------------------------------------- overlay
   const meta = (model && model.meta) || {};
   const root = el('div', 'lwf-ride');
-  root.setAttribute('aria-hidden', 'true');
   const title = el('div', 'lwf-title');
-  title.append(el('p', 'lwf-title-kicker', 'League World'), el('h1', 'lwf-title-name', meta.leagueName || ''), el('p', 'lwf-title-week', meta.week ? 'Week ' + meta.week : ''));
+  title.append(el('p', 'lwf-title-kicker', 'League World'), el('h1', 'lwf-title-name', meta.leagueName || ''), el('p', 'lwf-title-week', weekLabel(meta)));
   const counter = el('div', 'lwf-counter');
   const counterNum = el('div', 'lwf-counter-num');
   counter.append(counterNum, el('div', 'lwf-counter-label', 'place'));
@@ -163,12 +165,14 @@ export function runArrival(ctx, o = {}) {
   const lowerName = el('div', 'lwf-lower-name');
   const lowerSub = el('div', 'lwf-lower-sub');
   lower.append(lowerName, lowerSub);
-  const skipHint = el('div', 'lwf-skip', 'Tap to skip');
+  counter.setAttribute('aria-hidden', 'true');
+  lower.setAttribute('aria-hidden', 'true');
+  const skipBtn = button('lwf-skip', 'Skip');
   const welcome = el('div', 'lwf-welcome');
   const welcomeRank = el('div', 'lwf-welcome-rank');
   const welcomeText = el('div', 'lwf-welcome-text');
   welcome.append(welcomeRank, welcomeText);
-  root.append(title, counter, lower, skipHint);
+  root.append(title, counter, lower, skipBtn);
 
   function showCount(t) {
     counterNum.textContent = rankBig(t.rank);
@@ -195,7 +199,7 @@ export function runArrival(ctx, o = {}) {
     welcomeRank.hidden = !team;
     welcome.style.setProperty('--tier', team ? TIER_CSS[team.tier] : TIER_CSS.plaza);
     welcomeText.textContent = text;
-    hud.el.appendChild(welcome);
+    flowRoot(hud).appendChild(welcome);
     void welcome.offsetWidth;
     welcome.classList.add('lwf-on');
     setTimeout(() => welcome.classList.remove('lwf-on'), 4200);
@@ -265,6 +269,7 @@ export function runArrival(ctx, o = {}) {
   async function stamp(small) {
     phase = 'stamp';
     stampAt = performance.now();
+    stampShown = true;
     hideTags(true);
     root.classList.add('lwf-stamped');
     if (small) hud.el.classList.add('lwf-small-stamp');
@@ -522,17 +527,41 @@ export function runArrival(ctx, o = {}) {
     aborted = true;
     abortNow('aborted');
   }
+  // The first touch or key never costs the visitor their arrival (it may just be the tap that
+  // starts the sound). It only offers the way out: a second one within three seconds skips.
+  let offerUntil = 0;
+  let offerTimer = 0;
+  function offerSkip() {
+    offerUntil = performance.now() + 3000;
+    skipBtn.textContent = coarsePointer() ? 'Tap again to skip' : 'Press again to skip';
+    skipBtn.classList.add('lwf-armed');
+    clearTimeout(offerTimer);
+    offerTimer = setTimeout(() => {
+      skipBtn.textContent = 'Skip';
+      skipBtn.classList.remove('lwf-armed');
+    }, 3000);
+  }
   function onSkip(e) {
     if (phase === 'done' || phase === 'handoff') return;
-    if (performance.now() < armedAt) return;
-    if (e.type === 'keydown' && (e.metaKey || e.ctrlKey || e.altKey || e.key === 'Tab' || e.key === 'Shift')) return;
+    const now = performance.now();
+    if (now < armedAt) return;
+    const key = e.type === 'keydown';
+    if (key && (e.metaKey || e.ctrlKey || e.altKey || e.key === 'Tab' || e.key === 'Shift')) return;
+    const onButton = !key ? skipBtn.contains(e.target) : document.activeElement === skipBtn && (e.key === 'Enter' || e.key === ' ');
+    const direct = onButton || (key && e.key === 'Escape');
+    if (!direct && now > offerUntil) {
+      offerSkip();
+      if (phase === 'stamp') e.stopPropagation(); // keep the stamp up: its own tap-to-close must not see this one
+      return;
+    }
     if (phase === 'stamp') {
-      if (performance.now() - stampAt > 600) {
+      if (now - stampAt > 600) {
         stampDismissed = true;
         hud.closeAll();
       }
       return;
     }
+    if (onButton) e.preventDefault();
     abort();
   }
   window.addEventListener('pointerdown', onSkip, true);
@@ -542,6 +571,7 @@ export function runArrival(ctx, o = {}) {
 
   async function finalize() {
     clearTimeout(watchdog);
+    clearTimeout(offerTimer);
     for (const t of timers) clearTimeout(t);
     window.removeEventListener('pointerdown', onSkip, true);
     window.removeEventListener('keydown', onSkip, true);
@@ -567,10 +597,24 @@ export function runArrival(ctx, o = {}) {
     root.classList.add('lwf-out');
     setTimeout(() => root.remove(), 420);
     hud.fade(false, 240);
+    // A skipped ride still says where you stand: the short stamp, about two seconds.
+    if (aborted && !cancelled && team && !stampShown && kind === 'full') {
+      try {
+        await wait(260);
+        stampShown = true;
+        hud.el.classList.add('lwf-small-stamp');
+        hud.el.classList.toggle('lwf-wide-stamp', team.rank >= 10);
+        sfx('stamp');
+        await hud.stamp({ big: rankBig(team.rank), sub: tierName(team.tier), line: team.roast ? team.roast.arrival : '', color: TIER_CSS[team.tier], ms: 2200 });
+      } catch (err) {
+        console.error('[lw] short stamp failed', err);
+      }
+      hud.el.classList.remove('lwf-small-stamp', 'lwf-wide-stamp');
+    }
   }
 
   hud.el.classList.add('lwf-cine');
-  hud.el.appendChild(root);
+  flowRoot(hud).appendChild(root);
   if (kind !== 'none' && kind !== 'calm') later(() => hud.fade(false, 520), 90);
 
   const done = (async () => {

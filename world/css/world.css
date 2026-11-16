@@ -83,6 +83,11 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
   transition:opacity .4s}
 .lw-hint.lw-out{opacity:0}
 
+/* exit cue for the telescope, periscope and throne views: stays for as long as the view does */
+.lw-cue{position:absolute;left:50%;bottom:calc(30px + var(--sab));transform:translateX(-50%);z-index:6;width:max-content;max-width:calc(100% - 32px);
+  padding:9px 18px;font-weight:700;font-size:16px;letter-spacing:.05em;text-transform:uppercase;text-align:center;color:var(--night);
+  background:var(--gold);border:2px solid var(--night);border-radius:999px;box-shadow:0 6px 18px rgba(0,0,0,.5);animation:lw-drop .25s ease-out both}
+
 /* toasts */
 .lw-toasts{position:absolute;left:0;right:0;top:calc(76px + var(--sat));display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 64px}
 .lw-toast{max-width:100%;padding:8px 16px;font-weight:600;font-size:16px;text-align:center;background:var(--panel-solid);

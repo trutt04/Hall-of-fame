@@ -156,6 +156,7 @@ async function boot() {
 
   // ------------------------------------------------------------------ the world object (Contract 7)
   let freezeCount = 0;
+  let frozenSwitch = false;
   let playerTeam = null;
   let idle = false;
   const ZONE_CSS = { hill: '#f5c542', heights: '#5fb8e8', plaza: '#f3eedd', bubble: '#c9b58a', park: '#ff9a3d', dump: '#9bbf5a' };
@@ -240,8 +241,19 @@ async function boot() {
         });
     },
     get idle() { return idle; },
-    // Movement off while something scripted is happening. Returns a function that releases it.
-    freezePlayer() {
+    // Movement off while something scripted or modal is happening. Stops any walk in progress.
+    //   const release = world.freezePlayer()   counted: call release() when done
+    //   world.freezePlayer(true | false)        a simple switch (panels and cards)
+    freezePlayer(on) {
+      if (on === false) {
+        frozenSwitch = false;
+        return () => {};
+      }
+      player.halt();
+      if (on === true) {
+        frozenSwitch = true;
+        return () => { frozenSwitch = false; };
+      }
       freezeCount++;
       let released = false;
       return () => {
@@ -253,6 +265,8 @@ async function boot() {
     travelTo(target) {
       const p = typeof target === 'string' ? world.places().find((q) => q.id === target) : target;
       if (!p) return Promise.resolve(false);
+      // leave the throne, the telescope or any other held view first
+      if (rig.isCinematic && !idle) rig.skip();
       return player.teleport(p.x, p.z, p.facing ?? player.heading).then(() => true);
     },
     zoneName(key) {
@@ -288,7 +302,7 @@ async function boot() {
   const zone = {};
   const listener = { x: 0, z: 0, yaw: 0 };
   engine.addSystem({ update: () => input.update() }, 0);
-  engine.addSystem({ update: (dt, t) => { player.frozen = rig.isCinematic || freezeCount > 0; player.update(dt, t); } }, 10);
+  engine.addSystem({ update: (dt, t) => { player.frozen = rig.isCinematic || freezeCount > 0 || frozenSwitch; player.update(dt, t); } }, 10);
   engine.addSystem(interact, 20);
   engine.addSystem(rig, 30);
   engine.addSystem({ update: (dt, t) => sky.update(dt, t, player.position) }, 40);
@@ -308,7 +322,10 @@ async function boot() {
   }, 50);
 
   // ------------------------------------------------------------------ input wiring (world side)
-  hud.on('modal', (open) => input.setSuspended(open));
+  hud.on('modal', (open) => {
+    input.setSuspended(open);
+    if (open) player.halt(); // nobody keeps walking behind a card or a panel
+  });
   hud.onAction(() => interact.use());
   input.on('use', () => interact.use());
   const raycaster = new THREE.Raycaster();
@@ -409,24 +426,38 @@ async function boot() {
     get status() { return data.status; },
     get league() { return data.league; },
   };
-  let flowStarted = false;
-  if (params.get('noflow') !== '1') {
+  // Free roam starts at most once. If the flow fails, even halfway through, whatever it left on
+  // screen is removed first, so the stand-in HUD never sits on top of a half-built flow.
+  let roaming = false;
+  const freeRoam = (why) => {
+    if (roaming) return;
+    roaming = true;
+    if (why) console.warn('[lw] the UI flow is unavailable, free roaming instead', why);
     try {
-      const flow = await import('./ui/flow.js');
-      await flow.startFlow(ctx);
-      flowStarted = true;
-    } catch (err) {
-      console.warn('[lw] the UI flow is unavailable, free roaming instead', err);
-    }
-  }
-  if (!flowStarted) {
-    try {
+      for (const node of document.querySelectorAll('[class^="lwf"], [class*=" lwf"]')) node.remove();
+      for (const cls of [...hud.el.classList]) if (cls.startsWith('lwf')) hud.el.classList.remove(cls);
+      hud.closeAll();
+      hud.setCue(null);
+      frozenSwitch = false;
+      if (idle) world.idleCamera(false);
+      else if (rig.isCinematic) rig.skip();
       startFreeRoam(ctx);
     } catch (err) {
       console.error('[lw] free roam failed to start', err);
     }
+    hud.hideLoading();
+  };
+  if (params.get('noflow') === '1') freeRoam(null);
+  else {
+    try {
+      const flow = await import('./ui/flow.js');
+      // startFlow may wait on the visitor (team picker): never block the veil on it
+      Promise.resolve().then(() => flow.startFlow(ctx)).catch((err) => freeRoam(err));
+    } catch (err) {
+      freeRoam(err);
+    }
   }
-  hud.hideLoading();
+  setTimeout(() => hud.hideLoading(), 600);
 }
 
 boot().catch((err) => {

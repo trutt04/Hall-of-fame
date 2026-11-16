@@ -21,12 +21,14 @@ export function createLandmarks(w) {
     store.emit('use', { kind });
     const dist = from.distanceTo(to);
     hud.el.classList.add('lw-scope');
+    hud.setCue('Tap to step back');
     sky.setFogScale(fog);
     w.hideTags = true;
     audio.sfx('whoosh', { volume: 0.4 });
     rig.play([{ cut: true, dur: 1e6, pos: [from.x, from.y, from.z], look: [to.x, to.y, to.z], fov: lensFov(dist, radius) }], { skippable: true, handoff: 0.7 })
       .then(() => {
         hud.el.classList.remove('lw-scope');
+        hud.setCue(null);
         sky.setFogScale(1);
         w.hideTags = false;
       });
@@ -44,7 +46,9 @@ export function createLandmarks(w) {
     const facing = throne.entry.lot.facing;
     const release = w.freezePlayer();
     seated = true;
-    player.sit(seat.x, seat.y - ((player.avatar && player.avatar.sitOffset) || 0.27), seat.z, facing);
+    // if fast travel moves the sitter, the held view ends with it
+    player.sit(seat.x, seat.y - ((player.avatar && player.avatar.sitOffset) || 0.27), seat.z, facing, () => rig.skip());
+    hud.setCue('Tap to stand up');
     audio.sfx('fanfare', { volume: 0.7 });
     // behind and above the throne, looking over it at the statue and everything below
     const s = layout.places.statue;
@@ -58,6 +62,7 @@ export function createLandmarks(w) {
       { dur: 1e6 },
     ], { skippable: true, handoff: 0.9 }).then(() => {
       seated = false;
+      hud.setCue(null);
       sky.setFogScale(1);
       player.stand(foot.x, foot.z, facing);
       release();
@@ -70,7 +75,7 @@ export function createLandmarks(w) {
     if (throne && bound.throne !== throne.prop) {
       bound.throne = throne.prop;
       interact.register({
-        id: 'throne', position: throne.anchor(throne.prop.anchors.foot), radius: 2.4, label: 'The throne', priority: 3,
+        id: 'throne', position: throne.anchor(throne.prop.anchors.foot), radius: 2.4, label: 'The throne', priority: 3, object3D: throne.prop.group,
         onUse: () => {
           if (seated) return;
           const t = w.playerTeam !== null ? w.model.teams[w.playerTeam] : null;

@@ -4,7 +4,7 @@
 //   panels.standings({ matchups }) / panels.map() / panels.newspaper() / panels.menu()
 
 import { PAPER_NAME } from '../model/roasts.js';
-import { el, button, svg, hex, inkOn, tierName, teamName, rankBig, hallOfFameUrl, TIER_CSS } from './dom.js';
+import { el, button, svg, hex, inkOn, tierName, teamName, rankBig, weekLabel, hallOfFameUrl, TIER_CSS } from './dom.js';
 import { modelOf, currentZone, zoneLine, ZONE_IDS } from './seam.js';
 import { buildStandings, buildMatchups, buildPaper } from './lists.js';
 
@@ -63,7 +63,7 @@ export function createPanels(ctx, api) {
     box.appendChild(buildStandings(m, { teamId: api.teamId(), onPick: (id) => api.openHome(id) }));
     const h = el('h3', 'lw-h3', 'This week');
     box.append(h, buildMatchups(m, { teamId: api.teamId() }));
-    hud.openPanel({ title: 'Standings · Week ' + m.meta.week, contentEl: box });
+    hud.openPanel({ title: 'Standings · ' + weekLabel(m.meta), contentEl: box });
     if (o.matchups) setTimeout(() => h.scrollIntoView({ block: 'start' }), 60);
   }
 
@@ -132,7 +132,7 @@ export function createPanels(ctx, api) {
     const box = el('div', 'lwf-menu');
     const list = el('div', 'lw-list');
     const me = m.teams[api.teamId()];
-    list.appendChild(row('Switch team', me ? 'You are ' + teamName(me) + '.' : 'You are just looking.', '', () => api.switchTeam()));
+    list.appendChild(row(me ? 'Switch team' : 'Pick a team', me ? 'You are ' + teamName(me) + '.' : 'You are just looking. Tap to choose yours.', '', () => api.switchTeam()));
     const sound = row('Sound', '', '', () => {
       api.toggleSound();
       paintSound();

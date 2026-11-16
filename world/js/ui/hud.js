@@ -58,6 +58,37 @@ function cssColor(c) {
 
 const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Activate on the element's own pointerup. Browsers only synthesize `click` for the primary touch,
+// so a button tapped while a thumb holds the joystick would otherwise never fire. The click that
+// may follow our pointerup is swallowed (one tap, one activation); a click with no pointer pair
+// (keyboard Enter or Space, assistive tech) still activates.
+export function onTap(el, fn) {
+  let id = null;
+  let sx = 0;
+  let sy = 0;
+  let last = -1e9;
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    id = e.pointerId;
+    sx = e.clientX;
+    sy = e.clientY;
+  });
+  el.addEventListener('pointerup', (e) => {
+    if (e.pointerId !== id) return;
+    id = null;
+    if (Math.hypot(e.clientX - sx, e.clientY - sy) > 18) return;
+    last = performance.now();
+    fn(e);
+  });
+  el.addEventListener('pointercancel', (e) => {
+    if (e.pointerId === id) id = null;
+  });
+  el.addEventListener('click', (e) => {
+    if (performance.now() - last < 800) return;
+    fn(e);
+  });
+}
+
 export function createHud(root, opts = {}) {
   const events = emitter();
   const handlers = {};
@@ -76,7 +107,7 @@ export function createHud(root, opts = {}) {
   const chipLine = el('span', 'lw-chip-line', '');
   chipBody.append(chipTeam, chipMeta, chipLine);
   chip.append(chipRank, chipBody);
-  chip.addEventListener('click', () => fire('status'));
+  onTap(chip, () => fire('status'));
   const ribbon = el('div', 'lw-ribbon');
   ribbon.hidden = true;
   const debug = el('pre', 'lw-debug');
@@ -94,7 +125,7 @@ export function createHud(root, opts = {}) {
     b.setAttribute('aria-label', label);
     b.title = label;
     b.appendChild(icon(name === 'sound' ? 'mute' : name));
-    b.addEventListener('click', () => fire(name));
+    onTap(b, () => fire(name));
     buttons.appendChild(b);
     btn[name] = b;
   }
@@ -120,11 +151,13 @@ export function createHud(root, opts = {}) {
   const actionIcon = el('span', 'lw-action-icon');
   const actionLabel = el('span', 'lw-action-label', '');
   action.append(actionIcon, actionLabel);
-  action.addEventListener('click', () => fire('action'));
+  onTap(action, () => fire('action'));
   let actionText = null;
 
   const hint = el('div', 'lw-hint');
   hint.hidden = true;
+  const cue = el('div', 'lw-cue');
+  cue.hidden = true;
   const toasts = el('div', 'lw-toasts');
   toasts.setAttribute('role', 'status');
   toasts.setAttribute('aria-live', 'polite');
@@ -167,7 +200,7 @@ export function createHud(root, opts = {}) {
     x.type = 'button';
     x.setAttribute('aria-label', 'Close');
     x.appendChild(icon('close'));
-    x.addEventListener('click', onClick);
+    onTap(x, onClick);
     return x;
   }
 
@@ -210,7 +243,7 @@ export function createHud(root, opts = {}) {
         } else {
           node = el('button', 'lw-btn', a.label);
           node.type = 'button';
-          node.addEventListener('click', () => {
+          onTap(node, () => {
             if (!a.keepOpen) closeCard();
             if (typeof a.onClick === 'function') a.onClick();
           });
@@ -351,7 +384,7 @@ export function createHud(root, opts = {}) {
   const veilLine = veil.querySelector('.lw-veil-line');
   const fadeEl = el('div', 'lw-fade');
 
-  root.append(top, toasts, hint, action, stickEl, cardWrap, panel, stampEl, fadeEl);
+  root.append(top, toasts, hint, cue, action, stickEl, cardWrap, panel, stampEl, fadeEl);
   if (!veil.parentNode) root.appendChild(veil);
 
   // ---------------------------------------------------------------- modal bookkeeping
@@ -498,6 +531,14 @@ export function createHud(root, opts = {}) {
         hint.hidden = true;
       }, 420);
     },
+
+    // A small pill that stays up for as long as a scripted view lasts ("Tap to step back").
+    setCue(text) {
+      cue.hidden = !text;
+      cue.textContent = text || '';
+    },
+
+    onTap,
 
     async fade(on, ms = 200) {
       fadeEl.style.transitionDuration = ms + 'ms';

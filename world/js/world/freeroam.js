@@ -6,6 +6,7 @@
 import { TIERS, PATHS } from '../config.js';
 import { safeStorageGet, safeStorageSet } from '../core/util.js';
 import { hex, ordinal } from './signs.js';
+import { onTap } from '../ui/hud.js';
 
 const HINT_KEY = 'lw.hinted';
 
@@ -30,7 +31,7 @@ function row(title, sub, tag, color, onClick) {
     g.textContent = tag;
     b.appendChild(g);
   }
-  b.addEventListener('click', onClick);
+  onTap(b, onClick);
   return b;
 }
 

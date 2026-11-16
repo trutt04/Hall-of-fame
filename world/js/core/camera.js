@@ -36,6 +36,7 @@ export function createCameraRig({ camera, engine, terrain, input }) {
   let ready = false;
   let blocker = null; // (x, z) => true when a building is in the way
   let squeeze = 1;
+  let cramped = 0;
 
   const pivot = new THREE.Vector3();
   const vx = { v: 0 };
@@ -81,17 +82,26 @@ export function createCameraRig({ camera, engine, terrain, input }) {
     const cp = Math.cos(pitch);
     fPos.set(pivot.x + Math.sin(yaw) * cp * dist, pivot.y + Math.sin(pitch) * dist, pivot.z + Math.cos(yaw) * cp * dist);
     // Never sit inside a building: slide in toward the avatar until the view is clear.
+    cramped = 0;
     if (blocker) {
+      const reach = Math.max(0.01, cp * dist);
+      const steps = Math.min(40, Math.ceil(reach / 0.28));
       let free = 1;
-      for (let k = 1; k <= 10; k++) {
-        const s = k / 10;
+      for (let k = 1; k <= steps; k++) {
+        const s = k / steps;
         if (blocker(lerp(pivot.x, fPos.x, s), lerp(pivot.z, fPos.z, s))) {
-          free = Math.max(0.14, (k - 1) / 10 - 0.03);
+          // stop a little short of the wall so the near plane never pokes through it
+          free = Math.max(0.02, (((k - 1) / steps) * reach - 0.45) / reach);
           break;
         }
       }
-      squeeze = free < squeeze ? damp(squeeze, free, 20, dt) : damp(squeeze, free, 2.5, dt);
-      if (squeeze < 0.995) fPos.set(pivot.x + Math.sin(yaw) * cp * dist * squeeze, pivot.y + Math.sin(pitch) * dist * (0.35 + 0.65 * squeeze), pivot.z + Math.cos(yaw) * cp * dist * squeeze);
+      squeeze = free < squeeze ? damp(squeeze, free, 30, dt) : damp(squeeze, free, 2.5, dt);
+      if (squeeze < 0.995) {
+        const h = reach * squeeze;
+        // pinned against a wall: rise over the avatar's head and look out past it instead
+        cramped = clamp(1 - h / 2.2, 0, 1);
+        fPos.set(pivot.x + Math.sin(yaw) * h, pivot.y + Math.sin(pitch) * dist * (0.35 + 0.65 * squeeze) + cramped * 0.95, pivot.z + Math.cos(yaw) * h);
+      }
     }
 
     // Keep the camera above the ground and keep the ground from cutting the view of the avatar.
@@ -107,7 +117,7 @@ export function createCameraRig({ camera, engine, terrain, input }) {
     need = Math.max(0, need);
     lift = need > lift ? damp(lift, need, 16, dt) : damp(lift, need, 3.5, dt);
     fPos.y += lift;
-    fLook.set(pivot.x, pivot.y + 0.085 * dist, pivot.z);
+    fLook.set(pivot.x - Math.sin(yaw) * 3.2 * cramped, pivot.y + 0.085 * dist * (1 - cramped) + 0.25 * cramped, pivot.z - Math.cos(yaw) * 3.2 * cramped);
   }
 
   function startShot() {

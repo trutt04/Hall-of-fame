@@ -2,7 +2,7 @@
 // No 3D, no HUD: each takes the model and returns an element. All league text is textContent.
 
 import { PAPER_NAME } from '../model/roasts.js';
-import { el, hex, tierName, teamName, streakShort, statusWord, fmtPts, TIER_CSS } from './dom.js';
+import { el, hex, tierName, teamName, streakShort, statusWord, weekLabel, fmtPts, TIER_CSS } from './dom.js';
 
 const TIER_KEYS = ['hill', 'heights', 'bubble', 'park', 'dump'];
 
@@ -113,7 +113,7 @@ export function buildPaper(model) {
   const ears = el('div', 'lwf-paper-ears');
   ears.append(el('span', null, 'Vol. ' + (meta.season || '') + ', No. ' + (meta.week || 1)), el('span', null, 'Price: your dignity'));
   const date = el('div', 'lwf-paper-date');
-  date.append(el('span', null, 'Week ' + (meta.week || 1) + ' edition'), el('span', null, meta.leagueName || ''));
+  date.append(el('span', null, weekLabel(meta) + ' edition'), el('span', null, meta.leagueName || ''));
   head.append(ears, el('h1', 'lwf-paper-name', PAPER_NAME), el('p', 'lwf-paper-motto', 'All the news that hurts'), date);
   paper.appendChild(head);
   if (meta.isSample) paper.appendChild(el('p', 'lwf-paper-sample', 'Sample edition. These scores and stories are placeholders until the league goes public on ESPN.'));

@@ -134,7 +134,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
   const mv = { x: 0, y: 0 };
   const probe = { x: 0, z: 0 };
   const auto = { active: false, x: 0, z: 0, stop: 0.35, onArrive: null, stuck: 0, lastD: 0 };
-  const seat = { on: false, x: 0, y: 0, z: 0 };
+  const seat = { on: false, x: 0, y: 0, z: 0, onLeave: null };
   const followTarget = { position, heading, speed: 0 };
 
   function setAvatar(next) {
@@ -340,7 +340,32 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     };
   }
 
+  // Stop dead: no walk target, no coasting.
+  function halt() {
+    cancelWalk();
+    vel.x = 0;
+    vel.z = 0;
+  }
+
+  // Leaving a seat because something moved the player (fast travel): tell whoever sat us down.
+  function unseat() {
+    if (!seat.on) return;
+    seat.on = false;
+    anim = 'idle';
+    if (avatar && avatar.setAnim) avatar.setAnim('idle');
+    const cb = seat.onLeave;
+    seat.onLeave = null;
+    if (cb) {
+      try {
+        cb();
+      } catch (err) {
+        console.error('[lw] seat onLeave failed', err);
+      }
+    }
+  }
+
   function place(x, z, facing) {
+    unseat();
     cancelWalk();
     position.set(x, terrain.heightAt(x, z), z);
     if (typeof facing === 'number') heading = facing;
@@ -359,9 +384,10 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     if (fade) await hud.fade(false, 260);
   }
 
-  function sit(x, y, z, facing) {
-    cancelWalk();
+  function sit(x, y, z, facing, onLeave) {
+    halt();
     seat.on = true;
+    seat.onLeave = typeof onLeave === 'function' ? onLeave : null;
     seat.x = x;
     seat.y = y;
     seat.z = z;
@@ -375,6 +401,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
   function stand(x, z, facing) {
     if (!seat.on) return;
     seat.on = false;
+    seat.onLeave = null;
     anim = 'idle';
     if (avatar && avatar.setAnim) avatar.setAnim('idle');
     position.set(x, terrain.heightAt(x, z), z);
@@ -396,6 +423,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     place,
     sit,
     stand,
+    halt,
     get seated() { return seat.on; },
     getState,
     radius: RADIUS,
