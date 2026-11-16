@@ -90,6 +90,83 @@ export function buildMatchups(model, opts = {}) {
   return box;
 }
 
+const PO_STATUS = { live: 'Live', final: 'Final', pre: 'Up next', projected: '' };
+
+/**
+ * The playoff picture: the bracket as a compact list by round, byes, and the bubble line.
+ * Returns null when the model has no playoffs yet. opts as for buildStandings.
+ */
+export function buildPlayoffs(model, opts = {}) {
+  const po = model && model.playoffs;
+  const rounds = po && Array.isArray(po.rounds) ? po.rounds.filter((r) => r && ((r.games && r.games.length) || (r.byes && r.byes.length))) : [];
+  if (!rounds.length) return null;
+  const box = el('section', 'lwf-po lwf-po-' + (po.state || 'projected'));
+  box.appendChild(el('h3', 'lw-h3', 'Playoff picture'));
+  const title = po.title || (po.state === 'projected' ? 'If the season ended today' : '');
+  if (title) box.appendChild(el('p', 'lwf-po-title', title));
+
+  // one side of a game, or a bye
+  const side = (s, pts, o = {}) => {
+    const t = s && s.teamId !== undefined && s.teamId !== null ? model.teams[s.teamId] : null;
+    const row = el(t && opts.onPick ? 'button' : 'div', 'lwf-po-side');
+    if (!t) {
+      row.classList.add('lwf-po-tbd');
+      row.append(el('span', 'lwf-po-seed', s && s.seed ? s.seed : ''), el('span', 'lwf-s-chip'), el('span', 'lwf-po-name', 'To be decided'), el('span', 'lwf-po-pts', ''));
+      return row;
+    }
+    if (opts.onPick) {
+      row.type = 'button';
+      row.addEventListener('click', () => opts.onPick(t.id));
+    }
+    row.style.setProperty('--team', hex(t.color));
+    if (opts.teamId === t.id) row.classList.add('lwf-you');
+    if (o.won) row.classList.add('lwf-won');
+    if (o.lost) row.classList.add('lwf-lost');
+    const name = el('span', 'lwf-po-name', teamName(t));
+    if (opts.teamId === t.id) name.appendChild(el('span', 'lwf-po-you', 'You'));
+    const score = o.bye ? 'Bye' : typeof pts === 'number' && o.scored ? fmtPts(pts) : '';
+    row.append(el('span', 'lwf-po-seed', s.seed || ''), el('span', 'lwf-s-chip'), name, el('span', 'lwf-po-pts', score));
+    return row;
+  };
+
+  for (const r of rounds) {
+    const head = el('h4', 'lwf-po-round');
+    head.append(el('span', null, r.name || 'Round'), el('span', 'lwf-po-week', r.week ? 'Week ' + r.week : ''));
+    box.appendChild(head);
+    for (const gm of r.games || []) {
+      if (!gm) continue;
+      const scored = gm.status === 'live' || gm.status === 'final';
+      const decided = gm.winnerId !== undefined && gm.winnerId !== null;
+      const game = el('div', 'lwf-po-game');
+      for (const [s, pts] of [[gm.a, gm.aPts], [gm.b, gm.bPts]]) {
+        const id = s ? s.teamId : null;
+        game.appendChild(side(s, pts, { scored, won: decided && id === gm.winnerId, lost: decided && id !== null && id !== gm.winnerId }));
+      }
+      const word = PO_STATUS[gm.status] || '';
+      if (word) game.appendChild(el('span', 'lwf-po-status lwf-m-' + gm.status, word));
+      box.appendChild(game);
+    }
+    if (r.byes && r.byes.length) {
+      const byes = el('div', 'lwf-po-game lwf-po-byes');
+      for (const b of r.byes) byes.appendChild(side(b, null, { bye: true }));
+      box.appendChild(byes);
+    }
+  }
+  const champ = po.championId !== undefined && po.championId !== null ? model.teams[po.championId] : null;
+  if (champ) box.appendChild(el('p', 'lwf-po-champ', 'Champion: ' + teamName(champ)));
+  if (po.bubble && po.bubble.text) box.appendChild(el('p', 'lwf-po-bubble', po.bubble.text));
+  return box;
+}
+
+/** One line of the playoff picture for the paper, or '' when there is nothing to say. */
+export function playoffLine(model) {
+  const po = model && model.playoffs;
+  if (!po) return '';
+  const champ = po.championId !== undefined && po.championId !== null ? model.teams[po.championId] : null;
+  if (champ) return 'Champion: ' + teamName(champ) + '.';
+  return (po.bubble && po.bubble.text) || '';
+}
+
 const KIND_LABEL = {
   heartbreaker: 'Heartbreak', bench: 'Lineup crimes', blowout: 'Blowout', streak: 'Streak watch', move: 'Real estate',
   forecast: 'Forecast', history: 'From the archives', luck: 'Luck report', toilet: 'Awards', record: 'Record book',
@@ -127,6 +204,12 @@ export function buildPaper(model) {
     const cols = el('div', 'lwf-paper-cols');
     for (const h of stories.slice(1)) cols.appendChild(story(h, false));
     paper.appendChild(cols);
+  }
+  const race = playoffLine(model);
+  if (race) {
+    const line = el('p', 'lwf-paper-wire');
+    line.append(el('b', null, 'Playoff picture'), el('span', null, race));
+    paper.appendChild(line);
   }
   if (model.blimp) {
     const wire = el('p', 'lwf-paper-wire');

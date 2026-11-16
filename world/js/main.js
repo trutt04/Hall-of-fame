@@ -196,6 +196,10 @@ async function boot() {
       const m = inFrontOf(layout.places.matchupBoard, 8);
       out.push({ id: 'standings', kind: 'board', name: 'Standings board', x: s.x, z: s.z, facing: s.facing });
       out.push({ id: 'matchups', kind: 'board', name: 'Matchup board', x: m.x, z: m.z, facing: m.facing });
+      if (world.traffic && world.traffic.stop) {
+        const ts = world.traffic.stop;
+        out.push({ id: 'truckstop', kind: 'ride', name: 'Truck stop', blurb: 'Ride the garbage truck down to the dump.', x: ts.x, z: ts.z, facing: ts.facing });
+      }
       return out;
     },
     // The ride from the crown down to the dump, in order.

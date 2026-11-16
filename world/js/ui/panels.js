@@ -6,7 +6,7 @@
 import { PAPER_NAME } from '../model/roasts.js';
 import { el, button, svg, hex, inkOn, tierName, teamName, rankBig, weekLabel, hallOfFameUrl, TIER_CSS } from './dom.js';
 import { modelOf, currentZone, zoneLine, ZONE_IDS } from './seam.js';
-import { buildStandings, buildMatchups, buildPaper } from './lists.js';
+import { buildStandings, buildMatchups, buildPaper, buildPlayoffs } from './lists.js';
 
 // Tiny line drawings, one per neighborhood, for the map.
 const ZONE_ART = {
@@ -60,7 +60,13 @@ export function createPanels(ctx, api) {
     const box = el('div');
     const playoffs = m.cutLine ? 'Top ' + m.cutLine + ' make the playoffs. ' : '';
     box.appendChild(el('p', 'lw-note', playoffs + 'Tap a team to see their house.'));
-    box.appendChild(buildStandings(m, { teamId: api.teamId(), onPick: (id) => api.openHome(id) }));
+    const table = buildStandings(m, { teamId: api.teamId(), onPick: (id) => api.openHome(id) });
+    const picture = buildPlayoffs(m, { teamId: api.teamId(), onPick: (id) => api.openHome(id) });
+    const state = m.playoffs ? m.playoffs.state : null;
+    // once the playoffs are on, the bracket is the news: it goes above the table
+    if (picture && (state === 'live' || state === 'final')) box.append(picture, table);
+    else if (picture) box.append(table, picture);
+    else box.appendChild(table);
     const h = el('h3', 'lw-h3', 'This week');
     box.append(h, buildMatchups(m, { teamId: api.teamId() }));
     hud.openPanel({ title: 'Standings · ' + weekLabel(m.meta), contentEl: box });

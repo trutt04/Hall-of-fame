@@ -10,6 +10,7 @@ import {
 } from './util.js';
 import { buildHistory } from './history.js';
 import { composeCopy } from './roasts.js';
+import { buildPlayoffs, buildGraveyard } from './extras.js';
 
 export { tierForRank } from './util.js';
 
@@ -271,6 +272,8 @@ function emptyModel(src, lg, historyIsSample) {
     headlines: [],
     blimp: '',
     history: null,
+    playoffs: null,
+    graveyard: [],
   };
 }
 
@@ -682,7 +685,30 @@ export function derive(league, history, opts) {
     headlines: [],
     blimp: '',
     history: historyModel,
+    playoffs: null,
+    graveyard: [],
   };
+
+  // ----- extras: the playoff picture and the draft graveyard -----
+  try {
+    model.playoffs = buildPlayoffs({
+      seeding: seedOrder || (phase === 'complete' ? orderByRecord(teams, recordRows) : order),
+      teams,
+      P,
+      regWeeks,
+      games,
+      phase,
+      statusOf,
+      championId: finalOk ? order[0] : null,
+    });
+  } catch (e) {
+    model.playoffs = null;
+  }
+  try {
+    model.graveyard = buildGraveyard(src, { week, season, phase });
+  } catch (e) {
+    model.graveyard = [];
+  }
 
   // ----- the copy -----
   const lineupsRaw = isObj(src.lastWeekLineups) && isObj(src.lastWeekLineups.teams) ? src.lastWeekLineups : null;

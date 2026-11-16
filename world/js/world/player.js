@@ -134,7 +134,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
   const mv = { x: 0, y: 0 };
   const probe = { x: 0, z: 0 };
   const auto = { active: false, x: 0, z: 0, stop: 0.35, onArrive: null, stuck: 0, lastD: 0 };
-  const seat = { on: false, x: 0, y: 0, z: 0, onLeave: null };
+  const seat = { on: false, x: 0, y: 0, z: 0, onLeave: null, pose: 'sit' };
   const followTarget = { position, heading, speed: 0 };
 
   function setAvatar(next) {
@@ -145,7 +145,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     avatar = next;
     if (avatar) {
       group.add(avatar.group);
-      if (avatar.setAnim) avatar.setAnim(seat.on ? 'sit' : anim);
+      if (avatar.setAnim) avatar.setAnim(seat.on ? seat.pose : anim);
     }
     // art avatars bring their own blob shadow
     shadow.visible = !!(avatar && avatar.group.name === 'placeholderAvatar');
@@ -384,9 +384,11 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     if (fade) await hud.fade(false, 260);
   }
 
-  function sit(x, y, z, facing, onLeave) {
+  // Pin the avatar somewhere (a throne, the back of a truck). pose is the animation to hold.
+  function sit(x, y, z, facing, onLeave, pose = 'sit') {
     halt();
     seat.on = true;
+    seat.pose = pose;
     seat.onLeave = typeof onLeave === 'function' ? onLeave : null;
     seat.x = x;
     seat.y = y;
@@ -394,8 +396,17 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     if (typeof facing === 'number') heading = facing;
     position.set(x, y, z);
     group.rotation.y = heading;
-    anim = 'sit';
-    if (avatar && avatar.setAnim) avatar.setAnim('sit');
+    anim = pose;
+    if (avatar && avatar.setAnim) avatar.setAnim(pose);
+  }
+
+  // Move the seat while seated (it is riding something).
+  function setSeat(x, y, z, facing) {
+    if (!seat.on) return;
+    seat.x = x;
+    seat.y = y;
+    seat.z = z;
+    if (typeof facing === 'number') heading = facing;
   }
 
   function stand(x, z, facing) {
@@ -422,6 +433,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     teleport,
     place,
     sit,
+    setSeat,
     stand,
     halt,
     get seated() { return seat.on; },

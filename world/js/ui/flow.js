@@ -16,6 +16,7 @@ import { openTeamPicker } from './teampick.js';
 import { runArrival } from './arrival.js';
 import { createCards } from './cards.js';
 import { createPanels } from './panels.js';
+import { createPostcard } from './postcard.js';
 import { readLastSeen, saveLastSeen, showRecap } from './recap.js';
 import { renderFallback } from './fallback.js';
 import {
@@ -106,6 +107,8 @@ function build(ctx, started, failed) {
     switchTeam,
     toggleSound,
   };
+  const postcard = createPostcard(ctx, api);
+  api.postcard = (id) => postcard.open({ teamId: id });
   const cards = createCards(ctx, api);
   const panels = createPanels(ctx, api);
   flowRoot(hud);
@@ -198,6 +201,11 @@ function build(ctx, started, failed) {
     offs.push(hud.onButton('map', toggle(panels.map)));
     offs.push(hud.onButton('standings', toggle(panels.standings)));
     offs.push(hud.onButton('menu', toggle(panels.menu)));
+    offs.push(hud.onButton('postcard', () => {
+      if (phase === 'roam' && !hud.isModalOpen()) postcard.open({});
+    }));
+    hud.setButton('postcard', { hidden: false });
+    offs.push(() => hud.setButton('postcard', { hidden: true }));
     offs.push(hud.onButton('status', () => {
       if (phase !== 'roam') return;
       if (teamId !== null) cards.home(teamId);

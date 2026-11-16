@@ -85,12 +85,15 @@ export function createCards(ctx, api) {
     let far = !!o.go;
     const h = getHome(ctx, t.id);
     if (!far && h) far = Math.hypot(player.position.x - h.street.x, player.position.z - h.street.z) > 32;
+    const acts = el('div', 'lwf-card-acts');
     if (far && h) {
-      body.appendChild(button('lw-btn lw-btn-primary lwf-go', mine ? 'Go home' : 'Go to their house', () => {
+      acts.appendChild(button('lw-btn lw-btn-primary lwf-go', mine ? 'Go home' : 'Go to their house', () => {
         hud.closeCard();
         api.goHome(t.id);
       }));
     }
+    if (typeof api.postcard === 'function') acts.appendChild(button('lw-btn lwf-pc', 'Postcard', () => api.postcard(t.id)));
+    if (acts.firstChild) body.appendChild(acts);
     body.appendChild(statList(rows));
     const lines = (t.roast && t.roast.mailbox) || [];
     lines.forEach((line, i) => body.appendChild(el('p', i === lines.length - 1 ? 'lw-jab' : 'lw-line', line)));
@@ -200,6 +203,42 @@ export function createCards(ctx, api) {
     });
   }
 
+  // A draft pick that did not work out. Here lie the picks, not the men.
+  function headstone(e) {
+    const m = model();
+    const list = (m && m.graveyard) || [];
+    const g = list[e.index];
+    if (!g) {
+      hud.openCard({ kicker: 'Draft Day Memorial Gardens', title: 'An empty plot', lines: ['Nobody is buried here yet. The draft will fix that.'], actions: [{ label: 'Close' }] });
+      return;
+    }
+    const t = m.teams[g.teamId];
+    let drafted = typeof g.drafted === 'string' ? g.drafted : '';
+    if (!drafted && g.round) {
+      drafted = 'Drafted in round ' + g.round + (g.pick ? ', pick ' + g.pick : '') + (g.overall ? ' (' + ordinal(g.overall) + ' overall)' : '') + '.';
+    }
+    const body = el('div', 'lwf-grave');
+    if (drafted) body.appendChild(el('p', 'lw-line', drafted));
+    if (g.cause === 'ir' || g.cause === 'gone') body.appendChild(el('p', 'lw-line', g.cause === 'ir' ? 'This pick is on injured reserve.' : 'This pick is no longer on the roster.'));
+    if (g.epitaph) body.appendChild(el('p', 'lw-jab lwf-epitaph', g.epitaph));
+    if (t) {
+      const by = button('lw-row lwf-grave-team', null, () => home(t.id, { go: true }));
+      by.style.setProperty('--accent', '#' + (t.color & 0xffffff).toString(16).padStart(6, '0'));
+      const main = el('span', 'lw-row-main');
+      main.append(el('span', 'lw-row-sub', 'Drafted by'), el('span', 'lw-row-title', teamName(t)));
+      by.append(main, el('span', 'lw-row-tag', rankBig(t.rank)));
+      by.setAttribute('aria-label', 'Drafted by ' + teamName(t) + '. See their house.');
+      body.appendChild(by);
+    }
+    hud.openCard({
+      kicker: 'Draft Day Memorial Gardens',
+      title: [g.name || 'Unknown pick', g.pos].filter(Boolean).join(', '),
+      contentEl: body,
+      accentColor: t ? t.color : undefined,
+      actions: [{ label: 'Visit the Graveyard', href: hallOfFameUrl('grave'), newTab: true }, { label: 'Close', primary: false }],
+    });
+  }
+
   return {
     home,
     sample() {
@@ -233,6 +272,7 @@ export function createCards(ctx, api) {
         case 'outhouse': tick(); outhouse(e); return true;
         case 'plaque': tick(); plaque(e); return true;
         case 'building': tick(); building(e); return true;
+        case 'headstone': tick(); headstone(e); return true;
         case 'telescope': {
           const t = lastTeam(m);
           if (t) hud.toast('Down at the Dump: ' + teamName(t) + ', in a tent.', { ms: 4200 });

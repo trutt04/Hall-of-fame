@@ -271,6 +271,41 @@ Names in copy use the owner's first name when present and unique, else the full 
 Roast copy is template-based with a seeded random pick (seed = team id + week + season) so a
 line stays the same all week and changes next week.
 
+### Contract 4 additions: playoff picture and draft graveyard (`world/js/model/extras.js`)
+
+```js
+model.playoffs = null | {
+  state: 'projected' | 'live' | 'final',   // projected = regular season, "if the season ended today"
+  title: 'If the season ended today' | 'Playoffs' | 'Final bracket',
+  teams: 6,                                // playoff team count, read from the data
+  rounds: [ {
+    name: 'Round 1' | 'Quarterfinals' | 'Semifinals' | 'Championship',
+    week: 15 | null,
+    games: [ { a: { teamId, seed } | null, b: { teamId, seed } | null,   // null = to be decided. a is the better seed.
+               aPts, bPts,                                               // null until there is a real game
+               status: 'projected' | 'pre' | 'live' | 'final', winnerId } ],
+    byes: [ { teamId, seed } ],            // teams resting this round
+  } ],
+  championId: teamId | null,
+  bubble: null | { lastIn: teamId, firstOut: teamId, text },   // projected state only
+}
+
+model.graveyard = [   // at most 8, earliest pick first. [] without draft or roster data, and in preseason.
+  { teamId, name, pos, round, pick, overall, cause: 'gone' | 'ir', drafted: 'Round 1, pick 7', epitaph }
+]
+```
+
+Rules worth knowing:
+
+- Games ESPN lists are the truth. The first round of a projection is best seed against worst with
+  the top seeds resting. Later rounds only fill in a side when it is certain (a rested team when
+  there is one per game), because leagues differ on whether they re-seed.
+- Only winners-bracket games between two teams still alive count, so consolation games never
+  leak in even when the data carries no bracket type.
+- A headstone is an early pick (top half of the draft, 3 to 8 rounds) that is no longer on the
+  team that drafted it (`gone`, which covers dropped and traded alike) or sits on its IR. At most
+  two per team. Here lie the picks, not the men: epitaphs are about the pick and the manager.
+
 ## Contract 5: art (`world/js/art/`)
 
 Pure builders. No scene, DOM or data access. Each returns plain three.js objects the world places.

@@ -110,4 +110,5 @@ export const STORAGE_KEYS = {
   team: 'lw.team',
   sound: 'lw.sound',
   lastSeen: 'lw.lastSeen',
+  kickBest: 'lw.kick.best', // longest field goal made on this device
 };

@@ -5,7 +5,7 @@
 //
 //   const hud = createHud(rootEl, { veil })
 //   hud.setStatus({ rankText, teamName, recordText, tierName, color, line2 } | null)
-//   hud.onButton('map' | 'standings' | 'sound' | 'menu' | 'status', fn)
+//   hud.onButton('map' | 'standings' | 'postcard' | 'sound' | 'menu' | 'status', fn)   postcard starts hidden
 //   hud.setButton(name, { pressed?, hidden?, label? })
 //   hud.setAction({ label, icon? } | null) / hud.onAction(fn)
 //   hud.openCard({ kicker, title, stats: [[k, v]], lines: [], jab, actions: [{ label, onClick | href, primary?, keepOpen? }], accentColor, onClose })
@@ -29,6 +29,7 @@ const ICONS = {
   sound: 'M4 9.5v5h3.5l4.5 4V5.5l-4.5 4H4zM15.5 9.5a3.5 3.5 0 0 1 0 5M18 7a7 7 0 0 1 0 10',
   mute: 'M4 9.5v5h3.5l4.5 4V5.5l-4.5 4H4zM16 9.5l5 5M21 9.5l-5 5',
   menu: 'M4 7h16M4 12h16M4 17h16',
+  postcard: 'M4 8h3l1.5-2h7L17 8h3v11H4zM12 17a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7',
   close: 'M6 6l12 12M18 6 6 18',
   hand: 'M8 12V6.5a1.5 1.5 0 0 1 3 0V11m0-1V5a1.5 1.5 0 0 1 3 0v6m0-4.5a1.5 1.5 0 0 1 3 0V14c0 3.5-2.2 6-5.5 6S6 18 5 15.5L3.7 12.6a1.4 1.4 0 0 1 2.5-1.2L8 14',
 };
@@ -136,7 +137,7 @@ export function createHud(root, opts = {}) {
   buttons.setAttribute('role', 'toolbar');
   buttons.setAttribute('aria-label', 'World controls');
   const btn = {};
-  for (const [name, label] of [['map', 'Map'], ['standings', 'Standings'], ['sound', 'Sound'], ['menu', 'Menu']]) {
+  for (const [name, label] of [['map', 'Map'], ['standings', 'Standings'], ['postcard', 'Send a postcard'], ['sound', 'Sound'], ['menu', 'Menu']]) {
     const b = el('button', 'lw-round');
     b.type = 'button';
     b.dataset.name = name;
@@ -148,6 +149,7 @@ export function createHud(root, opts = {}) {
     btn[name] = b;
   }
   btn.sound.setAttribute('aria-pressed', 'false');
+  btn.postcard.hidden = true; // shown by the flow once something is listening (hud.setButton('postcard', { hidden: false }))
   top.append(left, buttons);
 
   function fire(name) {
