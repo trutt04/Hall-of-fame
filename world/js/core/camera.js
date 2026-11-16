@@ -34,6 +34,8 @@ export function createCameraRig({ camera, engine, terrain, input }) {
   let lastLook = -100;
   let autoRecenter = true;
   let ready = false;
+  let blocker = null; // (x, z) => true when a building is in the way
+  let squeeze = 1;
 
   const pivot = new THREE.Vector3();
   const vx = { v: 0 };
@@ -78,6 +80,19 @@ export function createCameraRig({ camera, engine, terrain, input }) {
     dist = damp(dist, distTarget, 10, dt);
     const cp = Math.cos(pitch);
     fPos.set(pivot.x + Math.sin(yaw) * cp * dist, pivot.y + Math.sin(pitch) * dist, pivot.z + Math.cos(yaw) * cp * dist);
+    // Never sit inside a building: slide in toward the avatar until the view is clear.
+    if (blocker) {
+      let free = 1;
+      for (let k = 1; k <= 10; k++) {
+        const s = k / 10;
+        if (blocker(lerp(pivot.x, fPos.x, s), lerp(pivot.z, fPos.z, s))) {
+          free = Math.max(0.14, (k - 1) / 10 - 0.03);
+          break;
+        }
+      }
+      squeeze = free < squeeze ? damp(squeeze, free, 20, dt) : damp(squeeze, free, 2.5, dt);
+      if (squeeze < 0.995) fPos.set(pivot.x + Math.sin(yaw) * cp * dist * squeeze, pivot.y + Math.sin(pitch) * dist * (0.35 + 0.65 * squeeze), pivot.z + Math.cos(yaw) * cp * dist * squeeze);
+    }
 
     // Keep the camera above the ground and keep the ground from cutting the view of the avatar.
     let need = terrain.heightAt(fPos.x, fPos.z) + 0.9 - fPos.y;
@@ -297,10 +312,14 @@ export function createCameraRig({ camera, engine, terrain, input }) {
       follow = target;
       ready = false;
     },
+    setBlocker(fn) {
+      blocker = typeof fn === 'function' ? fn : null;
+    },
     snapBehind(heading) {
       if (typeof heading === 'number') yaw = heading + Math.PI;
       ready = false;
       lift = 0;
+      squeeze = 1;
       blend = null;
       lastLook = engine ? engine.time - RECENTER_AFTER : 0;
     },

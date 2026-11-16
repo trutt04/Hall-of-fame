@@ -35,7 +35,8 @@ function row(title, sub, tag, color, onClick) {
 }
 
 export function startFreeRoam(ctx) {
-  const { store, hud, player, audio, world, town, input, engine } = ctx;
+  const { store, hud, player, audio, world, town, engine } = ctx;
+  const input = world.input;
   const model = () => store.get('model');
 
   const id = store.get('teamId');

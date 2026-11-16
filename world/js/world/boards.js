@@ -3,8 +3,7 @@
 // the plaza on a phone. Team names are untrusted: fitted, never trusted to be short.
 
 import * as THREE from '../../lib/three.module.min.js';
-import { TIERS, TIER_ORDER } from '../config.js';
-import { FONT_BODY, FONT_DISPLAY, fit, hex, makeCanvas } from './signs.js';
+import { FONT_BODY, FONT_DISPLAY, fit, hex } from './signs.js';
 
 const NAVY = '#0d1430';
 const PANEL = '#18213f';
@@ -69,7 +68,7 @@ export function drawStandings(cv, model, playerTeam) {
   g.fillStyle = GOLD;
   g.textBaseline = 'middle';
   g.textAlign = 'left';
-  const title = fit(g, 'STANDINGS · WEEK ' + model.meta.week, W - 60, head * 0.56, 30, FONT_DISPLAY, '400');
+  const title = fit(g, 'STANDINGS · WEEK ' + model.meta.week, W - (model.meta.isSample ? 330 : 60), head * 0.56, 26, FONT_DISPLAY, '400');
   g.fillText(title, 28, head / 2 + 4);
   g.fillStyle = GOLD;
   g.fillRect(0, head - 5, W, 5);
@@ -164,7 +163,7 @@ export function drawStandings(cv, model, playerTeam) {
   g.fillText(updatedText(model.meta.generatedAt), 24, H - foot / 2 + 2);
   g.textAlign = 'right';
   g.fillText(fit(g, model.meta.leagueName, W * 0.5, foot * 0.56, 14, FONT_BODY, '600'), W - 24, H - foot / 2 + 2);
-  if (model.meta.isSample) stamp(g, 'SAMPLE DATA', W - 200, head / 2, head * 0.3, -0.05);
+  if (model.meta.isSample) stamp(g, 'SAMPLE DATA', W - 152, head / 2 - 2, head * 0.24, -0.04);
   return cv;
 }
 
@@ -342,5 +341,3 @@ export function drawTruckPanel(cv, teamName) {
   g.fillText(fit(g, 'SANITATION', W - 60, H * 0.3, 18, FONT_DISPLAY, '400'), W / 2, H * 0.8);
   return cv;
 }
-
-export { makeCanvas, TIERS, TIER_ORDER };

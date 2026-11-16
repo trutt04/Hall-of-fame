@@ -146,6 +146,7 @@ async function boot() {
 
   const input = createInput({ canvas, stick: hud.stick });
   const rig = createCameraRig({ camera, engine, terrain, input });
+  rig.setBlocker((x, z) => colliders.insideBox(x, z, 1.6));
   const audio = createAudio();
   const net = createNet();
   const player = createPlayer({ scene, terrain, colliders, input, rig, audio, hud, store });

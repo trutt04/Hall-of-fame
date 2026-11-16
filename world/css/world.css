@@ -172,6 +172,11 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
 .lw-stamp.lw-in{animation:lw-thud .3s .2s ease-out}
 .lw-stamp.lw-out{opacity:0;transition:opacity .2s}
 
+/* ---------- telescope / periscope view: a round lens over the world ---------- */
+.lw-hud.lw-scope::after{content:"";position:absolute;inset:0;z-index:5;pointer-events:none;
+  background:radial-gradient(circle at 50% 50%,rgba(0,0,0,0) 0,rgba(0,0,0,0) min(40vw,40vh),rgba(5,8,18,.96) calc(min(40vw,40vh) + 14px))}
+.lw-hud.lw-scope .lw-top,.lw-hud.lw-scope .lw-action,.lw-hud.lw-scope .lw-hint{opacity:0;pointer-events:none}
+
 /* ---------- loading veil and teleport fade ---------- */
 .lw-veil{position:fixed;inset:0;z-index:50;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:24px;
   text-align:center;background:radial-gradient(ellipse at 50% 35%,#18213f,#0a1022 70%);transition:opacity .5s}

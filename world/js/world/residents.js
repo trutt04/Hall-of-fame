@@ -11,7 +11,7 @@
 import * as THREE from '../../lib/three.module.min.js';
 import { createAvatar, createLawnChair, createGrill } from '../art/index.js';
 
-const SHOW_FAR = 90;
+const SHOW_FAR = 72;
 const ANIM_FAR = 60;
 
 export function accessoryFor(team) {
@@ -120,7 +120,7 @@ export function createResidents(w) {
         id: 'resident:' + team.id,
         position: () => a.avatar.group.position,
         radius: 2.1, label: 'Visit', priority: 1,
-        onUse: () => store.emit('use', { kind: 'home', teamId: team.id, via: 'resident' }),
+        onUse: () => store.emit('use', { kind: 'home', teamId: team.id }),
       });
     }
     const sig = team.tier + '|' + team.slot + '|' + team.rank + '|' + team.color;
@@ -134,7 +134,7 @@ export function createResidents(w) {
     if (a.sig === '' || moved) settle(a);
     a.sig = sig;
     const it = interact.get('resident:' + team.id);
-    if (it) it.label = 'Say hi to ' + (team.owner || Array.from(team.name).slice(0, 18).join(''));
+    if (it) it.label = 'Visit ' + Array.from(team.name).slice(0, 22).join('');
     return a;
   }
 

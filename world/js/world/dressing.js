@@ -18,7 +18,7 @@ import { makeCanvas, drawSign } from './signs.js';
 import { boardTexture, drawStandings, drawMatchups, drawChampions } from './boards.js';
 
 const ANIM_FAR = 80;
-const SMALL_FAR = 95;
+const SMALL_FAR = 70;
 
 export function createDressing(w) {
   const { scene, layout, terrain, colliders, interact, store } = w;
@@ -91,12 +91,12 @@ export function createDressing(w) {
       at.y = terrain.heightAt(at.x, at.z);
       interact.register({ id: 'board:' + name, position: at, radius: 5, label, onUse: use({ kind }), object3D: frame.screen });
     };
-    mk('standings', P.standingsBoard, 8.4, 8.6, 1000, 1024, 'Read the standings', 'standings');
-    mk('matchups', P.matchupBoard, 8.4, 5.6, 1024, 683, 'Check the matchups', 'matchups');
+    mk('standings', P.standingsBoard, 9.4, 9.6, 1002, 1024, 'Standings', 'standings');
+    mk('matchups', P.matchupBoard, 9, 6, 1024, 683, 'Matchups', 'matchups');
 
     const box = createNewspaperBox();
     put(box, P.newspaperBox.x, P.newspaperBox.z, P.newspaperBox.facing);
-    interact.register({ id: 'newspaper', position: box.group.position.clone(), radius: 2.4, label: 'Read the paper', priority: 1, onUse: use({ kind: 'newspaper' }), object3D: box.group });
+    interact.register({ id: 'newspaper', position: box.group.position.clone(), radius: 2.4, label: 'The paper', priority: 1, onUse: use({ kind: 'newspaper' }), object3D: box.group });
 
     const signs = { hof: 'HALL OF FAME', graveyard: 'MEMORIAL GARDENS', office: 'LEAGUE OFFICE' };
     for (const [kind, key] of [['hof', 'hallOfFame'], ['graveyard', 'graveyard'], ['office', 'leagueOffice']]) {
@@ -111,7 +111,7 @@ export function createDressing(w) {
       }
       const door = anchorOf(b, b.anchors.door);
       door.y = terrain.heightAt(door.x, door.z);
-      interact.register({ id: 'building:' + kind, position: door, radius: 3.4, label: 'Visit the ' + signs[kind].toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase()), onUse: use({ kind: 'building', which: kind }), object3D: b.group });
+      interact.register({ id: 'building:' + kind, position: door, radius: 3.4, label: signs[kind].toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase()), onUse: use({ kind: 'building', which: kind }), object3D: b.group });
     }
 
     for (const [x, z] of [[20.9, 14.6], [-24, 8.7], [-13.5, -21.5], [20.9, -14.6]]) {
@@ -216,7 +216,7 @@ export function createDressing(w) {
       statuePlaque = null;
       const at = new THREE.Vector3(P.statue.x + Math.sin(P.statue.facing) * 3.4, 0, P.statue.z + Math.cos(P.statue.facing) * 3.4);
       at.y = terrain.heightAt(at.x, at.z);
-      interact.register({ id: 'statue', position: at, radius: 3.6, label: 'Look at the statue', onUse: use({ kind: 'statue' }), object3D: statue.prop.group });
+      interact.register({ id: 'statue', position: at, radius: 3.6, label: 'The statue', onUse: use({ kind: 'statue' }), object3D: statue.prop.group });
     }
     const S = statue.prop;
     const cv = drawChampions(makeCanvas(528, 288), model);
@@ -245,7 +245,7 @@ export function createDressing(w) {
     list.forEach((lp, i) => {
       const z = row.z + (i - (list.length - 1) / 2) * 2.15;
       const prop = createOuthouse();
-      const item = put(prop, row.x + (i % 2) * 0.25, z, row.facing + ((i * 37) % 9 - 4) * 0.012, { tag: 'outhouses' });
+      const item = put(prop, row.x + (i % 2) * 0.25, z, row.facing + ((i * 37) % 9 - 4) * 0.012, { tag: 'outhouses', small: true });
       if (prop.anchors && prop.anchors.sign && prop.signSize) {
         const sg = signPlane(drawSign(lp.season + '  ' + lp.teamName, prop.signSize.w / prop.signSize.h, { height: 96, bg: '#efe6d0', color: '#2a2622', border: false, display: false }), prop.signSize.w, prop.signSize.h);
         sg.position.copy(prop.anchors.sign);
@@ -319,7 +319,8 @@ export function createDressing(w) {
     g.fillText('PLAYOFF LINE', 320, 68, 620);
     const tex = boardTexture(cv);
     const label = new THREE.Mesh(new THREE.PlaneGeometry(7.6, 1.5), new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -6 }));
-    label.rotation.set(-Math.PI / 2, 0, -cut.angle + (dx < -0.2 ? Math.PI : 0));
+    label.rotation.order = 'YXZ';
+    label.rotation.set(-Math.PI / 2, -cut.angle, 0);
     label.position.set(cut.a[0] + dx * 1.2 + cut.inSide[0] * 1.5, y + 0.01, cut.a[1] + dz * 1.2 + cut.inSide[1] * 1.5);
     label.renderOrder = 2;
     cutGroup.add(label);

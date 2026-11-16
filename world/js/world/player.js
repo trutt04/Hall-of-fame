@@ -134,6 +134,7 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
   const mv = { x: 0, y: 0 };
   const probe = { x: 0, z: 0 };
   const auto = { active: false, x: 0, z: 0, stop: 0.35, onArrive: null, stuck: 0, lastD: 0 };
+  const seat = { on: false, x: 0, y: 0, z: 0 };
   const followTarget = { position, heading, speed: 0 };
 
   function setAvatar(next) {
@@ -144,8 +145,10 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     avatar = next;
     if (avatar) {
       group.add(avatar.group);
-      if (avatar.setAnim) avatar.setAnim(anim);
+      if (avatar.setAnim) avatar.setAnim(seat.on ? 'sit' : anim);
     }
+    // art avatars bring their own blob shadow
+    shadow.visible = !!(avatar && avatar.group.name === 'placeholderAvatar');
   }
   setAvatar(createPlaceholderAvatar({ color: BRAND.gold }));
 
@@ -196,6 +199,18 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
   }
 
   function update(dt, t) {
+    if (seat.on) {
+      // sitting: pinned to the seat until someone calls stand()
+      position.set(seat.x, seat.y, seat.z);
+      group.rotation.y = heading;
+      vel.x = 0;
+      vel.z = 0;
+      speed = 0;
+      followTarget.heading = heading;
+      followTarget.speed = 0;
+      if (avatar) avatar.update(dt, t);
+      return;
+    }
     let dirX = 0;
     let dirZ = 0;
     let want = 0;
@@ -344,6 +359,30 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     if (fade) await hud.fade(false, 260);
   }
 
+  function sit(x, y, z, facing) {
+    cancelWalk();
+    seat.on = true;
+    seat.x = x;
+    seat.y = y;
+    seat.z = z;
+    if (typeof facing === 'number') heading = facing;
+    position.set(x, y, z);
+    group.rotation.y = heading;
+    anim = 'sit';
+    if (avatar && avatar.setAnim) avatar.setAnim('sit');
+  }
+
+  function stand(x, z, facing) {
+    if (!seat.on) return;
+    seat.on = false;
+    anim = 'idle';
+    if (avatar && avatar.setAnim) avatar.setAnim('idle');
+    position.set(x, terrain.heightAt(x, z), z);
+    if (typeof facing === 'number') heading = facing;
+    group.rotation.y = heading;
+    followTarget.heading = heading;
+  }
+
   if (rig) rig.setFollow(followTarget);
 
   return {
@@ -355,6 +394,9 @@ export function createPlayer({ scene, terrain, colliders, input, rig, audio = nu
     cancelWalk,
     teleport,
     place,
+    sit,
+    stand,
+    get seated() { return seat.on; },
     getState,
     radius: RADIUS,
     get avatar() { return avatar; },

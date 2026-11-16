@@ -20,7 +20,7 @@ import {
 import { makeCanvas, drawNameTag, drawYardSign, drawPlaque } from './signs.js';
 
 const TAG_NEAR = 46; // name tags fade in inside this distance
-const DETAIL_FAR = 85; // small reactive props are hidden beyond this
+const DETAIL_FAR = 62; // small reactive props are hidden beyond this
 const ANIM_FAR = 110; // homes stop animating (flags, TV flicker) beyond this
 
 const VIEW = {
@@ -193,7 +193,7 @@ export function createTown(w) {
       local(createPlaque(cv, { width: 1.05 }), A.plaque);
       const at = e.toWorld(P(A.plaque.x, A.plaque.y - 1.5, A.plaque.z + 0.9));
       interact.register({
-        id: 'plaque:' + t.id, position: at, radius: 1.9, label: 'Read the plaque', priority: 2,
+        id: 'plaque:' + t.id, position: at, radius: 1.9, label: 'The plaque', priority: 2,
         onUse: () => store.emit('use', { kind: 'plaque', teamId: t.id }),
       });
     }

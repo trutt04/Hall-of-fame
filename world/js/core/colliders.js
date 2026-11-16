@@ -105,6 +105,19 @@ export function createColliders() {
     return any;
   }
 
+  // True when a point is inside a box at least `minHalf` wide in both directions (a building, not a fence).
+  function insideBox(x, z, minHalf = 1.6) {
+    for (let i = 0; i < boxes.length; i++) {
+      const b = boxes[i];
+      if (b.hw < minHalf || b.hd < minHalf) continue;
+      const dx = x - b.x;
+      const dz = z - b.z;
+      if (dx * dx + dz * dz >= b.rad * b.rad) continue;
+      if (Math.abs(dx * b.cos - dz * b.sin) <= b.hw && Math.abs(dx * b.sin + dz * b.cos) <= b.hd) return true;
+    }
+    return false;
+  }
+
   const probe = { x: 0, z: 0 };
   function hits(x, z, radius) {
     probe.x = x;
@@ -119,6 +132,7 @@ export function createColliders() {
     removeGroup,
     resolve,
     hits,
+    insideBox,
     clear() {
       circles.length = 0;
       boxes.length = 0;
