@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>League World: prop gallery</title>
+<style>
+  @font-face { font-family: "Bungee"; src: url("../fonts/bungee-latin-400-normal.woff2") format("woff2"); font-display: swap; }
+  @font-face { font-family: "Barlow Semi Condensed"; font-weight: 600; src: url("../fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2"); font-display: swap; }
+  html, body { margin: 0; height: 100%; background: #0a1022; color: #f3eedd; font: 600 14px/1.3 "Barlow Semi Condensed", "Arial Narrow", sans-serif; overflow: hidden; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; left: 10px; top: 10px; background: rgba(10, 16, 34, .78); padding: 8px 10px; border-radius: 8px; max-width: 46vw; pointer-events: none; }
+  #hud b { font-family: "Bungee", Impact, sans-serif; font-weight: 400; color: #f5c542; letter-spacing: .5px; }
+  #table { margin-top: 6px; font-size: 12px; white-space: pre; max-height: 60vh; overflow: hidden; opacity: .9; }
+  #nav { position: fixed; right: 10px; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 50vw; }
+  #nav a { color: #0a1022; background: #f5c542; padding: 5px 9px; border-radius: 6px; text-decoration: none; }
+  #nav a.alt { background: #aab3bf; }
+  .label { position: fixed; transform: translate(-50%, 0); background: rgba(10, 16, 34, .7); padding: 1px 6px; border-radius: 4px; font-size: 12px; pointer-events: none; white-space: nowrap; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><b>PROP GALLERY</b> <span id="what"></span><div id="stats"></div><div id="table"></div></div>
+<div id="nav"></div>
+<div id="labels"></div>
+<script type="module" src="./gallery.js"></script>
+</body>
+</html>

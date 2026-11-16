@@ -22,7 +22,7 @@ export function int(v, fallback = 0) {
 /** Text from untrusted data: one line, no control characters, trimmed. */
 export function str(v) {
   if (typeof v !== 'string' && typeof v !== 'number') return '';
-  return String(v).replace(/[\u0000-\u001f\u007f  ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  return String(v).replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(/\s+/g, ' ').trim();
 }
 
 export function round2(v) {
@@ -158,9 +158,19 @@ export function fmtGames(g) {
   return `${n} games`;
 }
 
+/** "a 7.2" or "an 8.8", "a 9-5" or "an 11-3": the right article for a number read aloud. */
+export function withArticle(value) {
+  const s = String(value);
+  const whole = parseInt(s, 10);
+  const an = s.charAt(0) === '8' || whole === 11 || whole === 18;
+  return `${an ? 'an' : 'a'} ${s}`;
+}
+
 export function capFirst(s) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 }
+
+const ELLIPSIS = String.fromCharCode(0x2026);
 
 function graphemes(s) {
   try {
@@ -183,7 +193,7 @@ export function clip(text, max) {
     if (out.length + g.length > max - 1) break;
     out += g;
   }
-  return `${out.trimEnd()}…`;
+  return `${out.trimEnd()}${ELLIPSIS}`;
 }
 
 /**

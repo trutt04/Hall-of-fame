@@ -1,0 +1,336 @@
+/**
+ * espn-client.mjs
+ *
+ * Talks to ESPN's UNOFFICIAL fantasy football API. There is no official public API and the
+ * address has moved before, so everything here is built to fail gracefully:
+ *
+ *   - an ordered list of base URLs is tried (override with env ESPN_BASE_URLS, comma separated)
+ *   - every request has a 15 second timeout and at most 2 retries (network / 5xx / 429 only)
+ *   - every failure is classified into one of the `reason` values of Contract 3 (status.json)
+ *   - nothing here ever throws for a network or HTTP problem: callers get { ok: false, ... }
+ *
+ * No cookies, tokens or auth headers are ever sent. This only works for a PUBLIC league.
+ * A private league answers 401, which is reported as "league_private" (an expected state).
+ *
+ * IF ESPN MOVES AGAIN: add the new address at the top of DEFAULT_BASE_URLS below, or set the
+ * ESPN_BASE_URLS variable in the workflow. Nothing else should need to change.
+ */
+
+export const DEFAULT_BASE_URLS = Object.freeze([
+  'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl', // works as of November 2026
+  'https://fantasy.espn.com/apis/v3/games/ffl', // the older address, kept as a fallback
+]);
+
+export const DEFAULT_LEAGUE_ID = 70578866;
+
+/** Generic on purpose: no names, emails or repo addresses. */
+export const USER_AGENT = 'league-world-sync/1.0';
+
+/** Seasons before this one live at a different ESPN address that this client does not use. */
+export const FIRST_MODERN_SEASON = 2018;
+
+export const REASONS = Object.freeze([
+  'ok', 'league_private', 'not_found', 'endpoint_moved', 'rate_limited', 'server_error', 'network', 'bad_shape',
+]);
+
+/** The `?view=` sets for each kind of request. ESPN lets several views share one call. */
+export const VIEWS = Object.freeze({
+  current: ['mTeam', 'mSettings', 'mStandings', 'mStatus', 'mRoster', 'mMatchup', 'mMatchupScore', 'mScoreboard'],
+  lineups: ['mMatchup', 'mMatchupScore'],
+  draft: ['mDraftDetail'],
+  history: ['mTeam', 'mSettings', 'mStandings', 'mMatchupScore', 'mStatus'],
+  proSchedule: ['proTeamSchedules_wl'],
+  players: ['players_wl'],
+});
+
+/**
+ * The fantasy season for a date, so nobody has to edit a year by hand:
+ * August to December is the current year, January to July is the previous year.
+ */
+export function autoSeason(now = new Date()) {
+  const year = now.getUTCFullYear();
+  return now.getUTCMonth() + 1 >= 8 ? year : year - 1;
+}
+
+export function parseBaseUrls(value) {
+  const list = String(value ?? '')
+    .split(',')
+    .map((s) => s.trim().replace(/\/+$/, ''))
+    .filter((s) => {
+      try {
+        return /^https?:$/.test(new URL(s).protocol);
+      } catch {
+        return false;
+      }
+    });
+  return list.length ? list : [...DEFAULT_BASE_URLS];
+}
+
+function positiveInt(value) {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : null;
+}
+
+function nonNegativeInt(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Number(value);
+  return Number.isInteger(n) && n >= 0 ? n : null;
+}
+
+/** Settings from environment variables, with safe defaults. */
+export function readConfig(env = process.env, now = new Date()) {
+  const explicitSeason = positiveInt(env.ESPN_SEASON);
+  return {
+    baseUrls: parseBaseUrls(env.ESPN_BASE_URLS),
+    leagueId: positiveInt(env.ESPN_LEAGUE_ID) ?? DEFAULT_LEAGUE_ID,
+    season: explicitSeason ?? autoSeason(now),
+    seasonIsExplicit: explicitSeason !== null,
+    timeoutMs: positiveInt(env.ESPN_TIMEOUT_MS) ?? 15000,
+    retries: nonNegativeInt(env.ESPN_RETRIES) ?? 2,
+    backoffMs: nonNegativeInt(env.ESPN_BACKOFF_MS) ?? 1500,
+  };
+}
+
+function hostOf(url) {
+  try {
+    return new URL(url).host;
+  } catch {
+    return 'unknown host';
+  }
+}
+
+function tryParseJson(text) {
+  try {
+    return { ok: true, value: JSON.parse(text) };
+  } catch {
+    return { ok: false };
+  }
+}
+
+/**
+ * Decide what an HTTP answer means. Pure, so it is easy to test.
+ * Returns { ok: true, data } or { ok: false, reason, detail, retryable }.
+ */
+export function classifyResponse({ status, contentType = '', body = '', host, redirectedTo = null }) {
+  const text = typeof body === 'string' ? (body.charCodeAt(0) === 0xfeff ? body.slice(1) : body).trim() : '';
+  const looksJson = text.startsWith('{') || text.startsWith('[');
+  const looksHtml = text.startsWith('<') || /text\/html/i.test(contentType);
+  const parsed = looksJson ? tryParseJson(text) : { ok: false };
+  const via = redirectedTo ? ` (redirected to ${redirectedTo})` : '';
+  const from = `HTTP ${status} from ${host}${via}`;
+
+  // ESPN describes errors as { messages: [...], details: [{ type, ... }] }.
+  const espnError = parsed.ok && parsed.value && typeof parsed.value === 'object' && !Array.isArray(parsed.value) &&
+    (Array.isArray(parsed.value.details) || Array.isArray(parsed.value.messages));
+  const rawType = espnError ? parsed.value.details?.[0]?.type : null;
+  const espnType = typeof rawType === 'string' && /^[A-Z0-9_]{3,60}$/.test(rawType) ? rawType : null;
+  const tag = espnType ? ` (${espnType})` : '';
+  const fail = (reason, detail, retryable = false) => ({ ok: false, reason, detail, retryable, status, host, espnType });
+
+  if (status >= 200 && status < 300) {
+    if (parsed.ok && parsed.value !== null && typeof parsed.value === 'object') {
+      return { ok: true, data: parsed.value, status, host, redirectedTo };
+    }
+    if (looksJson) return fail('bad_shape', `${from} but the JSON was cut off or invalid`, true);
+    return fail('endpoint_moved', `${from} but the body is ${looksHtml ? 'a web page' : text ? 'not JSON' : 'empty'}, not JSON`);
+  }
+  if (status >= 300 && status < 400) return fail('endpoint_moved', `${from}: a redirect that could not be followed`);
+  if (status === 401) return fail('league_private', `${from}${tag}`);
+  if (status === 403) {
+    return espnError
+      ? fail('league_private', `${from}${tag}`)
+      : fail('endpoint_moved', `${from} with no ESPN error body (blocked, or the address moved)`);
+  }
+  if (status === 404 || status === 410) return fail('not_found', `${from}${tag}`);
+  if (status === 429) return fail('rate_limited', from, true);
+  if (status >= 500) return fail('server_error', from, true);
+  return fail('endpoint_moved', `${from}${tag}: unexpected answer`);
+}
+
+function describeFetchError(err, host, timedOut, timeoutMs) {
+  const base = { ok: false, status: null, host, espnType: null };
+  if (timedOut || err?.name === 'AbortError' || err?.name === 'TimeoutError') {
+    return { ...base, reason: 'network', detail: `no answer from ${host} within ${Math.round(timeoutMs / 100) / 10}s`, retryable: true };
+  }
+  const message = String(err?.cause?.message ?? err?.message ?? '');
+  if (/redirect/i.test(message)) {
+    return { ...base, reason: 'endpoint_moved', detail: `${host} redirects in a loop`, retryable: false };
+  }
+  const rawCode = err?.cause?.code ?? err?.code;
+  const code = typeof rawCode === 'string' && /^[A-Z0-9_]{3,40}$/.test(rawCode) ? ` (${rawCode})` : '';
+  return { ...base, reason: 'network', detail: `could not reach ${host}${code}`, retryable: true };
+}
+
+const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Create a client.
+ *   baseUrls    ordered list of API roots (…/apis/v3/games/ffl)
+ *   leagueId    ESPN league id
+ *   log         function(line) for the human-readable run log
+ *   fetchImpl   fetch replacement (tests)
+ */
+export function createClient({
+  baseUrls = DEFAULT_BASE_URLS,
+  leagueId = DEFAULT_LEAGUE_ID,
+  timeoutMs = 15000,
+  retries = 2,
+  backoffMs = 1500,
+  budgetMs = 150000,
+  fetchImpl = globalThis.fetch,
+  sleep = defaultSleep,
+  log = () => {},
+} = {}) {
+  const bases = baseUrls.map((b) => String(b).replace(/\/+$/, ''));
+  const state = { base: bases[0], requests: 0, started: Date.now() };
+
+  const timeLeft = () => budgetMs - (Date.now() - state.started);
+
+  async function attempt(url, headers) {
+    const host = hostOf(url);
+    const controller = new AbortController();
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, timeoutMs);
+    state.requests++;
+    try {
+      const res = await fetchImpl(url, {
+        method: 'GET',
+        // Deliberately no Cookie and no Authorization: public data only.
+        headers: { Accept: 'application/json', 'User-Agent': USER_AGENT, ...headers },
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+      const body = await res.text();
+      const finalHost = res.url ? hostOf(res.url) : host;
+      const redirectedTo = res.redirected && res.url ? `${finalHost}${new URL(res.url).pathname}`.slice(0, 120) : null;
+      const result = classifyResponse({
+        status: res.status,
+        contentType: res.headers.get('content-type') ?? '',
+        body,
+        host,
+        redirectedTo,
+      });
+      result.bytes = body.length;
+      if (!result.ok && result.reason === 'rate_limited') {
+        const after = Number(res.headers.get('retry-after'));
+        if (Number.isFinite(after) && after > 0) result.retryAfterMs = Math.min(after * 1000, 20000);
+      }
+      return result;
+    } catch (err) {
+      return describeFetchError(err, host, timedOut, timeoutMs);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** GET a URL as JSON with the retry policy. Never throws. */
+  async function getJson(url, { label = '', headers = {} } = {}) {
+    const host = hostOf(url);
+    let result = null;
+    for (let i = 0; i <= retries; i++) {
+      if (timeLeft() <= 0) {
+        result = { ok: false, reason: 'network', detail: `skipped ${host}: this run's time budget was used up`, retryable: false, status: null, host };
+        log(`  ${label || 'GET'} @ ${host} -> skipped (out of time)`);
+        break;
+      }
+      const t0 = Date.now();
+      result = await attempt(url, headers);
+      const ms = Date.now() - t0;
+      const what = result.ok
+        ? `OK (HTTP ${result.status}, ${result.bytes} bytes${result.redirectedTo ? `, redirected to ${result.redirectedTo}` : ''})`
+        : `${result.reason}: ${result.detail}`;
+      log(`  ${label || 'GET'} @ ${host} -> ${what} [${ms} ms${i > 0 ? `, retry ${i}` : ''}]`);
+      if (result.ok || !result.retryable || i === retries) break;
+      const wait = Math.max(backoffMs * 2 ** i, result.retryAfterMs ?? 0);
+      if (wait > 0) await sleep(wait);
+    }
+    return result;
+  }
+
+  function buildUrl(base, path, views, params = {}) {
+    const query = new URLSearchParams();
+    for (const v of views) query.append('view', v);
+    for (const [k, v] of Object.entries(params)) query.append(k, String(v));
+    return `${base}${path}?${query.toString()}`;
+  }
+
+  function pickFailure(failures) {
+    const primary = failures[0];
+    if (failures.length === 1) return primary;
+    // If the first address could not even be reached, an answer from another one tells us more.
+    const chosen = primary.reason === 'network' ? failures.find((f) => f.reason !== 'network') ?? primary : primary;
+    const others = failures.filter((f) => f !== chosen).map((f) => `${f.host}: ${f.reason}`);
+    return { ...chosen, detail: `${chosen.detail}; also tried ${others.join(', ')}` };
+  }
+
+  /** Try the base that last answered first, then the others. */
+  async function cascade(path, views, params, { label, headers, tryAllBases = true }) {
+    const order = [state.base, ...bases.filter((b) => b !== state.base)];
+    const failures = [];
+    for (const base of tryAllBases ? order : order.slice(0, 1)) {
+      const result = await getJson(buildUrl(base, path, views, params), { label, headers });
+      if (result.ok || result.reason === 'league_private' || result.reason === 'rate_limited') {
+        state.base = base; // ESPN answered here: this address is alive
+        return result;
+      }
+      failures.push(result);
+    }
+    return pickFailure(failures);
+  }
+
+  /** A league-specific request for one season. */
+  function fetchLeague(season, views, params = {}, { label = `league ${season}`, tryAllBases = true } = {}) {
+    return cascade(`/seasons/${season}/segments/0/leagues/${leagueId}`, views, params, { label, tryAllBases });
+  }
+
+  /** A game-level request (not tied to the league), e.g. the NFL schedule. */
+  function fetchGame(season, subPath, views, { label = `game ${season}`, headers = {}, tryAllBases = false } = {}) {
+    return cascade(`/seasons/${season}${subPath}`, views, {}, { label, headers, tryAllBases });
+  }
+
+  /**
+   * The current season, combined views. If the season was picked automatically and ESPN
+   * says it does not exist (yet), fall back one year.
+   */
+  async function fetchCurrentSeason({ season, explicit = false }) {
+    const seasonsTried = [];
+    let result = null;
+    for (const s of explicit ? [season] : [season, season - 1]) {
+      result = await fetchLeague(s, VIEWS.current, {}, { label: `current season ${s}` });
+      seasonsTried.push(s);
+      if (result.ok || result.reason !== 'not_found') return { ...result, season: s, seasonsTried };
+      if (!explicit && s === season) log(`  season ${s} was not found, trying ${s - 1}`);
+    }
+    return { ...result, season, seasonsTried };
+  }
+
+  return {
+    leagueId,
+    bases,
+    timeLeft,
+    get requests() {
+      return state.requests;
+    },
+    get activeBase() {
+      return state.base;
+    },
+    getJson,
+    fetchLeague,
+    fetchGame,
+    fetchCurrentSeason,
+    fetchLineups: (season, scoringPeriod) =>
+      fetchLeague(season, VIEWS.lineups, { scoringPeriodId: scoringPeriod }, { label: `lineups, scoring period ${scoringPeriod}`, tryAllBases: false }),
+    fetchDraft: (season) => fetchLeague(season, VIEWS.draft, {}, { label: `draft ${season}`, tryAllBases: false }),
+    fetchPastSeason: (season) => fetchLeague(season, VIEWS.history, {}, { label: `past season ${season}`, tryAllBases: false }),
+    fetchProSchedule: (season) => fetchGame(season, '', VIEWS.proSchedule, { label: `NFL schedule ${season}` }),
+    fetchPlayers: (season) =>
+      fetchGame(season, '/players', VIEWS.players, {
+        label: `player names ${season}`,
+        // A filter, not a credential: asks for all active players instead of the default short page.
+        headers: { 'X-Fantasy-Filter': JSON.stringify({ filterActive: { value: true } }) },
+      }),
+  };
+}
