@@ -27,6 +27,19 @@ Nothing in the world is edited by hand. It is all built from ESPN data.
 
 The map has all of these under "Things to do".
 
+## The Supreme Commissioner
+
+The league's running joke: the commissioner as glorious leader. There is a bronze monument, a
+bust in every neighborhood, a mandatory portrait beside every front door, banners along the
+boulevard, loudspeakers, and a "state media" box in the paper. The words are written from his
+real record each week, so they change by themselves.
+
+- The face comes from two picture files: `world/img/leader-portrait.jpg` and
+  `world/img/leader-poster.png`. Replace those two files to change the pictures.
+- Who it is about is one line in `world/js/config.js` (`REGIME`, by team id). Setting it to
+  `null` takes every statue, portrait and banner down.
+- Because the site is public, anyone with the link can see the pictures.
+
 ## Where it lives
 
 - The world is the `world/` folder. It is at `https://trutt04.github.io/Hall-of-fame/world/`.
