@@ -11,7 +11,7 @@
 //   hud.openCard({ kicker, title, stats: [[k, v]], lines: [], jab, actions: [{ label, onClick | href, primary?, keepOpen? }], accentColor, onClose })
 //   hud.closeCard()
 //   hud.openPanel({ title, contentEl, onClose }) / hud.closePanel()
-//   hud.toast(text, { ms })
+//   hud.toast(text, { ms, kicker })          kicker: a small label line above the text
 //   hud.stamp({ big, sub, line, ms })      -> Promise, resolves when the stamp leaves
 //   hud.setLoading(progress01, text) / hud.hideLoading()
 //   hud.setRibbon(text | null)
@@ -510,6 +510,9 @@ export function createHud(root, opts = {}) {
 
     toast(text, o = {}) {
       const t = el('div', 'lw-toast', text);
+      if (o.kicker) t.prepend(el('span', 'lw-toast-kicker', o.kicker));
+      // a sentence or two reads better as a block than as a pill
+      if (o.kicker || String(text).length > 64) t.classList.add('lw-toast-long');
       toasts.appendChild(t);
       while (toasts.children.length > 3) toasts.firstChild.remove();
       const ms = o.ms ?? 2800;

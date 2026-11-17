@@ -24,6 +24,7 @@ import {
   flowRoot, ROOT_CLASS, HINT_KEY,
 } from './dom.js';
 import { modelOf, idleCamera, travelToHome, travelToPlace } from './seam.js';
+import { startLine, settleLabel } from './vandal.js';
 
 export { renderFallback };
 
@@ -35,6 +36,7 @@ const NARROW_TIER = { park: 'Trailer Park' }; // tier names that do not fit the 
 
 let active = null;
 let starting = null;
+const announced = new Set(); // teams told about their score to settle, once per visit
 
 export function startFlow(ctx) {
   if (active) return Promise.resolve(active);
@@ -314,7 +316,7 @@ function build(ctx, started, failed) {
   // Shown once control is in the visitor's hands. Only their own input puts it away: a drag or a
   // tap on the 3D view, or a movement key. The avatar walking out of its own front door does not.
   function showHint() {
-    if (loadFlag(HINT_KEY) === '1' || (input && input.hasMoved)) return;
+    if (loadFlag(HINT_KEY) === '1' || (input && input.hasMoved)) return false;
     hud.showHint(coarsePointer() ? HINT_TOUCH : HINT_KEYS);
     const shownAt = performance.now();
     const canvas = (ctx.engine && ctx.engine.renderer && ctx.engine.renderer.domElement) || document.getElementById('scene');
@@ -374,6 +376,21 @@ function build(ctx, started, failed) {
         }
       },
     );
+    return true;
+  }
+
+  // ---------------------------------------------------------------- a score to settle
+  // A team that won last week hears whose home is fair game: one toast, once per visit, after the
+  // recap card has closed and after the controls hint has had the screen to itself for a moment.
+  async function announceRight(mine, hinted) {
+    if (teamId === null || announced.has(teamId)) return;
+    const text = startLine(ctx, teamId);
+    if (!text) return;
+    await wait(hinted ? 2200 : 900);
+    while (mine === run && (phase !== 'roam' || hud.isModalOpen())) await wait(400);
+    if (mine !== run || announced.has(teamId)) return;
+    announced.add(teamId);
+    hud.toast(text, { kicker: settleLabel(ctx), ms: Math.min(9500, Math.max(4500, 2600 + text.length * 55)) });
   }
 
   // ---------------------------------------------------------------- the sequence
@@ -443,7 +460,7 @@ function build(ctx, started, failed) {
     } else if (wasVisitor && !picked && !nointro) {
       hud.toast('Still just looking. Tap Visitor up top to pick your team.', { ms: 5200 });
     }
-    if (mine === run) showHint();
+    if (mine === run) announceRight(mine, showHint());
   }
 
   function recover(err) {

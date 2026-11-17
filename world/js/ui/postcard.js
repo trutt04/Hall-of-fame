@@ -10,7 +10,8 @@
 // All league text is drawn with fillText or set with textContent: team names are untrusted.
 
 import { el, button, hex, wait, tierName, ordinal, weekLabel, flowRoot, TIER_CSS } from './dom.js';
-import { modelOf, getHome, currentZone, zoneLine } from './seam.js';
+import { modelOf, getHome, allHomes, currentZone, zoneLine } from './seam.js';
+import { damageOf, postcardLine } from './vandal.js';
 
 const W = 1080;
 const H = 1350;
@@ -113,7 +114,8 @@ function roundRect(g, x, y, w, h, r) {
 
 /**
  * Draws the whole card. Pure canvas work, no scene access.
- * d = { photo, place, team: { name, rank, record, color, tierColor } | null, line, league, week, address, sample }
+ * d = { photo, place, team: { name, rank, record, color, tierColor } | null, vandal, line, league, week, address, sample }
+ * vandal: 'Freshly egged by ...' when the pictured home was hit this week, else ''
  */
 export function drawPostcard(canvas, d) {
   canvas.width = W;
@@ -255,10 +257,18 @@ export function drawPostcard(canvas, d) {
     g.fillStyle = C.chalk;
     g.fillText('Wish you were here.', tx, y0 + 86);
   }
+  // fresh damage gets its own line, and the roast makes do with one
+  let ly = y0 + 142;
+  if (d.vandal) {
+    fit(g, d.vandal, (z) => body(700, z, true), 40, 28, W - M - tx);
+    g.fillStyle = C.flare;
+    g.fillText(clip(g, d.vandal, W - M - tx), tx, y0 + 140);
+    ly = y0 + 186;
+  }
   if (d.line) {
-    g.font = body(400, 36, true);
+    g.font = body(400, d.vandal ? 32 : 36, true);
     g.fillStyle = C.stone;
-    wrap(g, d.line, W - M - tx, 2).forEach((line, i) => g.fillText(line, tx, y0 + 142 + i * 44));
+    wrap(g, d.line, W - M - tx, d.vandal ? 1 : 2).forEach((line, i) => g.fillText(line, tx, ly + i * 44));
   }
 
   // footer: league, week, and where to find the world
@@ -335,17 +345,41 @@ export function createPostcard(ctx, api) {
   const { hud, audio } = ctx;
   let busy = false;
 
+  /** The team whose home the visitor is standing at, when that home has damage this week. */
+  function damagedHomeHere() {
+    try {
+      const p = ctx.player.position;
+      let best = null;
+      let bestD = 30;
+      for (const h of allHomes(ctx)) {
+        const dist = Math.min(Math.hypot(h.x - p.x, h.z - p.z), Math.hypot(h.street.x - p.x, h.street.z - p.z) + 6);
+        if (dist < bestD) {
+          bestD = dist;
+          best = h;
+        }
+      }
+      return best && damageOf(ctx, best.teamId) ? best.teamId : null;
+    } catch (err) {
+      return null;
+    }
+  }
+
   /** What the card says, worked out from the model. */
   function describe(teamId) {
     const m = modelOf(ctx);
     const meta = (m && m.meta) || {};
-    const about = teamId !== undefined && teamId !== null ? teamId : api.teamId();
+    const given = teamId !== undefined && teamId !== null;
+    // From the camera button, standing at a house that was hit this week: the card is about that
+    // house, not about the visitor.
+    const hit = given ? null : damagedHomeHere();
+    const about = given ? teamId : hit !== null ? hit : api.teamId();
     const team = m && about !== null && about !== undefined ? m.teams[about] : null;
-    const framed = teamId !== undefined && teamId !== null && team;
-    const zone = framed ? team.tier : currentZone(ctx) || (team ? team.tier : 'plaza');
+    const framed = given && team;
+    const zone = framed || (hit !== null && team) ? team.tier : currentZone(ctx) || (team ? team.tier : 'plaza');
     return {
       place: tierName(zone) || 'League World',
       team: team ? { name: String(team.name || 'Team ' + team.id).trim(), rank: team.rank, record: team.record.text, color: team.color, tierColor: TIER_CSS[team.tier] } : null,
+      vandal: team ? postcardLine(ctx, team.id) : '',
       line: team ? roastLine(team) : zoneLine(zone),
       league: meta.leagueName || '',
       week: weekLabel(meta),
@@ -367,7 +401,7 @@ export function createPostcard(ctx, api) {
   function preview(blob, d) {
     const url = URL.createObjectURL(blob);
     const file = typeof File === 'function' ? new File([blob], 'league-world-postcard.png', { type: 'image/png' }) : null;
-    const about = 'Greetings from ' + d.place + (d.team ? '. ' + d.team.name + ', ' + ordinal(d.team.rank) + ', ' + d.team.record : '') + '.';
+    const about = 'Greetings from ' + d.place + (d.team ? '. ' + d.team.name + ', ' + ordinal(d.team.rank) + ', ' + d.team.record : '') + '.' + (d.vandal ? ' ' + d.vandal + '.' : '');
     const box = el('div', 'lwf-postcard');
     const img = el('img', 'lwf-postcard-img');
     img.src = url;
