@@ -6,7 +6,8 @@
 
 import { str, num, ordinal, fmtPts, fmtTotal, plural, rngFor, shuffled } from './util.js';
 
-export const REGIME_LIMITS = { slogan: 26, broadcast: 112, plaque: 96, headline: 60, body: 230 };
+// A loudspeaker line is shown as a toast on a phone, so it has to stay short.
+export const REGIME_LIMITS = { slogan: 26, broadcast: 96, plaque: 96, headline: 60, body: 230 };
 
 const fits = (limit) => (s) => typeof s === 'string' && s.length > 0 && s.length <= limit;
 
@@ -36,10 +37,12 @@ export function buildRegime(model, labels, cfg, lastCompletedWeek) {
 
   // ---- loudspeakers: the facts first, then the standing orders
   const facts = [];
+  // the version that names the opponent when it fits on a phone, otherwise the one that does not
+  const either = (named, plain) => facts.push(named.length <= REGIME_LIMITS.broadcast ? named : plain);
   if (played === 0) {
     facts.push(`The season has not begun. The ${title} has already won it. Details to follow.`);
   } else {
-    if (t.rank === 1) facts.push(`The ${title} is in first place. The standings have been verified by the ${title}.`);
+    if (t.rank === 1) facts.push(`He is in first place. The standings have been verified by the ${title}.`);
     else if (t.rank === N) facts.push('The standings are being displayed upside down this week. Technicians have been reassigned.');
     else if (t.rank === P + 1) facts.push('The playoff line has been moved for security reasons. It will be moved back when it is safe.');
     else if (t.rank <= P) facts.push(`${ord} place. A strategic position. First place has been declared a decoy.`);
@@ -57,16 +60,18 @@ export function buildRegime(model, labels, cfg, lastCompletedWeek) {
     if (lw && lw.won === false && num(lw.margin) > 0) {
       facts.push(`State media confirms a Week ${lastWeekNo} victory by ${fmtPts(lw.margin)}. Do not check the scoreboard.`);
     } else if (lw && lw.won === true) {
-      facts.push(`A glorious Week ${lastWeekNo} victory over ${who(lw.oppId)}. Attendance at the parade is compulsory.`);
+      either(`Week ${lastWeekNo}: a glorious victory over ${who(lw.oppId)}. The parade is compulsory.`,
+        `Week ${lastWeekNo} was a glorious victory. Attendance at the parade is compulsory.`);
     }
 
     const tw = t.thisWeek;
     if (tw && tw.status === 'live') {
       const gap = fmtPts(Math.abs(num(tw.pts) - num(tw.oppPts)));
-      if (num(tw.pts) < num(tw.oppPts)) facts.push(`The ${title} trails ${who(tw.oppId)} by ${gap}. The scoreboard operator has been spoken to.`);
-      else if (num(tw.pts) > num(tw.oppPts)) facts.push(`The ${title} leads ${who(tw.oppId)} by ${gap}. Applause may begin.`);
+      if (num(tw.pts) < num(tw.oppPts)) facts.push(`The ${title} trails by ${gap}. The scoreboard operator has been spoken to.`);
+      else if (num(tw.pts) > num(tw.oppPts)) facts.push(`The ${title} leads by ${gap}. Applause may begin.`);
     } else if (tw && tw.status === 'pre') {
-      facts.push(`This week ${who(tw.oppId)} has the honor of losing to the ${title}.`);
+      either(`This week ${who(tw.oppId)} has the honor of losing to the ${title}.`,
+        `This week another team has the honor of losing to the ${title}.`);
     }
 
     const s = t.streak || {};
@@ -168,8 +173,8 @@ export function buildRegime(model, labels, cfg, lastCompletedWeek) {
     hill: 'Official Residence. Finally, a house that matches the portraits.',
     heights: 'Official Residence. Modest, by his own decree.',
     bubble: 'Official Residence. The beige is a security measure.',
-    park: 'Official Residence (temporary). The mansion is being fumigated.',
-    dump: 'Official Residence (very temporary). The tent is a statement about humility.',
+    park: 'Official Residence. Temporary. The mansion is being fumigated.',
+    dump: 'Official Residence. Very temporary. The tent is a statement about humility.',
   }[home] || 'Official Residence.';
 
   // ---- state media: last week, as it officially happened
