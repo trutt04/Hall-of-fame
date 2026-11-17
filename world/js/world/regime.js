@@ -432,8 +432,14 @@ export function createRegime(w) {
         id: 'monument', position: v3(stand), radius: 3.4, label: 'Pay your respects', priority: 2,
         object3D: pickBox(F, 0, tall / 2, 0, 6.0 * k, tall, 3.6 * k), onUse: use({ kind: 'monument' }),
       });
-      const front = F.p(0, 0, plaqueAt[2] + 6.2);
-      spots.monument = { x: M.x, z: M.z, facing, stand: { x: front[0], z: front[2], facing: facing + Math.PI } };
+      // The map lands the visitor off to one side. Straight in front would put the camera, which
+      // trails behind them, inside the champion's statue in the middle of the plaza.
+      const dl = Math.hypot(plaza.x - M.x, plaza.z - M.z) || 1;
+      const dx = (plaza.x - M.x) / dl;
+      const dz = (plaza.z - M.z) / dl;
+      const sx = M.x + dx * 4.0 - dz * 2.8;
+      const sz = M.z + dz * 4.0 + dx * 2.8;
+      spots.monument = { x: M.x, z: M.z, facing, stand: { x: sx, z: sz, facing: Math.atan2(M.x - sx, M.z - sz) } };
     }
 
     // ============================================================ 2. the official portrait
