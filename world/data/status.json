@@ -3,8 +3,8 @@
   "ok": false,
   "reason": "league_private",
   "detail": "HTTP 401 from lm-api-reads.fantasy.espn.com (AUTH_LEAGUE_NOT_VISIBLE)",
-  "lastAttempt": "2026-11-16T03:54:59Z",
+  "lastAttempt": "2026-11-17T04:35:33Z",
   "lastSuccess": null,
-  "consecutiveFailures": 1,
+  "consecutiveFailures": 2,
   "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": null }
 }
