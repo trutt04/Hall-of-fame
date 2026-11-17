@@ -1,5 +1,5 @@
 // Prop gallery: every art export on a ground plane under the world's lighting.
-//   ?show=homes | reactive | setpieces | characters | all | <singleName>   (default homes)
+//   ?show=homes | reactive | setpieces | characters | regime | all | <singleName>   (default homes)
 //   ?night=1        dim the lights, glow the windows, turn porch lights on
 //   ?az=&el=&dist=&cx=&cy=&cz=   camera (degrees / meters), ?t= fixed time, ?labels=0, ?table=0, ?ref=0 (no scale avatars),
 //   ?rm=1 reduced motion, ?light=2 light multiplier, ?porch=win|lose|neutral, ?on=1 lamps on by day, ?anchors=1 show home anchors and colliders,
@@ -106,6 +106,10 @@ const ITEMS = {
   velvetRope: ['setpieces', () => [{ o: ART.createVelvetRope(4), label: 'velvet rope', w: 5 }]],
   lawnChair: ['setpieces', () => [{ o: ART.createLawnChair(), label: 'lawn chair' }]],
   grill: ['setpieces', () => [{ o: ART.createGrill(), label: 'grill' }]],
+  // the Supreme Commissioner
+  leaderStatue: ['regime', () => [{ o: ART.createLeaderStatue(), label: 'leader statue', w: 12, d: 7, ref: true }]],
+  leaderBust: ['regime', () => [false, true].map((w) => ({ o: ART.createLeaderBust({ weathered: w }), label: w ? 'bust (weathered)' : 'leader bust', w: 2.8, d: 2.8 }))],
+  loudspeaker: ['regime', () => [{ o: ART.createLoudspeaker(), label: 'loudspeaker', w: 3, d: 3 }]],
   // characters and vehicles
   avatar: ['characters', () => ['idle', 'walk', 'run', 'sit', 'wave', 'grill', 'pace', 'shiver', 'cheer', 'lounge'].map((a, i) => {
     const o = ART.createAvatar({ color: col(i), number: [1, 7, 12, 23, 34, 45, 56, 69, 88, 99][i], accessory: [null, 'cap', null, 'crown', 'visor', 'cap', null, 'bag', 'crown', 'visor'][i] });
@@ -158,7 +162,7 @@ const fnOf = (name) => NEEDS[name] || 'create' + name[0].toUpperCase() + name.sl
 
 let names;
 if (show === 'all') names = Object.keys(ITEMS);
-else if (['homes', 'reactive', 'setpieces', 'characters'].includes(show)) names = Object.keys(ITEMS).filter((n) => ITEMS[n][0] === show);
+else if (['homes', 'reactive', 'setpieces', 'characters', 'regime'].includes(show)) names = Object.keys(ITEMS).filter((n) => ITEMS[n][0] === show);
 else names = show.split(',').filter((n) => ITEMS[n]);
 if (q.get('only')) names = names.filter((n) => q.get('only').split(',').includes(n));
 
@@ -307,7 +311,7 @@ const link = (label, params, alt) => {
   a.href = '?' + p.toString(); a.textContent = label; if (alt) a.className = 'alt';
   nav.appendChild(a);
 };
-for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'all']) link(s, { show: s });
+for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'regime', 'all']) link(s, { show: s });
 link(night ? 'day' : 'night', { night: night ? null : '1' }, true);
 const tableEl = document.getElementById('table');
 tableEl.textContent = (table.length > 34 || q.get('table') === '0') ? '' : table.map((r) => `${r.name.padEnd(22)} ${String(r.calls).padStart(2)} calls ${String(r.tris).padStart(6)} tris`).join('\n');

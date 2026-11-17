@@ -25,6 +25,7 @@ export {
   createTrashCan, createVelvetRope, createLawnChair, createGrill,
 } from './setpieces.js';
 export { createBuilding, createBoardFrame, createBlimp, createFloodlight } from './buildings.js';
+export { createLeaderStatue, createLeaderBust, createLoudspeaker } from './regime.js';
 
 // Characters
 export { createAvatar, AVATAR_HEIGHT, AVATAR_ANIMS } from './avatar.js';
