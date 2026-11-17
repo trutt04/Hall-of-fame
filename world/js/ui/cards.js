@@ -10,6 +10,7 @@ import {
   el, button, rankBig, tierName, teamName, firstTeam, lastTeam, streakLong, matchupParts, idleWeekText, ordinal, hallOfFameUrl, sampleTag,
 } from './dom.js';
 import { modelOf, getHome } from './seam.js';
+import { rightOf, damageOf, ammoLeft, hasAmmo, countText, cardLine, canEnter, enterVandal, settleLabel, vandalOf, same } from './vandal.js';
 import { pts1 } from './lists.js';
 
 // "You are N places short", by how far away the throne is.
@@ -51,6 +52,29 @@ export function createCards(ctx, api) {
     return dl;
   }
 
+  // What the eggs and the paint have to say about a house: the model's line for a legal target
+  // (its own owner reads a different one), what landed on it this week and by whom, and for the
+  // winner who may still throw, what is left in the carton.
+  function vandalNotice(t, me, isTarget, left) {
+    const said = cardLine(ctx, t.id, me);
+    const d = damageOf(ctx, t.id);
+    if (!said && !d && !isTarget) return null;
+    const m = model();
+    const box = el('div', 'lwf-vandal');
+    if (said) box.appendChild(el('p', 'lwf-vandal-said', said));
+    if (d) {
+      const by = same(d.by, me) ? 'you' : m.teams[d.by] ? teamName(m.teams[d.by]) : 'somebody';
+      box.appendChild(el('p', 'lwf-vandal-damage', 'This week: ' + countText(d) + ', by ' + by));
+    }
+    if (isTarget && left) {
+      const rest = countText(left);
+      const v = vandalOf(ctx);
+      const empty = v && v.lines && Array.isArray(v.lines.empty) && v.lines.empty[0] ? v.lines.empty[0] : 'Nothing left to throw this week.';
+      box.appendChild(el('p', 'lwf-vandal-left', rest ? 'Left to throw: ' + rest : empty));
+    }
+    return box.firstChild ? box : null;
+  }
+
   function home(teamId, o = {}) {
     const m = model();
     const t = m && m.teams ? m.teams[teamId] : null;
@@ -85,8 +109,16 @@ export function createCards(ctx, api) {
     let far = !!o.go;
     const h = getHome(ctx, t.id);
     if (!far && h) far = Math.hypot(player.position.x - h.street.x, player.position.z - h.street.z) > 32;
+    // The visitor's own target this week, while there is ammo left: settling the score comes first
+    // (it goes there by itself, so it takes the place of "Go to their house").
+    const me = api.teamId();
+    const myRight = rightOf(ctx, me);
+    const isTarget = !!myRight && same(myRight.targetId, t.id);
+    const left = isTarget ? ammoLeft(ctx, me) : null;
     const acts = el('div', 'lwf-card-acts');
-    if (far && h) {
+    if (isTarget && hasAmmo(left) && canEnter(ctx)) {
+      acts.appendChild(button('lw-btn lw-btn-primary lwf-settle', settleLabel(ctx), () => enterVandal(ctx, me)));
+    } else if (far && h) {
       acts.appendChild(button('lw-btn lw-btn-primary lwf-go', mine ? 'Go home' : 'Go to their house', () => {
         hud.closeCard();
         api.goHome(t.id);
@@ -94,6 +126,8 @@ export function createCards(ctx, api) {
     }
     if (typeof api.postcard === 'function') acts.appendChild(button('lw-btn lwf-pc', 'Postcard', () => api.postcard(t.id)));
     if (acts.firstChild) body.appendChild(acts);
+    const notice = vandalNotice(t, me, isTarget, left);
+    if (notice) body.appendChild(notice);
     body.appendChild(statList(rows));
     const lines = (t.roast && t.roast.mailbox) || [];
     lines.forEach((line, i) => body.appendChild(el('p', i === lines.length - 1 ? 'lw-jab' : 'lw-line', line)));

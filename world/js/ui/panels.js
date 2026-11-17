@@ -7,6 +7,7 @@ import { PAPER_NAME } from '../model/roasts.js';
 import { el, button, svg, hex, inkOn, tierName, teamName, rankBig, weekLabel, hallOfFameUrl, TIER_CSS } from './dom.js';
 import { modelOf, currentZone, zoneLine, ZONE_IDS } from './seam.js';
 import { buildStandings, buildMatchups, buildPaper, buildPlayoffs } from './lists.js';
+import { enterVandal, settleLabel, vandalOf } from './vandal.js';
 
 // Tiny line drawings, one per neighborhood, for the map.
 const ZONE_ART = {
@@ -121,16 +122,29 @@ export function createPanels(ctx, api) {
       hillside.appendChild(zone);
     }
     box.appendChild(hillside);
-    // Rides and games: places that are things to do rather than somewhere to live.
+    // Rides and games: places that are things to do rather than somewhere to live. A score to
+    // settle (the world lists it only for a team that won last week) goes first.
+    const DO = { revenge: 0, ride: 1, game: 2, sight: 3 };
     let extras = [];
     try {
       extras = (ctx.world && typeof ctx.world.places === 'function' ? ctx.world.places() : [])
-        .filter((p) => p && (p.kind === 'ride' || p.kind === 'game' || p.kind === 'sight') && p.name);
+        .filter((p) => p && p.kind in DO && (p.name || p.kind === 'revenge'))
+        .sort((a, b) => DO[a.kind] - DO[b.kind]);
     } catch (err) { extras = []; }
     if (extras.length) {
       box.appendChild(el('h3', 'lw-h3', 'Things to do'));
       const list = el('div', 'lw-list');
-      for (const p of extras) list.appendChild(row(p.name, p.blurb || '', p.kind === 'game' ? 'Play' : p.kind === 'ride' ? 'Ride' : 'Visit', () => api.goPlace(p.id)));
+      for (const p of extras) {
+        if (p.kind === 'revenge') {
+          const v = vandalOf(ctx);
+          const blurb = p.blurb || (v && v.lines && v.lines.blurb ? v.lines.blurb[me] : '') || '';
+          const r = row(p.name || settleLabel(ctx), blurb, 'Go', () => enterVandal(ctx, me));
+          r.classList.add('lwf-revenge');
+          list.appendChild(r);
+          continue;
+        }
+        list.appendChild(row(p.name, p.blurb || '', p.kind === 'game' ? 'Play' : p.kind === 'ride' ? 'Ride' : 'Visit', () => api.goPlace(p.id)));
+      }
       box.appendChild(list);
     }
     hud.openPanel({ title: 'Map', contentEl: box });
