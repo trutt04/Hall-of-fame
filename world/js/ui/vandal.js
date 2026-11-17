@@ -78,6 +78,14 @@ export function damageOf(ctx, teamId) {
 export function ammoLeft(ctx, attackerId) {
   const r = rightOf(ctx, attackerId);
   if (!r) return null;
+  // the world counts exactly what the chips count (misses and all); the rest is a fallback
+  const w = worldVandal(ctx);
+  if (w && typeof w.left === 'function') {
+    try {
+      const l = w.left(attackerId);
+      if (l && typeof l === 'object') return { egg: count(l.egg), tp: count(l.tp), tag: count(l.tag) };
+    } catch (err) { /* fall back to what is drawn */ }
+  }
   const v = vandalOf(ctx);
   const allow = (v && v.allowance) || { egg: 12, tp: 4, tag: 1 };
   const d = damageOf(ctx, r.targetId);

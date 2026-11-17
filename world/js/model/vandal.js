@@ -31,10 +31,14 @@ const LINES = {
     'Splat. Worth every penny.',
     'That one is not coming off.',
     'The yolk is on them.',
-    'Right on the siding. Beautiful.',
+    'Right on the wall. Beautiful.',
     'Free range. Full send.',
     'Another one for the scrapbook.',
     'Somebody is power washing this weekend.',
+  ],
+  eggTree: [
+    'Got the tree. The tree had it coming.',
+    'Hit the tree. It was standing in the way.',
   ],
   eggMiss: [
     'Wide left. Like your kicker.',
@@ -45,10 +49,17 @@ const LINES = {
   ],
   tp: [
     'Draped. Two-ply, no mercy.',
-    'The trees are dressed for the occasion.',
     'A roll well spent.',
-    'It is snowing in the yard. Paper snow.',
     'Toilet papered. A classic for a reason.',
+    'Over the roof and down the gutters.',
+  ],
+  tpTree: [
+    'The trees are dressed for the occasion.',
+    'Tree decorated. Very festive.',
+  ],
+  tpGround: [
+    'It is snowing in the yard. Paper snow.',
+    'The lawn got papered. Close enough.',
   ],
   tag: [
     'Tagged. The neighbors will talk.',
@@ -85,7 +96,8 @@ export function buildVandalism(model, labels, o = {}) {
   if (!(W > 0)) return null;
   const meta = model.meta || {};
   if (meta.phase === 'preseason') return null;
-  const who = (id) => str(labels && labels[id]) || (model.teams[id] ? model.teams[id].name : 'somebody');
+  // Houses belong to teams, so this feature always names the team (never an owner's first name).
+  const who = (id) => (model.teams[id] && str(model.teams[id].name)) || str(labels && labels[id]) || 'somebody';
   const until = meta.phase === 'complete' ? 'until next season' : `until Week ${W + 1} is final`;
   const leader = o.regimeTeamId;
 
@@ -132,8 +144,11 @@ export function buildVandalism(model, labels, o = {}) {
       start,
       blurb,
       egg: LINES.egg.slice(),
+      eggTree: LINES.eggTree.slice(),
       eggMiss: LINES.eggMiss.slice(),
       tp: LINES.tp.slice(),
+      tpTree: LINES.tpTree.slice(),
+      tpGround: LINES.tpGround.slice(),
       tag: LINES.tag.slice(),
       empty: LINES.empty.slice(),
       leave: LINES.leave.slice(),

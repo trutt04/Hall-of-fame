@@ -198,6 +198,8 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
   justify-content:center;gap:7px;padding:10px;pointer-events:auto;touch-action:none;background:var(--panel-solid);border:1.5px solid var(--line);border-radius:16px;
   box-shadow:0 8px 22px rgba(0,0,0,.5)}
 .lw-vandal-sheet[hidden]{display:none}
+/* narrow phones: the tag sheet stays left of the round buttons */
+@media (max-width:420px){.lw-vandal-sheet{left:10px;right:62px;width:auto;margin:0;max-width:none}}
 .lw-hud .lw-vandal-tag{pointer-events:auto;touch-action:none;min-height:40px;padding:6px 11px;font-family:var(--display);font-size:14px;line-height:1.1;color:var(--chalk);
   background:rgba(243,238,221,.08);border:1.5px solid var(--line);border-radius:10px}
 .lw-hud .lw-vandal-tag[aria-pressed="true"]{border-color:var(--gold);color:var(--gold)}

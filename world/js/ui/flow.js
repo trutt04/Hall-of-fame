@@ -24,7 +24,7 @@ import {
   flowRoot, ROOT_CLASS, HINT_KEY,
 } from './dom.js';
 import { modelOf, idleCamera, travelToHome, travelToPlace } from './seam.js';
-import { startLine, settleLabel } from './vandal.js';
+import { startLine, settleLabel, ammoLeft, hasAmmo } from './vandal.js';
 
 export { renderFallback };
 
@@ -386,6 +386,7 @@ function build(ctx, started, failed) {
     if (teamId === null || announced.has(teamId)) return;
     const text = startLine(ctx, teamId);
     if (!text) return;
+    if (!hasAmmo(ammoLeft(ctx, teamId))) return; // everything already thrown this week
     await wait(hinted ? 2200 : 900);
     while (mine === run && (phase !== 'roam' || hud.isModalOpen())) await wait(400);
     if (mine !== run || announced.has(teamId)) return;

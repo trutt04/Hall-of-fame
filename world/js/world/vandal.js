@@ -38,7 +38,7 @@ const MAX_TAGS = 8;
 const NEAR = 4.5; // trees this far outside the lot still count as the home's own (eggs and paper)
 const LOT_PAD = 1.0; // splats and paper on the grass stay this close to the lot
 const TAG_W = 2.6; // a tag on the wall, in meters (the atlas cell is 4:1)
-const PAPER_W = 0.13;
+const PAPER_W = 0.17;
 const UP = new THREE.Vector3(0, 1, 0);
 const DOWN = new THREE.Vector3(0, -1, 0);
 
@@ -128,7 +128,7 @@ function drawSplat() {
     if (y > 5 && y < S - 5 && x > 5 && x < S - 5) drops.push([x, y, 2 + r() * 3]);
   }
   // a darker wet rim first, then the white on top of it
-  for (const [fill, grow] of [['#c9ad52', 2.6], ['#f3e5a6', 0]]) {
+  for (const [fill, grow] of [['#a8862e', 3.2], ['#f3e5a6', 0]]) {
     g.fillStyle = fill;
     drip(cx + 6, 10 + grow * 1.6, 66 + grow * 0.6);
     drip(cx - 14, 8 + grow * 1.6, 40 + grow * 0.6);
@@ -422,7 +422,7 @@ export function createVandal(w) {
       if (!h.F.inside(p.x, p.z, LOT_PAD)) return null;
       const g = terrain.heightAt(p.x, p.z);
       // the same house keeps its own yard height; a different one sits on the ground
-      p.y = it.tier === h.e.team.tier ? Math.max(g, Math.min(p.y, g + 0.6)) : g;
+      p.y = it.tier === h.e.team.tier ? Math.max(g, Math.min(p.y, g + 0.35)) : g;
       return { p, n: UP.clone(), on: 'ground' };
     }
     const n = h.F.dirToWorld(it.n, new THREE.Vector3()).normalize();
@@ -441,13 +441,15 @@ export function createVandal(w) {
       p.copy(best.c).addScaledVector(n, best.r);
       return { p, n, on: 'tree' };
     }
-    if (it.tier === h.e.team.tier) return { p, n, on: 'home' };
-    // a different house now: look for a wall along the stored normal, or let it go
+    // Look for the house along the stored normal. On the same house the surface must be right
+    // where the item says (so nothing floats in the air); on a different one, anything close.
+    const same = it.tier === h.e.team.tier;
     ray.set(v1.copy(p).addScaledVector(n, 0.6), v2.copy(n).negate());
     ray.near = 0;
-    ray.far = 1.4;
+    ray.far = same ? 1.0 : 1.4;
     const hit = ray.intersectObjects(h.meshes, false)[0];
     if (!hit) return null;
+    if (same) return { p, n, on: 'home' };
     return { p: hit.point.clone(), n: worldNormal(hit, new THREE.Vector3()), on: 'home' };
   }
 
@@ -679,7 +681,7 @@ export function createVandal(w) {
           const text = tagText(it.attackerId, it.tagId);
           const team = S.model && S.model.teams[it.attackerId];
           if (text && Math.abs(at.n.y) < 0.6) {
-            tagList.push({ it, at, text, color: team ? team.color : 0xd7263d });
+            tagList.push({ it, at, text, color: team ? team.color : 0xd7263d, scale: tagFit(at, h) });
             counts.tag++;
           }
         }
@@ -712,8 +714,8 @@ export function createVandal(w) {
       right.normalize();
       const up = v2.crossVectors(n, right).normalize();
       const c = v3.copy(x.at.p).addScaledVector(n, 0.1); // paint goes over the window frames too
-      const hw = TAG_W / 2;
-      const hh = TAG_W / 8;
+      const hw = (TAG_W / 2) * (x.scale || 1);
+      const hh = (TAG_W / 8) * (x.scale || 1);
       const corner = (sx, sy) => [c.x + right.x * hw * sx + up.x * hh * sy, c.y + right.y * hw * sx + up.y * hh * sy, c.z + right.z * hw * sx + up.z * hh * sy];
       const A = corner(-1, -1);
       const B = corner(1, -1);
@@ -758,6 +760,25 @@ export function createVandal(w) {
     paper.visible = paperPos.length > 0;
   }
 
+  // How big a tag can be at this spot: both ends need the wall behind them (tents, porches).
+  function tagFit(at, h) {
+    const n = at.n;
+    const right = new THREE.Vector3().crossVectors(UP, n);
+    if (right.lengthSq() < 0.01) return 1;
+    right.normalize();
+    const probe = (dx) => {
+      ray.set(v1.copy(at.p).addScaledVector(right, dx).addScaledVector(n, 0.5), v2.copy(n).negate());
+      ray.near = 0;
+      ray.far = 0.95;
+      return !!ray.intersectObjects(h.meshes, false)[0];
+    };
+    for (const s of [1, 0.8, 0.62, 0.48]) {
+      const hw = (TAG_W / 2) * s * 0.92;
+      if (probe(hw) && probe(-hw)) return s;
+    }
+    return 0.4;
+  }
+
   function splatMatrix(p, n, size, spin, out) {
     const x = v1.crossVectors(UP, n);
     if (x.lengthSq() < 0.01) x.set(1, 0, 0);
@@ -793,7 +814,8 @@ export function createVandal(w) {
     const box = new THREE.Box3().setFromObject(e.home.group);
     const tall = Math.max(2, box.max.y - e.lot.y);
     const look = F.toWorld([0, Math.max(1.3, Math.min(4.2, tall * 0.42)), door.z - 0.6], new THREE.Vector3());
-    return { x: p.x, y: terrain.heightAt(p.x, p.z), z: p.z, facing: Math.atan2(house.x - p.x, house.z - p.z), look };
+    const wide = Math.max(box.max.x - box.min.x, box.max.z - box.min.z);
+    return { x: p.x, y: terrain.heightAt(p.x, p.z), z: p.z, facing: Math.atan2(house.x - p.x, house.z - p.z), look, wide };
   }
 
   function refreshRight() {
@@ -1103,12 +1125,14 @@ export function createVandal(w) {
       const n = Math.min(24, path.length);
       for (let i = 0; i < n; i++) keep.push(F.toLocal(path[Math.round((i / Math.max(1, n - 1)) * (path.length - 1))]));
       it.pts = keep;
-      if (it.on !== 'miss') say('tp');
-      else say('eggMiss');
+      if (it.on === 'miss') say('eggMiss');
+      else if (on === 'tree' && lines().tpTree) say('tpTree');
+      else if (on === 'ground' && lines().tpGround) say('tpGround');
+      else say('tp');
       audio.sfx('pop', { volume: 0.25 });
     } else {
       audio.sfx('splat', { volume: on === 'miss' ? 0.35 : 0.8 });
-      say(on === 'home' || on === 'tree' ? 'egg' : 'eggMiss');
+      say(on === 'home' ? 'egg' : on === 'tree' && lines().eggTree ? 'eggTree' : on === 'tree' ? 'egg' : 'eggMiss');
     }
     if ((on === 'home' || on === 'tree') && w.residents && typeof w.residents.react === 'function' && S.spot) w.residents.react(pr.targetId, S.spot.x, S.spot.z, 3.5);
     save(it);
@@ -1155,7 +1179,8 @@ export function createVandal(w) {
     }
     const n = worldNormal(hit, new THREE.Vector3());
     if (Math.abs(n.y) > 0.45) {
-      oLine.textContent = 'Tap a wall, not the roof.';
+      const low = hit.point.y - terrain.heightAt(hit.point.x, hit.point.z) < 1.2;
+      oLine.textContent = low ? 'Tap a wall, not the yard.' : 'Tap a wall, not the roof.';
       S.startUntil = performance.now() + 1800;
       return;
     }
@@ -1175,6 +1200,7 @@ export function createVandal(w) {
       p: F.toLocal(p), n: F.dirToLocal(n), tagId: S.tagId, at: Date.now(),
     };
     S.used++;
+    S.startUntil = 0;
     audio.sfx('spray', { volume: 0.8 });
     say('tag');
     if (w.residents && typeof w.residents.react === 'function' && S.spot) w.residents.react(it.targetId, S.spot.x, S.spot.z, 3.5);
@@ -1230,7 +1256,10 @@ export function createVandal(w) {
     const whole = (Math.hypot(dx, dy) / ms) * 1000 / H;
     dbg.swipes++;
     dbg.last = 'p' + ((Math.max(flick, whole) - 0.4) / 2.9).toFixed(2) + ' y' + (Math.atan2(dx, -dy) * 0.62).toFixed(2);
-    doThrow((Math.max(flick, whole) - 0.4) / 2.9, Math.atan2(dx, -dy) * 0.62);
+    doThrow(wobble((Math.max(flick, whole) - 0.4) / 2.9, 0.025), wobble(Math.atan2(dx, -dy) * 0.62, 0.035));
+  }
+  function wobble(v, amount) {
+    return v + (Math.random() * 2 - 1) * amount;
   }
   function onKeyDown(e) {
     if (!S.active) return;
@@ -1266,7 +1295,7 @@ export function createVandal(w) {
     S.charging = false;
     oMeter.hidden = true;
     oLine.hidden = S.sheet;
-    doThrow(0.12 + 0.88 * S.charge, S.aim);
+    doThrow(wobble(0.12 + 0.88 * S.charge, 0.02), wobble(S.aim, 0.03));
   }
 
   // ------------------------------------------------------------------ start and leave
@@ -1276,11 +1305,65 @@ export function createVandal(w) {
   const lookWant = new THREE.Vector3();
   let camReady = false;
 
+  // Things the mode's camera must not end up behind: everything solid in the scene, minus
+  // people, decals, glows and particles. Built when the mode starts.
+  function solids() {
+    const out = [];
+    const skip = new Set([group]);
+    scene.traverse((o) => {
+      if (!o.isMesh || o.isSkinnedMesh || o.isSprite) return;
+      for (let a = o; a; a = a.parent) {
+        if (!a.visible || skip.has(a)) return;
+      }
+      const m = Array.isArray(o.material) ? o.material[0] : o.material;
+      if (m && (m.transparent || m.depthWrite === false)) return;
+      out.push(o);
+    });
+    return out;
+  }
+  function clear(list, a, b, slack) {
+    const d = v2.copy(b).sub(a);
+    const len = d.length();
+    if (len < 0.05) return true;
+    ray.set(a, d.normalize());
+    ray.near = 0.15;
+    ray.far = Math.max(0.2, len - (slack || 0));
+    return !ray.intersectObjects(list, false).length;
+  }
+  // Behind the shoulder, then higher, then closer: the first spot that can see the thrower and the house.
+  function cameraFor(sp, portrait) {
+    const extra = Math.max(0, Math.min(6, ((sp.wide || 10) - 11) * 0.45));
+    const base = (portrait ? 5.8 : 4.6) + extra;
+    const lift = (portrait ? 2.8 : 2.2) + extra * 0.35;
+    const tries = [[base, lift], [base, lift + 1.6], [base * 0.75, lift + 1.2], [base * 0.55, lift + 1.8], [base * 0.4, lift + 2.4], [base, lift + 3.4], [2.2, 3.6]];
+    const list = solids();
+    const head = new THREE.Vector3(sp.x, sp.y + 1.5, sp.z);
+    const fx = Math.sin(sp.facing);
+    const fz = Math.cos(sp.facing);
+    const at = new THREE.Vector3();
+    for (const [back, up] of tries) {
+      at.set(sp.x - fx * back - fz * 0.55, sp.y + up, sp.z - fz * back + fx * 0.55);
+      at.y = Math.max(at.y, terrain.heightAt(at.x, at.z) + 1.4);
+      const toHouse = v3.copy(sp.look);
+      if (clear(list, head, at, 0.1) && clear(list.filter((o) => !S.target || !isOf(o, S.target.home.group)), at, toHouse, 1.2)) return { back, up };
+    }
+    return { back: 2.2, up: 3.6 };
+  }
+  function isOf(o, root) {
+    for (let a = o; a; a = a.parent) if (a === root) return true;
+    return false;
+  }
+
   function start() {
     if (S.active || !S.right || !S.spot || player.seated || rig.isCinematic) return false;
     refreshRight();
     if (!S.right || !S.spot) return false;
+    if (remaining('egg') + remaining('tp') + remaining('tag') <= 0) {
+      say('empty', true);
+      return false;
+    }
     S.active = true;
+    S.seat = S.spot; // where the visitor actually sits, even if a refresh moves the target
     S.release = w.freezePlayer();
     S.hadTags = !!w.hideTags;
     w.hideTags = true; // the floating name tag sits right where the eggs go
@@ -1315,14 +1398,15 @@ export function createVandal(w) {
     window.addEventListener('keyup', onKeyUp);
     audio.sfx('pop', { volume: 0.5 });
     const portrait = w.camera3D.aspect < 1;
+    const cam = cameraFor(sp, portrait);
     rig.play([{
       cut: true, dur: 1e7, ease: 'linear', fov: portrait ? 60 : 48,
       pos: () => {
         const f = sp.facing;
         const fx = Math.sin(f);
         const fz = Math.cos(f);
-        const back = portrait ? 5.8 : 4.6;
-        camWant.set(sp.x - fx * back - fz * 0.55, sp.y + (portrait ? 2.8 : 2.2), sp.z - fz * back + fx * 0.55);
+        const back = cam.back;
+        camWant.set(sp.x - fx * back - fz * 0.55, sp.y + cam.up, sp.z - fz * back + fx * 0.55);
         camWant.y = Math.max(camWant.y, terrain.heightAt(camWant.x, camWant.z) + 1.4);
         if (!camReady || calm) camPos.copy(camWant);
         else camPos.lerp(camWant, 0.08);
@@ -1361,8 +1445,12 @@ export function createVandal(w) {
     window.removeEventListener('keyup', onKeyUp);
     input.setSuspended(hud.isModalOpen());
     if (player.avatar && player.avatar.setAnim) player.avatar.setAnim('idle');
-    const sp = S.spot;
-    if (player.seated && sp) player.stand(sp.x, sp.z, sp.facing);
+    const sp = S.seat || S.spot;
+    S.seat = null;
+    if (player.seated) {
+      if (sp) player.stand(sp.x, sp.z, sp.facing);
+      else player.stand(player.position.x, player.position.z, player.heading);
+    }
     if (fromOutside !== true && rig.isCinematic) rig.skip();
     if (sp) rig.setView({ yaw: sp.facing + Math.PI });
     if (S.release) S.release();
@@ -1414,7 +1502,18 @@ export function createVandal(w) {
   }
 
   let lastTeam;
+  let lastAmmoCheck = 0;
   function update(dt) {
+    lastAmmoCheck += dt;
+    if (lastAmmoCheck > 0.5 && S.spot && !S.active) {
+      lastAmmoCheck = 0;
+      // only matters near the throw spot: there the action follows what is left to throw
+      const pp = player.position;
+      if (Math.hypot(pp.x - S.spot.x, pp.z - S.spot.z) < 9) {
+        const item = typeof interact.get === 'function' ? interact.get('vandal') : null;
+        if (item) item.enabled = remaining('egg') + remaining('tp') + remaining('tag') > 0;
+      }
+    }
     if (w.playerTeam !== lastTeam) {
       lastTeam = w.playerTeam;
       if (S.active) leave(); // somebody else's grudge now
@@ -1498,6 +1597,7 @@ export function createVandal(w) {
     },
     get place() {
       if (!S.right || !S.spot) return null;
+      if (remaining('egg') + remaining('tp') + remaining('tag') <= 0) return null;
       const L = lines();
       return { x: S.spot.x, z: S.spot.z, facing: S.spot.facing, name: L.label || 'Settle the score', blurb: (L.blurb && L.blurb[S.me]) || '' };
     },
@@ -1509,6 +1609,11 @@ export function createVandal(w) {
     _throw(kind, power, yaw) {
       if (kind) S.item = kind;
       return doThrow(power, yaw);
+    },
+    // what the visitor still has to throw this week (what the chips show)
+    left(teamId) {
+      if (!S.right || (teamId !== undefined && Number(teamId) !== S.me)) return null;
+      return { egg: remaining('egg'), tp: remaining('tp'), tag: remaining('tag') };
     },
     _debugDrapes() { return drapeLog.slice(); },
     // tests: the power and yaw that send a throw through a world point (no drag, so a little long)
