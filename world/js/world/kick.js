@@ -158,7 +158,8 @@ export function createKickGame(w) {
   const dots = [el('i'), el('i'), el('i')];
   oLives.append(...dots);
   oLives.setAttribute('aria-label', 'Misses left');
-  bar.append(oDist, oMade, oLives);
+  const oBest = el('span', 'lw-kick-best');
+  bar.append(oDist, oMade, oLives, oBest);
   const oWind = el('div', 'lw-kick-wind');
   const oResult = el('div', 'lw-kick-result');
   oResult.setAttribute('role', 'status');
@@ -214,6 +215,10 @@ export function createKickGame(w) {
     oDist.textContent = G.yards + ' YD';
     oMade.textContent = 'MADE ' + G.made;
     dots.forEach((d, i) => d.classList.toggle('lw-off', i >= 3 - G.misses));
+    oBest.textContent = best > 0 ? 'BEST ' + best : '';
+    oBest.hidden = !(best > 0);
+    const byTouch = input.usingTouch || !!(window.matchMedia && window.matchMedia('(pointer: coarse)').matches);
+    oLeave.textContent = byTouch ? 'Tap to leave' : 'Esc to leave';
     const mph = Math.abs(G.wind);
     oWind.textContent = mph === 0 ? 'WIND  calm' : 'WIND  ' + (G.wind < 0 ? '← ' : '') + mph + ' mph' + (G.wind > 0 ? ' →' : '');
     oHint.textContent = G.state === 'over' ? (input.usingTouch ? 'Swipe up to go again' : 'Press Space to go again')
@@ -354,6 +359,7 @@ export function createKickGame(w) {
   const sw = { id: null, x: 0, y: 0, t: 0, trail: [] };
   function onDown(e) {
     if (!G.active || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (sw.id !== null) return; // a swipe is already being tracked: extra fingers are ignored
     sw.id = e.pointerId;
     sw.x = e.clientX;
     sw.y = e.clientY;
@@ -364,6 +370,9 @@ export function createKickGame(w) {
     if (e.pointerId !== sw.id) return;
     sw.trail.push([e.clientX, e.clientY, performance.now()]);
     if (sw.trail.length > 24) sw.trail.shift();
+  }
+  function onCancel(e) {
+    if (e.pointerId === sw.id) sw.id = null;
   }
   function onUp(e) {
     if (!G.active || e.pointerId !== sw.id) return;
@@ -427,9 +436,14 @@ export function createKickGame(w) {
     newRound();
     root.hidden = false;
     input.setSuspended(true);
-    canvas.addEventListener('pointerdown', onDown);
-    canvas.addEventListener('pointermove', onMove);
-    canvas.addEventListener('pointerup', onUp);
+    sw.id = null;
+    for (const node of [canvas, root]) {
+      node.addEventListener('pointerdown', onDown);
+      node.addEventListener('pointermove', onMove);
+      node.addEventListener('pointerup', onUp);
+      node.addEventListener('pointercancel', onCancel);
+    }
+    if (hud.hideHint) hud.hideHint(); // the walking hint has no business on top of the kicking hint
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     audio.sfx('pop', { volume: 0.5 });
@@ -462,9 +476,13 @@ export function createKickGame(w) {
     G.charging = false;
     root.hidden = true;
     oResult.hidden = true;
-    canvas.removeEventListener('pointerdown', onDown);
-    canvas.removeEventListener('pointermove', onMove);
-    canvas.removeEventListener('pointerup', onUp);
+    for (const node of [canvas, root]) {
+      node.removeEventListener('pointerdown', onDown);
+      node.removeEventListener('pointermove', onMove);
+      node.removeEventListener('pointerup', onUp);
+      node.removeEventListener('pointercancel', onCancel);
+    }
+    sw.id = null;
     window.removeEventListener('keydown', onKeyDown);
     window.removeEventListener('keyup', onKeyUp);
     input.setSuspended(hud.isModalOpen());

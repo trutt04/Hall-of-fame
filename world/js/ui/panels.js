@@ -125,12 +125,12 @@ export function createPanels(ctx, api) {
     let extras = [];
     try {
       extras = (ctx.world && typeof ctx.world.places === 'function' ? ctx.world.places() : [])
-        .filter((p) => p && (p.kind === 'ride' || p.kind === 'game') && p.name);
+        .filter((p) => p && (p.kind === 'ride' || p.kind === 'game' || p.kind === 'sight') && p.name);
     } catch (err) { extras = []; }
     if (extras.length) {
       box.appendChild(el('h3', 'lw-h3', 'Things to do'));
       const list = el('div', 'lw-list');
-      for (const p of extras) list.appendChild(row(p.name, p.blurb || '', p.kind === 'game' ? 'Play' : 'Ride', () => api.goPlace(p.id)));
+      for (const p of extras) list.appendChild(row(p.name, p.blurb || '', p.kind === 'game' ? 'Play' : p.kind === 'ride' ? 'Ride' : 'Visit', () => api.goPlace(p.id)));
       box.appendChild(list);
     }
     hud.openPanel({ title: 'Map', contentEl: box });

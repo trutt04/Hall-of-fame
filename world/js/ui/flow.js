@@ -354,6 +354,13 @@ function build(ctx, started, failed) {
     window.addEventListener('pointerup', onUp, true);
     window.addEventListener('keydown', onKeyDown, true);
     timers.push(setTimeout(() => hide(false), 30000)); // nobody touched anything: show it again next time
+    // A ride, a game, a scope or a card taking over means the walking advice is in the way.
+    // Put it away for now without remembering it, so it comes back on the next visit.
+    const rig = ctx.camera || (ctx.world && ctx.world.rig);
+    const watch = setInterval(() => {
+      if ((rig && rig.isCinematic) || hud.isModalOpen()) hide(false);
+    }, 300);
+    timers.push(watch);
     hintOffs.push(
       () => window.removeEventListener('pointerdown', onDown, true),
       () => window.removeEventListener('pointermove', onMove, true),

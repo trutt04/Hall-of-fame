@@ -205,6 +205,10 @@ async function boot() {
         const kp = world.kick.place;
         out.push({ id: 'kick', kind: 'game', name: 'Field goal kicks', blurb: 'Swipe up to kick. Three misses and you are done.', x: kp.x, z: kp.z, facing: kp.facing });
       }
+      if (world.dressing && world.dressing.plot) {
+        const gp = world.dressing.plot;
+        out.push({ id: 'graves', kind: 'sight', name: 'Draft Day Memorial Gardens', blurb: 'Headstones for the draft picks that did not make it.', x: gp.x, z: gp.z, facing: gp.facing });
+      }
       return out;
     },
     // The ride from the crown down to the dump, in order.

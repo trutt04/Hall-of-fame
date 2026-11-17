@@ -575,5 +575,10 @@ export function createDressing(w) {
     },
     boards,
     get statue() { return statue ? statue.prop : null; },
+    // where to stand to read the headstones: in front of the plot, facing it
+    get plot() {
+      const [x, z] = gyWorld(10.5, 5.2);
+      return { x, z, facing: GY.facing + Math.PI };
+    },
   };
 }

@@ -284,7 +284,7 @@ button.lwf-srow:active{transform:scale(.99)}
 .lwf-po-round{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin:12px 0 6px;font-family:var(--display);font-weight:400;font-size:13.5px;color:var(--gold)}
 .lwf-po-week{font-family:var(--body);font-weight:700;font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--stone);white-space:nowrap}
 .lwf-po-game{position:relative;margin:0 0 7px;padding:3px;background:rgba(24,33,63,.85);border:1.5px solid rgba(245,197,66,.18);border-radius:8px}
-.lw-hud .lwf-po-side,.lwf-po-side{--team:var(--stone);display:grid;grid-template-columns:20px 6px minmax(0,1fr) auto;align-items:center;column-gap:8px;width:100%;min-height:40px;
+.lw-hud .lwf-po-side,.lwf-po-side{--team:var(--stone);display:grid;grid-template-columns:20px 6px minmax(0,1fr) auto;align-items:center;column-gap:8px;width:100%;min-height:44px;
   padding:4px 8px;text-align:left;color:var(--chalk);background:none;border:0;border-radius:6px}
 button.lwf-po-side:hover{background:rgba(245,197,66,.1)}
 .lwf-po-side .lwf-s-chip{height:20px}

@@ -182,6 +182,8 @@ export function createTraffic(w) {
       pos: (u, sec) => {
         local(off, camPos);
         camPos.y = Math.max(camPos.y, terrain.heightAt(camPos.x, camPos.z) + 1.4);
+        // start high enough to see over the Hill fence, then settle into the chase view
+        if (!calm) camPos.y += 8 * Math.pow(1 - Math.min(1, sec / 7), 2);
         return camPos.lerpVectors(ride.camFrom, camPos, easeIn(sec));
       },
       look: (u, sec) => camLook.lerpVectors(ride.lookFrom, local(aim, camLook), easeIn(sec)),
@@ -271,8 +273,24 @@ export function createTraffic(w) {
     if (open && ride.active) hopOff();
   });
 
+  // Somebody standing at the stop while the truck is out gets told, once per visit.
+  let toldAway = false;
+  function noteAtStop() {
+    const d = Math.hypot(player.position.x - stop.x, player.position.z - stop.z);
+    const truckAway = Math.hypot(truck.group.position.x - stop.x, truck.group.position.z - stop.z) > 18;
+    if (d > 14 || !truckAway) {
+      toldAway = false;
+      return;
+    }
+    if (d < 7 && !toldAway && !ride.active && !player.seated && !rig.isCinematic && !hud.isModalOpen()) {
+      toldAway = true;
+      hud.toast('The truck is out on its run. It will be back at this stop shortly.', { ms: 4200 });
+    }
+  }
+
   function updateTruck(dt, t) {
     truckItem.enabled = canBoard();
+    noteAtStop();
     if (T.state === 'wait') {
       T.clock -= dt;
       truck.update(dt, t);

@@ -554,8 +554,11 @@ export function createHud(root, opts = {}) {
 
     // A small pill that stays up for as long as a scripted view lasts ("Tap to step back").
     setCue(text) {
-      cue.hidden = !text;
-      cue.textContent = text || '';
+      // Cues are written for thumbs. With a mouse the same thing is a click.
+      const mouse = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches && !window.matchMedia('(pointer: coarse)').matches);
+      const shown = text && mouse ? String(text).replace(/^Tap /, 'Click ') : text;
+      cue.hidden = !shown;
+      cue.textContent = shown || '';
     },
 
     onTap,
