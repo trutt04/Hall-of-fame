@@ -690,6 +690,57 @@ export function createAudio() {
       burst(out, t, 0.05, 'highpass', 2600, 0.7, 0.03);
       return 1.5;
     },
+    // an egg meeting siding: a wet slap, the shell cracking, one drip
+    splat(t, out) {
+      burst(out, t, 0.1, 'lowpass', 850, 0.8, 0.55, brown);
+      burst(out, t, 0.035, 'bandpass', 2300, 1.3, 0.2);
+      burst(out, t + 0.01, 0.03, 'highpass', 4300, 0.8, 0.07);
+      const o = osc('sine', 190);
+      const g = gain(0);
+      o.frequency.setValueAtTime(190, t);
+      o.frequency.exponentialRampToValueAtTime(70, t + 0.12);
+      pluck(g.gain, t, 0.004, 0.16, 0.12);
+      chain(o, g, out);
+      o.start(t);
+      o.stop(t + 0.2);
+      burst(out, t + 0.2, 0.05, 'bandpass', 1250, 3, 0.05);
+      return 0.45;
+    },
+    // a roll of toilet paper unspooling through the air: paper flutter that slows as it goes
+    tp(t, out) {
+      const s = noise(white, false);
+      const bp = filter('bandpass', 2300, 0.9);
+      const g = gain(0);
+      g.gain.setValueAtTime(0.0001, t);
+      let at = t;
+      for (let i = 0; i < 16; i++) {
+        const step = 0.04 + i * 0.004;
+        g.gain.linearRampToValueAtTime(0.1 - i * 0.004, at + step * 0.45);
+        g.gain.linearRampToValueAtTime(0.015, at + step);
+        at += step;
+      }
+      g.gain.exponentialRampToValueAtTime(0.0001, at + 0.08);
+      bp.frequency.setValueAtTime(2600, t);
+      bp.frequency.exponentialRampToValueAtTime(900, at);
+      chain(s, bp, g, out);
+      s.start(t, Math.random(), at - t + 0.12);
+      return at - t + 0.15;
+    },
+    // a spray can: three rattles, then the hiss
+    spray(t, out) {
+      for (let i = 0; i < 3; i++) burst(out, t + i * 0.075, 0.025, 'bandpass', 3100, 2, 0.09);
+      const s = noise(white, false);
+      const hp = filter('highpass', 5000, 0.6);
+      const g = gain(0);
+      const t0 = t + 0.26;
+      g.gain.setValueAtTime(0.0001, t0);
+      g.gain.linearRampToValueAtTime(0.12, t0 + 0.05);
+      g.gain.setValueAtTime(0.12, t0 + 0.62);
+      g.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.78);
+      chain(s, hp, g, out);
+      s.start(t0, Math.random(), 0.82);
+      return 1.1;
+    },
     honk(t, out) {
       const lp = filter('lowpass', 1500, 1.2);
       lp.connect(out);

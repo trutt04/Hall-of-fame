@@ -6,6 +6,7 @@
 //   residents.setPlayerTeam(id|null)  the visitor's own team has no NPC: they ARE that resident
 //   residents.accessoryFor(team)      'crown' | 'visor' | 'cap' | 'bag' | null
 //   residents.get(teamId)             -> actor | undefined
+//   residents.react(teamId, x, z, s)  stand up, face (x, z) and shake a fist for s seconds (vandals)
 //   residents.update(dt, t)
 
 import * as THREE from '../../lib/three.module.min.js';
@@ -131,6 +132,7 @@ export function createResidents(w) {
       a.avatar.setColor(team.color);
       a.avatar.setAccessory(accessoryFor(team));
     }
+    if (a.react && moved) a.react = null;
     if (a.sig === '' || moved) settle(a);
     a.sig = sig;
     const it = interact.get('resident:' + team.id);
@@ -157,9 +159,53 @@ export function createResidents(w) {
     if (model && prev !== null && prev !== playerTeam && model.teams[prev]) ensure(model.teams[prev]);
   }
 
+  // Somebody is egging the house: get up, turn to face them, shake a fist, then go back to it.
+  function react(teamId, x, z, seconds = 3) {
+    const a = actors.get(Number(teamId));
+    if (!a) return false;
+    const g = a.avatar.group;
+    if (!a.react) {
+      a.react = { left: 0, x, z, pos: g.position.clone(), rot: g.rotation.y };
+      // out of the lawn chair or off the throne first
+      if (a.mode === 'park') {
+        const e = w.town.entry(a.teamId);
+        const f = e ? e.lot.facing : a.heading;
+        const px = a.base.x + Math.sin(f) * 0.85;
+        const pz = a.base.z + Math.cos(f) * 0.85;
+        g.position.set(px, w.terrain.heightAt(px, pz), pz);
+      } else if (a.mode === 'hill' && !a.waving) g.position.copy(a.stand);
+      a.avatar.setAnim('wave');
+    }
+    a.react.left = Math.max(a.react.left, seconds);
+    a.react.x = x;
+    a.react.z = z;
+    return true;
+  }
+
+  function endReact(a) {
+    const g = a.avatar.group;
+    g.position.copy(a.react.pos);
+    g.rotation.y = a.react.rot;
+    a.react = null;
+    a.avatar.setAnim(a.mode === 'hill' ? (a.waving ? 'wave' : 'sit') : a.mode === 'heights' && a.anim === 'idle' && a.waving ? 'wave' : a.anim);
+  }
+
   function update(dt, t) {
     cam.copy(w.engine.camera.position);
     for (const a of actors.values()) {
+      if (a.react) {
+        a.react.left -= dt;
+        if (a.react.left <= 0) endReact(a);
+        else {
+          const g = a.avatar.group;
+          const want = Math.atan2(a.react.x - g.position.x, a.react.z - g.position.z);
+          let d = want - g.rotation.y;
+          d = Math.atan2(Math.sin(d), Math.cos(d));
+          g.rotation.y += d * Math.min(1, dt * 8);
+          if (g.visible) a.avatar.update(dt, t);
+          continue;
+        }
+      }
       const g = a.avatar.group;
       const d = g.position.distanceTo(cam);
       const show = d < SHOW_FAR;
@@ -214,6 +260,7 @@ export function createResidents(w) {
     update,
     accessoryFor,
     get(teamId) { return actors.get(Number(teamId)); },
+    react,
     get actors() { return actors; },
     get playerTeam() { return playerTeam; },
   };
