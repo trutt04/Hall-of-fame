@@ -131,7 +131,7 @@ const META_FIELDS = [
 ];
 
 function checkShape(model) {
-  for (const key of ['meta', 'cutLine', 'order', 'tiers', 'teams', 'matchups', 'lastWeek', 'headlines', 'blimp', 'history', 'playoffs', 'graveyard']) {
+  for (const key of ['meta', 'cutLine', 'order', 'tiers', 'teams', 'matchups', 'lastWeek', 'headlines', 'blimp', 'history', 'playoffs', 'graveyard', 'regime']) {
     assert.ok(key in model, `model.${key} missing`);
   }
   for (const key of META_FIELDS) assert.ok(key in model.meta, `meta.${key} missing`);

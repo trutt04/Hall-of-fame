@@ -306,6 +306,29 @@ Rules worth knowing:
   team that drafted it (`gone`, which covers dropped and traded alike) or sits on its IR. At most
   two per team. Here lie the picks, not the men: epitaphs are about the pick and the manager.
 
+### Contract 4 addition: the regime (`world/js/model/regime.js`)
+
+The league's running joke is the commissioner as Supreme Leader. `REGIME` in `config.js` names
+his team id (`null` takes the whole thing down). The model turns his real numbers into spin:
+
+```js
+model.regime = null | {
+  teamId, name: 'Dan', title: 'Supreme Commissioner',
+  slogans: ['7TH BY CHOICE', 'THE COMMISH SEES ALL', ...],   // 5 to 8, capitals, at most 26 characters. The first one is about his rank.
+  broadcasts: ['Official record: 9-0. The 4 losses on file are under review...', ...],   // loudspeaker lines, at most 112 characters
+  monument: { title, plaque, lines: [3] },
+  busts: { hill, heights, bubble, park, dump },   // one plaque line per neighborhood
+  doors: { [teamId]: line },                       // the mandatory portrait beside each front door
+  portrait: { title, caption },                    // the official portrait
+  residence: 'Official Residence. The beige is a security measure.',   // a sign at his own home
+  stateMedia: { headline, body, correction },      // last week as it officially happened, for the paper
+}
+```
+
+The artwork is two files: `img/leader-portrait.jpg` (official portrait, colour) and
+`img/leader-poster.png` (red and gold poster art). Replace those two files to change the face.
+The joke is about his power and his record. Nothing personal.
+
 ## Contract 5: art (`world/js/art/`)
 
 Pure builders. No scene, DOM or data access. Each returns plain three.js objects the world places.

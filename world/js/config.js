@@ -104,7 +104,14 @@ export const PATHS = {
   history: 'data/history.json',
   status: 'data/status.json',
   hallOfFame: '../index.html',
+  leaderPortrait: 'img/leader-portrait.jpg', // the official portrait, in colour
+  leaderPoster: 'img/leader-poster.png', // red and gold poster art for banners and posters
 };
+
+// The league's running joke: the commissioner as Supreme Leader, with statues, portraits and
+// banners around town. Keyed on team id like everything else, so renaming the team changes
+// nothing. Set this to null to take all of it down.
+export const REGIME = { teamId: 1, title: 'Supreme Commissioner' };
 
 export const STORAGE_KEYS = {
   team: 'lw.team',

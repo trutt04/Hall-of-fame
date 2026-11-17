@@ -4,13 +4,14 @@
 // Pure and deterministic: same inputs and the same `now` always give the same model. No DOM,
 // no Date.now(). Never throws on missing optional data: garbage in gives a smaller model out.
 
-import { TEAM_COLORS } from '../config.js';
+import { TEAM_COLORS, REGIME } from '../config.js';
 import {
   arr, num, int, str, round2, recordText, winPct, compareIds, tierForRank, tierIndex, teamLabels,
 } from './util.js';
 import { buildHistory } from './history.js';
 import { composeCopy } from './roasts.js';
 import { buildPlayoffs, buildGraveyard } from './extras.js';
+import { buildRegime } from './regime.js';
 
 export { tierForRank } from './util.js';
 
@@ -274,6 +275,7 @@ function emptyModel(src, lg, historyIsSample) {
     history: null,
     playoffs: null,
     graveyard: [],
+    regime: null,
   };
 }
 
@@ -687,6 +689,7 @@ export function derive(league, history, opts) {
     history: historyModel,
     playoffs: null,
     graveyard: [],
+    regime: null,
   };
 
   // ----- extras: the playoff picture and the draft graveyard -----
@@ -765,6 +768,13 @@ export function derive(league, history, opts) {
     });
   } catch (e) {
     // Copy is decoration. The world still renders with empty lines.
+  }
+  // The commissioner as Supreme Leader. opts.regime overrides config.js (null switches it off).
+  try {
+    const cfg = opts && 'regime' in opts ? opts.regime : REGIME;
+    model.regime = buildRegime(model, labels, cfg, L);
+  } catch (e) {
+    model.regime = null;
   }
 
   return model;
