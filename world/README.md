@@ -39,6 +39,11 @@ real record each week, so they change by themselves.
 - Who it is about is one line in `world/js/config.js` (`REGIME`, by team id). Setting it to
   `null` takes every statue, portrait and banner down.
 - Because the site is public, anyone with the link can see the pictures.
+- With sound on, the loudspeakers say one line out loud: the first time you walk up to one, then
+  at most every five minutes. The recording is `world/audio/loudspeaker.mp3`, made with the
+  open-source Kokoro voice (Apache 2.0 licence) and a megaphone effect. To use your own
+  recording instead, replace that file with an MP3 and change `voiceLine` in
+  `world/js/config.js` so the words on screen match.
 
 ## Where it lives
 

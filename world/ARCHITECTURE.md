@@ -327,6 +327,9 @@ model.regime = null | {
 
 The artwork is two files: `img/leader-portrait.jpg` (official portrait, colour) and
 `img/leader-poster.png` (red and gold poster art). Replace those two files to change the face.
+The loudspeaker voice is one recording, `audio/loudspeaker.mp3`, whose words are
+`REGIME.voiceLine` in `config.js`. With sound on it plays (through `audio.clip`) on the first
+announcement of a visit and then at most every five minutes; other announcements stay text.
 The joke is about his power and his record. Nothing personal.
 
 ## Contract 5: art (`world/js/art/`)

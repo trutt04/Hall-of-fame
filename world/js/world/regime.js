@@ -17,7 +17,7 @@
 //               { kind: 'bust', zone }, { kind: 'residence' }
 import * as THREE from '../../lib/three.module.min.js';
 import * as ART from '../art/index.js';
-import { PATHS } from '../config.js';
+import { PATHS, REGIME } from '../config.js';
 import { makeCanvas, wrap, FONT_BODY, FONT_DISPLAY } from './signs.js';
 import { boardTexture } from './boards.js';
 
@@ -781,7 +781,12 @@ export function createRegime(w) {
   // ---- the loudspeakers --------------------------------------------------------------------
   const HEAR = 14;
   const GAP = 75; // seconds between lines, anywhere in town
+  // With sound on, the first announcement of a visit is spoken out loud, then at most every five
+  // minutes. The rest stay as written lines with the chime, so the voice never gets old.
+  const VOICE_GAP = 300;
+  const VOICE_LINE = REGIME && typeof REGIME.voiceLine === 'string' ? REGIME.voiceLine : '';
   let lastSaid = -1e9;
+  let lastSpoken = -1e9;
   let line = Math.floor(Math.random() * 1000); // every visit starts on a different line
   let said = []; // toasts that may still be up
   let clock = 0;
@@ -795,14 +800,28 @@ export function createRegime(w) {
     return hud.isModalOpen() || rig.isCinematic || player.frozen || player.seated
       || (w.traffic && w.traffic.riding) || (w.kick && w.kick.active) || (w.landmarks && w.landmarks.seated);
   }
-  function announce(t) {
+  function announce(t, pole) {
     const lines = (built.R.broadcasts || []).filter(Boolean);
     if (!lines.length) return;
     lastSaid = t;
-    said = said.filter((t) => t && t.isConnected).concat(hud.toast('LOUDSPEAKER: ' + String(lines[line % lines.length]), { ms: 5200 }) || []);
-    line++;
+    const speak = !!(VOICE_LINE && audio.enabled && typeof audio.clip === 'function' && t - lastSpoken >= VOICE_GAP);
+    let text;
+    if (speak) {
+      lastSpoken = t;
+      text = VOICE_LINE;
+    } else {
+      text = String(lines[line % lines.length]);
+      line++;
+    }
+    said = said.filter((t) => t && t.isConnected).concat(hud.toast('LOUDSPEAKER: ' + text, { ms: speak ? 8200 : 5200 }) || []);
     try {
       audio.sfx('chime', { volume: 0.7 });
+      if (speak) {
+        const at = pole ? { x: pole.x, z: pole.z } : null;
+        audio.clip(assetUrl(PATHS.loudspeakerVoice), { volume: 1, position: at, falloff: 26, delay: 1.25 }).then((ok) => {
+          if (!ok) lastSpoken = -1e9; // it did not play (still loading, or no sound): try again next time
+        }, () => {});
+      }
     } catch (err) { /* sound is optional */ }
   }
   function update(dt, t) {
@@ -817,9 +836,16 @@ export function createRegime(w) {
     }
     const pp = player.position;
     let d = Infinity;
-    for (const sp of built.speakers) d = Math.min(d, Math.hypot(sp.x - pp.x, sp.z - pp.z));
+    let pole = null;
+    for (const sp of built.speakers) {
+      const dd = Math.hypot(sp.x - pp.x, sp.z - pp.z);
+      if (dd < d) {
+        d = dd;
+        pole = sp;
+      }
+    }
     if (d > HEAR || quiet()) return;
-    if (t - lastSaid >= GAP) announce(t); // one on the way in, then never more often than that, whichever pole it is
+    if (t - lastSaid >= GAP) announce(t, pole); // one on the way in, then never more often than that, whichever pole it is
   }
 
   function apply(model) {

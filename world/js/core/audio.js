@@ -1,4 +1,4 @@
-// All sound in League World is synthesized with WebAudio. There are no audio files.
+// Sound in League World is synthesized with WebAudio. The one recording is the loudspeaker voice.
 //
 //   const audio = createAudio()
 //   audio.enable()                 MUST be called from a user gesture (tap/click/key). Persists the choice.
@@ -6,6 +6,7 @@
 //   audio.enabled, audio.wanted    wanted: the visitor chose sound on a previous visit
 //   audio.update(dt, zoneWeights, listener?)    call every frame; crossfades the neighborhood beds
 //   audio.sfx(name, { volume?, position? })     one-shots, see SFX below
+//   audio.clip(url, { volume?, position?, falloff?, delay? })   plays a recorded file (resolves true if it played)
 //   audio.on('change', fn)
 //
 // Everything fades in and out, nothing clicks, and the whole context sleeps while the tab is hidden.
@@ -709,6 +710,22 @@ export function createAudio() {
     },
   };
 
+  // How loud, and from which side, something at opts.position sounds from where the visitor stands.
+  function spatial(opts, falloff = 14) {
+    let level = opts.volume ?? 1;
+    let pan = opts.pan ?? 0;
+    if (opts.position && listener.has) {
+      const dx = opts.position.x - listener.x;
+      const dz = opts.position.z - listener.z;
+      const d = Math.hypot(dx, dz);
+      level *= 1 / (1 + (d / falloff) * (d / falloff));
+      if (level < 0.01) return null;
+      // the listener looks along (-sin yaw, -cos yaw); its right hand is (cos yaw, -sin yaw)
+      if (d > 0.5) pan = clamp(((dx * Math.cos(listener.yaw) - dz * Math.sin(listener.yaw)) / d) * 0.8, -1, 1);
+    }
+    return { level, pan };
+  }
+
   let lastStep = 0;
   function sfx(name, opts = {}) {
     if (!enabled || !ctx || ctx.state !== 'running') return false;
@@ -719,17 +736,9 @@ export function createAudio() {
       if (now - lastStep < 0.12) return false;
       lastStep = now;
     }
-    let level = opts.volume ?? 1;
-    let pan = opts.pan ?? 0;
-    if (opts.position && listener.has) {
-      const dx = opts.position.x - listener.x;
-      const dz = opts.position.z - listener.z;
-      const d = Math.hypot(dx, dz);
-      level *= 1 / (1 + (d / 14) * (d / 14));
-      if (level < 0.01) return false;
-      // the listener looks along (-sin yaw, -cos yaw); its right hand is (cos yaw, -sin yaw)
-      if (d > 0.5) pan = clamp(((dx * Math.cos(listener.yaw) - dz * Math.sin(listener.yaw)) / d) * 0.8, -1, 1);
-    }
+    const where = spatial(opts);
+    if (!where) return false;
+    const { level, pan } = where;
     const out = gain(level);
     const p = panner(pan);
     chain(out, p, sfxBus);
@@ -740,6 +749,48 @@ export function createAudio() {
         p.disconnect();
       } catch (err) { /* context closed */ }
     }, (ring + 0.4) * 1000);
+    return true;
+  }
+
+  // ---------------------------------------------------------------- recorded clips
+  // Fetched and decoded once, on first use. A failed load is forgotten so a later try can retry.
+  const clips = {};
+  function loadClip(url) {
+    if (!clips[url]) {
+      clips[url] = fetch(url)
+        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('HTTP ' + r.status))))
+        .then((data) => new Promise((resolve, reject) => {
+          // older Safari only has the callback form; newer browsers return a promise as well
+          const p = ctx.decodeAudioData(data, resolve, reject);
+          if (p && typeof p.then === 'function') p.then(resolve, reject);
+        }))
+        .catch(() => {
+          delete clips[url];
+          return null;
+        });
+    }
+    return clips[url];
+  }
+
+  async function clip(url, opts = {}) {
+    if (!url || !enabled || !ctx) return false;
+    const buffer = await loadClip(url);
+    if (!buffer || !enabled || !ctx || ctx.state !== 'running') return false;
+    const where = spatial(opts, opts.falloff ?? 14);
+    if (!where) return false;
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    const out = gain(where.level);
+    const p = panner(where.pan);
+    chain(src, out, p, sfxBus);
+    src.onended = () => {
+      try {
+        src.disconnect();
+        out.disconnect();
+        p.disconnect();
+      } catch (err) { /* context closed */ }
+    };
+    src.start(ctx.currentTime + Math.max(0, opts.delay || 0));
     return true;
   }
 
@@ -835,6 +886,7 @@ export function createAudio() {
     },
     update,
     sfx,
+    clip,
     on: events.on.bind(events),
     names: Object.keys(SFX),
     get enabled() { return enabled; },
