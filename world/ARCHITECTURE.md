@@ -353,6 +353,14 @@ model.vandalism = null | {
 Damage is stored through `net.vandalism` (Contract 6), in the target home's local frame so it
 moves with the house. Phase 1 of this feature stores it on the vandal's own device only.
 
+A shared adapter must keep the same shape as the local one in `core/net.js`:
+`{ shared, setSeason(season), list(week), add(item) -> Promise<boolean>, on('change'), off }`, with
+items `{ id, week, attackerId, targetId, kind: 'egg'|'tp'|'tag', tier, on: 'home'|'tree'|'ground'|'miss',
+p, n, tagId?, pts?, at }` checked by `cleanVandalItem` on the way in and out. The world re-checks
+every item against `model.vandalism` (right attacker, right week, allowance) and drops anything
+without the house right behind it, but a shared store still needs server-side rules for the same
+limits, since a client can write anything.
+
 ## Contract 5: art (`world/js/art/`)
 
 Pure builders. No scene, DOM or data access. Each returns plain three.js objects the world places.

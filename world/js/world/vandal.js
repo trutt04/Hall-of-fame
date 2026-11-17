@@ -1206,6 +1206,8 @@ export function createVandal(w) {
     if (w.residents && typeof w.residents.react === 'function' && S.spot) w.residents.react(it.targetId, S.spot.x, S.spot.z, 3.5);
     save(it);
     S.tagId = null;
+    S.sheet = false;
+    oSheet.hidden = true;
     if (remaining('egg') > 0) S.item = 'egg';
     else if (remaining('tp') > 0) S.item = 'tp';
     hudText();
