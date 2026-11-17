@@ -173,7 +173,20 @@ export function createDressing(w) {
       if (!buckets.has(key)) buckets.set(key, { make, list: [] });
       buckets.get(key).list.push({ p, scale });
     };
-    terrain.scatterPoints.forEach((p, i) => {
+    // A dead tree behind every trailer, past the clothesline: the trailer park's own yard trees,
+    // and where a roll of toilet paper lobbed over the roof comes down.
+    const yardTrees = [];
+    for (const lot of layout.lots.park || []) {
+      const c = Math.cos(lot.facing);
+      const sn = Math.sin(lot.facing);
+      const lx = lot.index % 2 ? 3.6 : -3.9;
+      const lz = -lot.d / 2 + 0.7;
+      const x = lot.x + lx * c + lz * sn;
+      const z = lot.z - lx * sn + lz * c;
+      if (colliders.hits(x, z, 0.6)) continue;
+      yardTrees.push({ x, z, y: terrain.heightAt(x, z), kind: 'tree', zone: 'park', scale: 1.05 + (lot.index % 3) * 0.08, rot: lot.index * 2.1 + 0.4, seed: 900 + lot.index });
+    }
+    terrain.scatterPoints.concat(yardTrees).forEach((p, i) => {
       if (Math.hypot(p.x - PLOT.x, p.z - PLOT.z) < 8.5) return; // the cemetery plot stays clear
       if (p.kind === 'tree') {
         const kind = kindFor[p.zone][i % 2];
