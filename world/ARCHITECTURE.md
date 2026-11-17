@@ -332,6 +332,27 @@ The loudspeaker voice is one recording, `audio/loudspeaker.mp3`, whose words are
 announcement of a visit and then at most every five minutes; other announcements stay text.
 The joke is about his power and his record. Nothing personal.
 
+### Contract 4 addition: vandalism (`world/js/model/vandal.js`)
+
+The rule from the original brief: you may vandalize the home of a team you beat, with preset
+tags, eggs and toilet paper only. "A team you beat" means the last completed week, so the
+slate is wiped every time a new week is final.
+
+```js
+model.vandalism = null | {
+  resultWeek: 9,                                   // damage saved for any other week never shows
+  allowance: { egg: 12, tp: 4, tag: 1 },           // per attacker, per week
+  rights: { [attackerId]: { targetId, week, margin, score, tags: [{ id, text }] } },   // winners only
+  victims: { [targetId]: attackerId },
+  tags: [{ id, text }],                            // preset spray tags, at most 14 characters
+  lines: { label, start, blurb, egg, eggMiss, tp, tag, empty, leave, residence: { egg, tp, tag },
+           card: { mine, theirs }, postcard: { egg, tp, tag } },   // postcard lines contain {name}
+}
+```
+
+Damage is stored through `net.vandalism` (Contract 6), in the target home's local frame so it
+moves with the house. Phase 1 of this feature stores it on the vandal's own device only.
+
 ## Contract 5: art (`world/js/art/`)
 
 Pure builders. No scene, DOM or data access. Each returns plain three.js objects the world places.

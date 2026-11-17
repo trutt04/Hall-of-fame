@@ -12,6 +12,7 @@ import { buildHistory } from './history.js';
 import { composeCopy } from './roasts.js';
 import { buildPlayoffs, buildGraveyard } from './extras.js';
 import { buildRegime } from './regime.js';
+import { buildVandalism } from './vandal.js';
 
 export { tierForRank } from './util.js';
 
@@ -276,6 +277,7 @@ function emptyModel(src, lg, historyIsSample) {
     playoffs: null,
     graveyard: [],
     regime: null,
+    vandalism: null,
   };
 }
 
@@ -690,6 +692,7 @@ export function derive(league, history, opts) {
     playoffs: null,
     graveyard: [],
     regime: null,
+    vandalism: null,
   };
 
   // ----- extras: the playoff picture and the draft graveyard -----
@@ -775,6 +778,12 @@ export function derive(league, history, opts) {
     model.regime = buildRegime(model, labels, cfg, L);
   } catch (e) {
     model.regime = null;
+  }
+  // Who may egg whom this week: the winners of the last completed week, at the loser's home.
+  try {
+    model.vandalism = buildVandalism(model, labels, { regimeTeamId: model.regime ? model.regime.teamId : null });
+  } catch (e) {
+    model.vandalism = null;
   }
 
   return model;
