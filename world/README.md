@@ -27,6 +27,17 @@ Nothing in the world is edited by hand. It is all built from ESPN data.
 
 The map has all of these under "Things to do".
 
+## Settling scores
+
+If your team won last week, you may vandalize the home of the team you beat: a dozen eggs, four
+rolls of toilet paper and one spray tag, from a preset list only. Walk to their house (or use
+Map, Things to do, Settle the score) and tap "Settle the score". The slate is wiped when the
+next week is final.
+
+For now the damage is saved on the phone of whoever did it. Everyone else sees it when that
+person shares a postcard of the house. Showing it on every phone needs a small free online
+service, which can be added later (see `world/ARCHITECTURE.md`, Contract 6).
+
 ## The Supreme Commissioner
 
 The league's running joke: the commissioner as glorious leader. There is a bronze monument, a

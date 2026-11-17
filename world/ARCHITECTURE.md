@@ -413,6 +413,15 @@ Nothing below is built in phase 1, but phase 1 code must not block it:
 - **Thrown objects (phase 2):** props spawn through one `world.spawn(kind, position, velocity)`.
 - **Vandalism (phase 3):** every home has `anchors.decor` slots and the model already exposes
   `beatLastWeek`. Decor is data (`[{ slot, kind }]`) applied by `town.setDecor(teamId, list)`.
+- **Shared store, decided with the owner (November 2026):** when vandalism, leaderboards or live
+  presence go online, use Firebase Realtime Database on the free Spark plan (100 simultaneous
+  connections, 1 GB stored, 10 GB a month downloaded). The owner agreed that Firebase's web
+  config, apiKey included, may live in the repo: Firebase documents it as an identifier, not a
+  secret, so access must be locked down with Realtime Database security rules. Identity stays the
+  honor system (pick a team, as today), with each team limited to its weekly allowance at the one
+  home it beat; personal links are the fallback if that gets abused. Supabase was ruled out
+  because free projects pause after a week of inactivity, which an off-season would trigger.
+  Until then vandalism is stored on the vandal's own device only.
 - **Mini games (phase 3):** interactable places register through `interact.register({ id, position,
   radius, label, onUse })`. A mini game is just another `onUse`.
 - **First place perks (phase 3):** perks hang off `model.order[0]`, never off a team name.
