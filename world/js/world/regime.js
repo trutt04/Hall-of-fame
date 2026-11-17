@@ -804,25 +804,36 @@ export function createRegime(w) {
     const lines = (built.R.broadcasts || []).filter(Boolean);
     if (!lines.length) return;
     lastSaid = t;
-    const speak = !!(VOICE_LINE && audio.enabled && typeof audio.clip === 'function' && t - lastSpoken >= VOICE_GAP);
-    let text;
-    if (speak) {
-      lastSpoken = t;
-      text = VOICE_LINE;
-    } else {
-      text = String(lines[line % lines.length]);
+    const show = (text, ms) => {
+      said = said.filter((x) => x && x.isConnected).concat(hud.toast('LOUDSPEAKER: ' + text, { ms }) || []);
+    };
+    const written = () => {
+      show(String(lines[line % lines.length]), 5200);
       line++;
-    }
-    said = said.filter((t) => t && t.isConnected).concat(hud.toast('LOUDSPEAKER: ' + text, { ms: speak ? 8200 : 5200 }) || []);
+    };
+    const speak = !!(VOICE_LINE && audio.enabled && typeof audio.clip === 'function' && t - lastSpoken >= VOICE_GAP);
     try {
       audio.sfx('chime', { volume: 0.7 });
-      if (speak) {
-        const at = pole ? { x: pole.x, z: pole.z } : null;
-        audio.clip(assetUrl(PATHS.loudspeakerVoice), { volume: 1, position: at, falloff: 26, delay: 1.25 }).then((ok) => {
-          if (!ok) lastSpoken = -1e9; // it did not play (still loading, or no sound): try again next time
-        }, () => {});
-      }
     } catch (err) { /* sound is optional */ }
+    if (!speak) {
+      written();
+      return;
+    }
+    // The spoken words go on screen only once the voice really plays; otherwise a written line.
+    lastSpoken = t;
+    const at = pole ? { x: pole.x, z: pole.z } : null;
+    Promise.resolve()
+      .then(() => audio.clip(assetUrl(PATHS.loudspeakerVoice), { volume: 1, position: at, falloff: 26, delay: 1.25 }))
+      .then((ok) => {
+        if (ok) show(VOICE_LINE, 9000);
+        else {
+          lastSpoken = -1e9; // it did not play: try again next time
+          written();
+        }
+      }, () => {
+        lastSpoken = -1e9;
+        written();
+      });
   }
   function update(dt, t) {
     if (!built) return;

@@ -754,17 +754,32 @@ export function createAudio() {
 
   // ---------------------------------------------------------------- recorded clips
   // Fetched and decoded once, on first use. A failed load is forgotten so a later try can retry.
+  // A data: URI (the single-file preview) is decoded right here instead of fetched, because pages
+  // embedded in other sites are often not allowed to fetch() anything, data: URIs included.
   const clips = {};
+  let lastClipError = null;
+  function bytesOf(url) {
+    if (url.slice(0, 5) !== 'data:') {
+      return fetch(url).then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('HTTP ' + r.status))));
+    }
+    return new Promise((resolve) => {
+      const comma = url.indexOf(',');
+      const bin = atob(url.slice(comma + 1));
+      const out = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+      resolve(out.buffer);
+    });
+  }
   function loadClip(url) {
     if (!clips[url]) {
-      clips[url] = fetch(url)
-        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error('HTTP ' + r.status))))
+      clips[url] = bytesOf(url)
         .then((data) => new Promise((resolve, reject) => {
           // older Safari only has the callback form; newer browsers return a promise as well
           const p = ctx.decodeAudioData(data, resolve, reject);
           if (p && typeof p.then === 'function') p.then(resolve, reject);
         }))
-        .catch(() => {
+        .catch((err) => {
+          lastClipError = String((err && err.message) || err);
           delete clips[url];
           return null;
         });
@@ -894,5 +909,6 @@ export function createAudio() {
     get context() { return ctx; },
     get state() { return ctx ? ctx.state : 'none'; },
     get activeBeds() { return Object.keys(beds); },
+    get lastClipError() { return lastClipError; },
   };
 }
