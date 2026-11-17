@@ -158,10 +158,12 @@ export function createEngine({ canvas, quality = 'auto' }) {
         systems[i].failed = true;
       }
     }
+    // Change resolution before drawing, never after: resizing clears the canvas, and doing it
+    // after the draw would show one blank frame every time the quality steps.
+    adapt(raw);
     renderer.render(scene, camera);
     lastCalls = renderer.info.render.calls;
     lastTris = renderer.info.render.triangles;
-    adapt(raw);
   }
 
   function reallyStart() {
