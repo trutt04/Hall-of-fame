@@ -672,6 +672,23 @@ export function createAudio() {
       burst(out, t, 0.03, 'bandpass', 1700, 1, 0.22);
       return 1.2;
     },
+    // the public address system clearing its throat: three notes through a tin horn
+    chime(t, out) {
+      const bp = filter('bandpass', 1500, 1.1);
+      bp.connect(out);
+      [[659.25, 0, 0.5], [523.25, 0.24, 0.5], [783.99, 0.48, 0.85]].forEach(([f, at, dur]) => {
+        for (const [mul, level] of [[1, 0.16], [2.01, 0.05]]) {
+          const o = osc('triangle', f * mul);
+          const g = gain(0);
+          pluck(g.gain, t + at, 0.006, level, dur);
+          chain(o, g, bp);
+          o.start(t + at);
+          o.stop(t + at + dur + 0.08);
+        }
+      });
+      burst(out, t, 0.05, 'highpass', 2600, 0.7, 0.03);
+      return 1.5;
+    },
     honk(t, out) {
       const lp = filter('lowpass', 1500, 1.2);
       lp.connect(out);

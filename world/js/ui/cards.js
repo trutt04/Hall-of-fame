@@ -239,6 +239,101 @@ export function createCards(ctx, api) {
     });
   }
 
+  // ---- the regime: monument, busts, portraits and the sign at his gate ------------------------
+  const REGIME_RED = 0xc4122e;
+  const regimeOf = () => {
+    const m = model();
+    return m && m.regime ? m.regime : null;
+  };
+  // a row that opens a home's card, like the one on a headstone
+  function homeRow(t, sub) {
+    const by = button('lw-row lwf-grave-team', null, () => home(t.id, { go: true }));
+    by.style.setProperty('--accent', '#' + (t.color & 0xffffff).toString(16).padStart(6, '0'));
+    const main = el('span', 'lw-row-main');
+    main.append(el('span', 'lw-row-sub', sub), el('span', 'lw-row-title', teamName(t)));
+    by.append(main, el('span', 'lw-row-tag', rankBig(t.rank)));
+    by.setAttribute('aria-label', sub + ' ' + teamName(t) + '. See their house.');
+    return by;
+  }
+
+  function monument() {
+    const R = regimeOf();
+    if (!R) return;
+    const mo = R.monument || {};
+    hud.openCard({
+      kicker: mo.plaque || R.title,
+      title: mo.title || 'The Monument',
+      lines: (mo.lines || []).slice(0, 3),
+      accentColor: REGIME_RED,
+      actions: [{ label: 'Salute and leave' }],
+    });
+  }
+
+  function bust(e) {
+    const R = regimeOf();
+    if (!R) return;
+    const line = (R.busts && R.busts[e.zone]) || '';
+    hud.openCard({
+      kicker: tierName(e.zone) || 'League World',
+      title: 'Bust of the ' + (R.title || 'Commissioner'),
+      lines: line ? [line] : [],
+      accentColor: REGIME_RED,
+      actions: [{ label: 'Close' }],
+    });
+  }
+
+  let sloganTurn = 0;
+  function portrait(e) {
+    const R = regimeOf();
+    if (!R) return;
+    const m = model();
+    const t = e.official || e.teamId === undefined || e.teamId === null ? null : m.teams[e.teamId];
+    if (!t) {
+      const p = R.portrait || {};
+      const slogans = (R.slogans || []).filter(Boolean);
+      const body = el('div', 'lwf-regime');
+      if (slogans.length) body.appendChild(el('p', 'lwf-slogan', String(slogans[sloganTurn++ % slogans.length])));
+      hud.openCard({
+        kicker: 'League Office',
+        title: p.title || 'Official Portrait',
+        lines: p.caption ? [p.caption] : [],
+        contentEl: body,
+        accentColor: REGIME_RED,
+        actions: [{ label: 'Close' }],
+      });
+      return;
+    }
+    const doors = R.doors || {};
+    const line = doors[t.id] || doors[String(t.id)] || '';
+    const body = el('div', 'lwf-regime');
+    body.appendChild(homeRow(t, 'Hangs by the door of'));
+    hud.openCard({
+      kicker: tierName(t.tier),
+      title: 'Mandatory portrait',
+      lines: line ? [line] : [],
+      contentEl: body,
+      accentColor: REGIME_RED,
+      actions: [{ label: 'Close', primary: false }],
+    });
+  }
+
+  function residence() {
+    const R = regimeOf();
+    if (!R) return;
+    const m = model();
+    const t = m.teams[R.teamId];
+    const body = el('div', 'lwf-regime');
+    if (t) body.appendChild(homeRow(t, 'Resident'));
+    hud.openCard({
+      kicker: t ? tierName(t.tier) : 'League World',
+      title: 'Home of the ' + (R.title || 'Commissioner'),
+      lines: R.residence ? [R.residence] : [],
+      contentEl: body,
+      accentColor: REGIME_RED,
+      actions: [{ label: 'Close', primary: false }],
+    });
+  }
+
   return {
     home,
     sample() {
@@ -273,6 +368,10 @@ export function createCards(ctx, api) {
         case 'plaque': tick(); plaque(e); return true;
         case 'building': tick(); building(e); return true;
         case 'headstone': tick(); headstone(e); return true;
+        case 'monument': if (!m.regime) return false; tick(); monument(); return true;
+        case 'bust': if (!m.regime) return false; tick(); bust(e); return true;
+        case 'portrait': if (!m.regime) return false; tick(); portrait(e); return true;
+        case 'residence': if (!m.regime) return false; tick(); residence(); return true;
         case 'telescope': {
           const t = lastTeam(m);
           if (t) hud.toast('Down at the Dump: ' + teamName(t) + ', in a tent.', { ms: 4200 });

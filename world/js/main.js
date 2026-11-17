@@ -29,6 +29,7 @@ import { createDressing } from './world/dressing.js';
 import { createTraffic } from './world/traffic.js';
 import { createLandmarks } from './world/landmarks.js';
 import { createKickGame } from './world/kick.js';
+import { createRegime } from './world/regime.js';
 import { startFreeRoam } from './world/freeroam.js';
 import { createAvatar, setReducedMotion } from './art/index.js';
 import { createHud } from './ui/hud.js';
@@ -180,7 +181,7 @@ async function boot() {
 
   const world = {
     THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, data,
-    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, hideTags: false,
+    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, regime: null, hideTags: false,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
     get model() { return model; },
     get playerTeam() { return playerTeam; },
@@ -208,6 +209,10 @@ async function boot() {
       if (world.dressing && world.dressing.plot) {
         const gp = world.dressing.plot;
         out.push({ id: 'graves', kind: 'sight', name: 'Draft Day Memorial Gardens', blurb: 'Headstones for the draft picks that did not make it.', x: gp.x, z: gp.z, facing: gp.facing });
+      }
+      if (world.regime && world.regime.place) {
+        const mp = world.regime.place;
+        out.push({ id: 'monument', kind: 'sight', name: 'The Monument', blurb: 'Pay your respects to the Supreme Commissioner.', x: mp.x, z: mp.z, facing: mp.facing });
       }
       return out;
     },
@@ -302,6 +307,8 @@ async function boot() {
   traffic.apply(model);
   const landmarks = (world.landmarks = createLandmarks(world));
   const kick = (world.kick = createKickGame(world));
+  const regime = (world.regime = createRegime(world));
+  regime.apply(model);
   world.setPlayerTeam(null);
 
   let markers = null;
@@ -326,6 +333,7 @@ async function boot() {
   engine.addSystem(traffic, 48);
   engine.addSystem(landmarks, 49);
   engine.addSystem(kick, 49.5);
+  engine.addSystem(regime, 49.6);
   engine.addSystem({
     update(dt) {
       terrain.zoneAt(player.position.x, player.position.z, zone);
@@ -390,6 +398,7 @@ async function boot() {
     residents.apply(model);
     dressing.apply(model);
     traffic.apply(model);
+    regime.apply(model);
     if (playerTeam !== null) {
       const t = model.teams[playerTeam];
       const av = player.avatar;

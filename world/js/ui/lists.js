@@ -216,5 +216,15 @@ export function buildPaper(model) {
     wire.append(el('b', null, 'Seen on the blimp'), el('span', null, model.blimp));
     paper.appendChild(wire);
   }
+  // the regime prints its own corner of the paper
+  const media = model.regime && model.regime.stateMedia;
+  if (media && (media.headline || media.body)) {
+    const box = el('aside', 'lwf-paper-state');
+    box.appendChild(el('span', 'lwf-paper-state-tag', 'State Media'));
+    if (media.headline) box.appendChild(el('h3', 'lwf-paper-state-head', media.headline));
+    if (media.body) box.appendChild(el('p', 'lwf-paper-state-body', media.body));
+    if (media.correction) box.appendChild(el('p', 'lwf-paper-state-fix', media.correction));
+    paper.appendChild(box);
+  }
   return paper;
 }
