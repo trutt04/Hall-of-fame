@@ -126,7 +126,7 @@ export function createDressing(w) {
       interact.register({ id: 'building:' + kind, position: door, radius: 3.4, label: signs[kind].toLowerCase().replace(/\b\w/g, (ch) => ch.toUpperCase()), onUse: use({ kind: 'building', which: kind }), object3D: b.group });
     }
 
-    for (const [x, z] of [[20.9, 14.6], [-24, 8.7], [-13.5, -21.5], [24.6, -8.6]]) {
+    for (const [x, z] of [[20.9, 14.6], [-24, 8.7], [-13.5, -21.5], [28.6, -15.2]]) {
       const f = createFloodlight();
       put(f, x, z, Math.atan2(-x, -z));
       f.setOn(false);

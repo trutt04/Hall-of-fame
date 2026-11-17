@@ -306,7 +306,7 @@ export function createCards(ctx, api) {
     const doors = R.doors || {};
     const line = doors[t.id] || doors[String(t.id)] || '';
     const body = el('div', 'lwf-regime');
-    body.appendChild(homeRow(t, 'Hangs by the door of'));
+    body.appendChild(homeRow(t, 'Posted outside'));
     hud.openCard({
       kicker: tierName(t.tier),
       title: 'Mandatory portrait',

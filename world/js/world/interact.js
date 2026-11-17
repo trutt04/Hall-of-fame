@@ -4,7 +4,6 @@
 //   interact.register({ id, position, radius, label, icon?, onUse, priority?, object3D?, enabled? })
 //       position: THREE.Vector3 or () => Vector3 (for things that move)
 //       object3D: optional mesh/group; tapping it in the 3D view walks over and uses it
-//       pickBias: optional metres taken off its tap distance, for small things mounted just behind clutter
 //   interact.unregister(id)
 //   interact.update(dt)            call once a frame
 //   interact.current               the entry in reach, or null
@@ -112,7 +111,7 @@ export function createInteract({ player, camera, hud = null, canvas = null }) {
       if (!hitsBuf.length) continue;
       const owner = ownerOf(hitsBuf[0].object) || item;
       if (owner.enabled === false) continue;
-      const d = hitsBuf[0].distance - (owner.pickBias || 0); // small things mounted behind porch posts ask for a head start
+      const d = hitsBuf[0].distance;
       if (d < bestD - 0.01 || (Math.abs(d - bestD) <= 0.01 && best && owner.priority > best.priority)) {
         bestD = d;
         best = owner;

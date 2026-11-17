@@ -1,5 +1,5 @@
 // The regime: the commissioner as Supreme Leader, all over town. A monument on the plaza, an
-// official portrait on the League Office, a mandatory portrait beside every front door, banners
+// official portrait on the League Office, a mandatory portrait on a post at every home, banners
 // down the Boulevard, posters, a bust in every neighborhood, loudspeakers, and a sign at his house.
 //
 // Everything is driven by model.regime. When that is null nothing of this exists.
@@ -291,6 +291,7 @@ export function createRegime(w) {
     const baked = [];
     const A = { pos: [], uv: [] };
     const spots = { monument: null, portrait: null, banners: [], posters: [], busts: {}, speakers: [], doors: {}, residence: null };
+    let POST = {}; // where the mandatory portrait stands at each kind of home
 
     // ---- flat things on the atlas ----
     const quad = (a, b, c, d, cell) => {
@@ -408,6 +409,11 @@ export function createRegime(w) {
         const p = F.p(c.x, 0, c.z);
         colliders.addCircle(p[0], p[2], c.r, TAG);
       }
+      // the two round blocks leave a dent in the middle of the plinth's long faces: fill it
+      for (const cz of [0.6 * k, -0.6 * k]) {
+        const p = F.p(0, 0, cz);
+        colliders.addCircle(p[0], p[2], 1.95 * k, TAG);
+      }
       // wreaths against the plinth and flowers at its corners
       inFrame(F, () => {
         for (const sx of [-1, 1]) {
@@ -477,137 +483,115 @@ export function createRegime(w) {
       spots.portrait = { x: wall[0], y: wall[1], z: wall[2], facing: O.facing, stand: { x: stand[0], z: stand[2] } };
     }
 
-    // ============================================================ 3. a portrait by every door
-    for (const id of model.order || []) {
-      const e = w.town.entry(id);
-      if (!e || !e.home || !e.home.anchors || !e.home.anchors.door) continue;
-      const { lot, team } = e;
-      const An = e.home.anchors;
-      const door = An.door;
-      const plq = An.plaque || door;
-      const F = frameAt(lot.x, lot.y, lot.z, lot.facing);
-      let px;
-      let py;
-      let pz;
-      let size = 0.56;
-      if (team.tier === 'dump' || !An.plaque) {
-        // nothing to hang it on: a post beside the flap
-        px = door.x - 1.3; // the far side from the cardboard sign
-        pz = door.z + 0.55;
-        const wp = F.p(px, 0, pz);
-        const gy = Math.min(door.y, groundY(wp[0], wp[2]) - lot.y);
-        py = gy + 1.5;
-        inFrame(F, () => S.cyl(px, gy - 0.5, pz - 0.05, 0.045, 2.2, 0x8a5a36, { seg: 5 }));
-        pz -= 0.005;
-      } else {
-        const wallZ = plq.z - 0.1;
-        pz = wallZ;
-        if (team.tier === 'heights') {
-          // the free wall is over the plaque here
-          size = 0.5;
-          px = plq.x;
-          py = plq.y + 0.7;
-        } else {
-          if (team.tier === 'hill') size = 0.8;
-          px = door.x * 2 - plq.x;
-          py = plq.y + 0.12;
-          if (team.tier === 'park') {
-            // clear of the porch light
-            px += Math.sign(px - door.x) * 0.24;
-            py = plq.y - 0.1;
-          }
-        }
+    // ============================================================ 3. a mandatory portrait at every home
+    // On a short post by the front path, facing the street: plain to see from the road, and far
+    // enough from the door, the plaque and the mailbox that each of those keeps its own button.
+    {
+      // where the post stands, measured from the door: across, toward the street; turn = extra yaw
+      POST = {
+        hill: { x: -4.0, z: 4.9, size: 0.8, up: 1.6, turn: 0.6, reach: 1.95 }, // on the terrace by the steps, turned to the gates
+        heights: { x: -1.7, z: 2.4 },
+        bubble: { x: 7.1, z: 2.95 }, // past the drive: the resident paces the walk, the lawn is for flamingos, vans park out front
+        park: { x: 0.6, z: 2.1, wood: true },
+        dump: { x: -1.8, z: 2.2, wood: true },
+      };
+      for (const id of model.order || []) {
+        const e = w.town.entry(id);
+        if (!e || !e.home || !e.home.anchors || !e.home.anchors.door) continue;
+        const { lot, team } = e;
+        const door = e.home.anchors.door;
+        const o = POST[team.tier] || POST.bubble;
+        const size = o.size || 0.56;
+        const up = o.up || 1.45;
+        const at = frameAt(lot.x, lot.y, lot.z, lot.facing).p(door.x + o.x, 0, door.z + o.z);
+        const F = frameAt(at[0], groundY(at[0], at[2]), at[2], lot.facing + (o.turn || 0));
+        inFrame(F, () => {
+          S.cyl(0, -0.5, -0.06, 0.045, up + size / 2 + 0.56, o.wood ? 0x8a5a36 : IRON, { seg: 5 });
+          S.box(0, up - size / 2 - 0.06, 0.035, size + 0.12, size + 0.12, 0.07, GOLD, { side: GOLD_LO, bottom: GOLD_LO, back: GOLD_LO });
+        });
+        panel(F, 0, up, 0.082, size, size, CELL.portrait);
+        colliders.addCircle(at[0], at[2], 0.14, TAG);
+        const stand = F.p(0, 0, o.reach || 1.0);
+        register({
+          // below doors, plaques and mailboxes on purpose: it only offers itself where none of them reach
+          id: 'portrait:' + id, position: new THREE.Vector3(stand[0], groundY(stand[0], stand[2]), stand[2]), radius: 1.0, label: 'The portrait', priority: -1,
+          object3D: pickBox(F, 0, up, 0.03, size + 0.34, size + 0.34, 0.3), onUse: use({ kind: 'portrait', teamId: id }),
+        });
+        const pic = F.p(0, up, 0.08);
+        spots.doors[id] = { x: pic[0], y: pic[1], z: pic[2], facing: F.facing, tier: team.tier, stand: { x: stand[0], z: stand[2] } };
       }
-      inFrame(F, () => S.box(px, py - size / 2 - 0.06, pz + 0.035, size + 0.12, size + 0.12, 0.07, GOLD, { side: GOLD_LO, bottom: GOLD_LO }));
-      panel(F, px, py, pz + 0.082, size, size, CELL.portrait);
-      // somewhere to stand in front of it that is not inside a porch post or a bay window
-      let stand = null;
-      for (const [sx, sz] of [[px, pz + 1.15], [px, pz + 0.85], [(px + door.x) / 2, pz + 1.0], [(px + door.x) / 2, pz + 1.5], [door.x, door.z + 0.2], [px, pz + 1.9]]) {
-        const p = F.p(sx, door.y, sz);
-        if (colliders.hits(p[0], p[2], 0.35)) continue;
-        stand = p;
-        break;
-      }
-      if (!stand) stand = F.p(px, door.y, pz + 1.15);
-      const at = F.p(px, py, pz + 0.08);
-      register({
-        id: 'portrait:' + id, position: v3(stand), radius: Math.max(1.05, Math.hypot(stand[0] - at[0], stand[2] - at[2]) + 0.25), label: 'The portrait', priority: 2,
-        // it hangs under porches and behind columns: a tap that passes just in front of it still means the portrait
-        pickBias: 2.2,
-        object3D: pickBox(F, px, py, pz + 0.05, size + 0.34, size + 0.34, 0.3), onUse: use({ kind: 'portrait', teamId: id }),
-      });
-      spots.doors[id] = { x: at[0], y: at[1], z: at[2], facing: lot.facing, tier: team.tier };
     }
 
     // ============================================================ 4. banners down the Boulevard
     {
+      // [distance down the road, side, how far off the centre line]: the arrival ride looks ahead
+      // and glances at the homes, and the truck's camera trails a few metres east of the road, so
+      // each banner stands where neither of them is looking, or well clear of them
       const total = layout.roadLength;
-      const along = [5, 38, 68, 99, 131, 163, 192, 208].map((s) => (s / 236.8) * total);
-      along.forEach((s, i) => {
-        const r = roadAt(s);
-        const side = i % 2 ? -1 : 1;
+      const along = [[5, 1], [38, -1], [74, -1], [99, -1], [126, 1, 10], [163, 1], [192, 1]];
+      along.forEach(([at, side, off = 5.3], i) => {
+        const r = roadAt((at / 236.8) * total);
         const nx = -r.tz * side;
         const nz = r.tx * side;
-        const [x, z] = settle(r.x + nx * 5.3, r.z + nz * 5.3, r.tx, r.tz, 0.9);
+        const [x, z] = settle(r.x + nx * off, r.z + nz * off, r.tx, r.tz, 0.9);
         bannerPole(x, z, Math.atan2(-nz, nx), i);
         spots.banners.push({ x, z, zone: terrain.dominantZone ? terrain.dominantZone(x, z) : '' });
       });
-      // and one inside the landfill gate
-      const gate = layout.places.landfillGate;
-      const [x, z] = settle(gate.x - 10, gate.z + 2.7, 1, 0, 0.9);
-      bannerPole(x, z, Math.PI, 5);
-      spots.banners.push({ x, z, zone: 'dump' });
+      // The trailer park's stretch of the Boulevard is where every ride turns and looks around,
+      // so its banner stands at the far end of the park's own lane instead, facing down it.
+      const lane = layout.places.parkLane;
+      const end = lane[0][0] < lane[lane.length - 1][0] ? lane[0] : lane[lane.length - 1];
+      const [x, z] = settle(end[0] - 2.5, end[1] + 2.0, 0, 1, 0.9);
+      bannerPole(x, z, Math.PI / 2, along.length);
+      spots.banners.push({ x, z, zone: terrain.dominantZone ? terrain.dominantZone(x, z) : '' });
     }
 
     // ============================================================ 5. posters
     {
-      const board = (x, z, facing, size, bottom, cell, o = {}) => {
+      // a square poster on two posts, readable from both sides
+      const board = (x, z, facing, size, bottom, cell, where) => {
         const F = frameAt(x, groundY(x, z), z, facing);
-        const half = o.span ? o.span / 2 : size / 2 - 0.3;
+        const half = size / 2 - 0.3;
         const top = bottom + size;
         inFrame(F, () => {
           for (const sx of [-1, 1]) {
             const wp = F.p(sx * half, 0, 0);
             const dy = Math.min(0, groundY(wp[0], wp[2]) - F.y);
-            S.box(sx * half, dy - 1.2, -0.02, o.span ? 0.34 : 0.2, top + 0.1 - dy + 1.2, o.span ? 0.34 : 0.2, IRON);
+            S.box(sx * half, dy - 1.2, 0.05, 0.2, bottom - dy + 1.2, 0.2, IRON);
           }
-          if (o.span) {
-            // a gantry: beams across the gate, red bunting either side of the poster
-            S.box(0, bottom - 0.22, -0.02, o.span, 0.22, 0.26, IRON, { bottom: true });
-            S.box(0, top + 0.02, -0.02, o.span, 0.2, 0.26, IRON, { bottom: true });
-            for (const sx of [-1, 1]) {
-              const bx = sx * (size / 4 + o.span / 4 + 0.1);
-              const bw = o.span / 2 - size / 2 - 0.5;
-              S.box(bx, top - 1.5, 0.06, bw, 1.4, 0.05, RED, { bottom: RED_DK, back: RED_DK });
-              S.box(bx, top - 1.62, 0.07, bw, 0.12, 0.06, GOLD, { bottom: true });
-            }
-          }
-          S.box(0, bottom - 0.14, 0.05, size + 0.28, size + 0.28, 0.12, GOLD_LO, { back: IRON, bottom: GOLD_LO });
+          S.box(0, bottom - 0.14, 0.05, size + 0.28, size + 0.28, 0.12, GOLD_LO, { bottom: GOLD_LO });
         });
-        panel(F, 0, bottom + size / 2, 0.122, size, size, CELL.poster(cell));
+        panel(F, 0, bottom + size / 2, 0.122, size, size, CELL.poster(cell), 0.144);
         for (const sx of [-1, 1]) {
           const wp = F.p(sx * half, 0, 0);
           colliders.addCircle(wp[0], wp[2], 0.3, TAG);
         }
-        spots.posters.push({ x, z, facing, y: F.y + bottom + size / 2, size, where: o.where });
+        spots.posters.push({ x, z, facing, y: F.y + bottom + size / 2, size, where });
       };
-      // over the dump gate, where the whole Boulevard can read it
-      const gate = layout.places.landfillGate;
-      board(gate.x, gate.z, Math.PI, 4.4, 4.6, 0, { span: gate.width + 1.1, where: 'gate' });
-      // on the trailer park fence
+      // the big one, where the Boulevard leaves the plaza: beside the road, never over it, set back
+      // far enough that the rides see it off to one side, and it reads from the plaza as well
       {
-        const [x, z] = settle(gate.x + 15, gate.z - 0.45, 1, 0, 2.4, false); // the fence itself is solid: only dodge the trees
-        board(x, z, Math.PI, 3.4, 1.3, 1, { where: 'fence' });
+        const st = layout.stations.plaza;
+        const r = roadAt(layout.roadLength * (146 / 236.8));
+        const [x, z] = settle(r.x - r.tz * 9.4, r.z + r.tx * 9.4, r.tx, r.tz, 1.6);
+        board(x, z, Math.atan2(st.x - x, st.z - z), 4.4, Math.max(2.6, st.y + 0.4 - groundY(x, z)), 0, 'plaza');
       }
-      // at the mouth of the cul-de-sac, turned to the Boulevard
+      // on the trailer park fence, in the gap between the two trailers nearest the gate: west of
+      // the gate, because the truck ride ends looking east along the fence
       {
-        const c = layout.places.culdesac;
-        const j = c.junction;
-        const px = c.x - c.r - 8;
-        const pz = c.z + 6.5;
-        const facing = Math.atan2(j[0] - px, j[1] - 10 - pz);
-        const [x, z] = settle(px, pz, Math.cos(facing), -Math.sin(facing), 1.6);
-        board(x, z, facing, 3.2, 1.7, 2, { where: 'culdesac' });
+        const gate = layout.places.landfillGate;
+        const lots = (layout.lots.park || []).slice().sort((a, b) => b.x - a.x);
+        const gx = lots.length > 1 ? (lots[0].x + lots[1].x) / 2 : gate.x - gate.width / 2 - 12;
+        const [x, z] = settle(gx, gate.z - 0.45, 1, 0, 1.2, false); // the fence itself is solid: only dodge the trees
+        board(x, z, Math.PI, 3.4, 1.3, 1, 'fence');
+      }
+      // across the Boulevard from the mouth of the cul-de-sac: the first thing the Bubble sees on
+      // its way out, and on the side the rides do not look at when they turn in
+      {
+        const j = layout.places.culdesac.junction;
+        const r = roadAt(layout.roadLength * (171 / 236.8));
+        const [x, z] = settle(j[0] - r.tz * 9.5, j[1] + r.tx * 9.5, r.tx, r.tz, 1.6);
+        board(x, z, Math.atan2(layout.places.culdesac.x - x, layout.places.culdesac.z - z), 3.2, 1.7, 2, 'culdesac');
       }
       // behind the uprights, off to one side
       {
@@ -616,7 +600,7 @@ export function createRegime(w) {
         const pz = kf.z - kf.d / 2 - 3.5;
         const facing = Math.atan2(kf.x - px, kf.z - 5 - pz);
         const [x, z] = settle(px, pz, -1, 0, 1.8);
-        board(x, z, facing, 4.0, 2.4, 3, { where: 'kick' });
+        board(x, z, facing, 4.0, 2.4, 3, 'kick');
       }
     }
 
@@ -630,7 +614,7 @@ export function createRegime(w) {
       const spur = P.culdesac.spur;
       const spurMid = spur[Math.floor(spur.length * 0.72)] || [13, P.culdesac.z];
       const where = {
-        hill: { x: hillLot.x + 16.8, z: hillLot.z + 2.2, look: [hillLot.x + 8, hillLot.z + 8] },
+        hill: { x: hillLot.x - 14.5, z: hillLot.z + 2.4, look: [hillLot.x - 4, hillLot.z + 9] }, // the far side of the gates from the truck stop
         heights: { x: st.fountain.x - st.fountain.r - 1.4, z: st.fountain.z, look: [st.fountain.x, st.fountain.z] },
         plaza: { x: st.plaza.x - st.plaza.r + 1.7, z: st.plaza.z + 6.4, look: [st.plaza.x, st.plaza.z] },
         bubble: { x: spurMid[0], z: spurMid[1] - 5.2, look: [spurMid[0], spurMid[1]] },
@@ -700,8 +684,10 @@ export function createRegime(w) {
       const cross = roadAt(layout.roadLength * (213 / 236.8));
       const list = [
         { id: 'plaza', x: st.plaza.x + 12.5, z: st.plaza.z + 17, look: [st.plaza.x, st.plaza.z] },
-        { id: 'bubble', x: P.culdesac.x - P.culdesac.r - 2.3, z: P.culdesac.z + 5.3, look: [P.culdesac.x, P.culdesac.z] },
-        { id: 'park', x: cross.x - 5.2, z: st.laneZ + 3.7, look: [cross.x, st.laneZ] },
+        // across the Boulevard from the cul-de-sac, beside the poster: the rides all look east here
+        { id: 'bubble', x: P.culdesac.junction[0] - 7.8, z: P.culdesac.junction[1] + 6.8, look: [P.culdesac.junction[0], P.culdesac.junction[1]] },
+        // behind Outhouse Row: the rides swing west here, and the truck's camera runs just east of the road
+        { id: 'park', x: P.outhouseRow.x + 3.2, z: st.laneZ + 3.8, look: [cross.x, st.laneZ] },
         { id: 'hill', x: P.hillGate.x - 6, z: P.hillGate.z + 1.6, look: [P.hillGate.x, P.hillGate.z + 10] },
       ];
       for (const sp of list) {
@@ -721,33 +707,48 @@ export function createRegime(w) {
     }
 
     // ============================================================ 8. his own house
+    // One pole at a front corner of the lot: a small banner on top, the sign at eye level.
     {
       const e = w.town.entry(R.teamId);
       if (e && e.home && e.home.anchors) {
-        const { lot } = e;
+        const { lot, team } = e;
         const An = e.home.anchors;
         const curb = An.curb || An.door;
-        const yard = An.sign || An.mailbox || curb;
         const F0 = frameAt(lot.x, lot.y, lot.z, lot.facing);
-        const signSide = yard.x < curb.x ? 1 : -1;
-        const gz = curb.z - 0.45;
-        for (const sx of [-1, 1]) {
-          const p = F0.p(curb.x + sx * 3.9, 0, gz);
-          // the little banner hangs away from the drive
-          const F = bannerPole(p[0], p[2], lot.facing + (sx < 0 ? Math.PI : 0), sx < 0 ? 2 : 6, { height: 3.7, width: 0.5 });
-          if (sx !== signSide) continue;
-          const bw = 2.3;
-          const bh = bw * (CELL.sign[3] / CELL.sign[2]);
-          const B = frameAt(p[0], F.y, p[2], lot.facing);
-          inFrame(B, () => S.box(0, 0.92, 0.09, bw + 0.1, bh + 0.1, 0.06, GOLD_LO, { back: RED_DK, bottom: GOLD_LO }));
-          panel(B, 0, 0.97 + bh / 2, 0.126, bw, bh, CELL.sign);
-          const stand = B.p(0, 0, 1.5);
-          register({
-            id: 'residence', position: new THREE.Vector3(stand[0], groundY(stand[0], stand[2]), stand[2]), radius: 1.8, label: 'Read the sign', priority: 1,
-            object3D: pickBox(B, 0, 0.97 + bh / 2, 0.1, bw + 0.3, bh + 0.5, 0.4), onUse: use({ kind: 'residence' }),
-          });
-          spots.residence = { x: p[0], z: p[2], facing: lot.facing, teamId: R.teamId };
+        // the corner with the least going on (mailbox, yard sign, his own mandatory portrait)
+        const off = Math.min((lot.w || 24) / 2 - 1.4, 7.6);
+        const busy = [An.mailbox, An.sign].filter(Boolean).map((v) => v.x);
+        if (POST[team.tier] && An.door) busy.push(An.door.x + POST[team.tier].x);
+        const room = (x) => busy.reduce((m, bx) => Math.min(m, Math.abs(bx - x)), 99);
+        let lx = room(off) >= room(-off) ? off : -off;
+        // on the Hill it stands outside the railings, in the Heights outside the hedge
+        const lz = team.tier === 'hill' ? curb.z + 0.9 : team.tier === 'heights' ? curb.z + 0.6 : curb.z - 0.7;
+        let facing = lot.facing;
+        let p = F0.p(lx, 0, lz);
+        if (team.tier === 'dump') {
+          // out of the gateway, and turned to the people coming through it
+          const gate = layout.places.landfillGate;
+          const q = F0.p(-lx, 0, lz);
+          if (Math.abs(q[0] - gate.x) > Math.abs(p[0] - gate.x)) {
+            p = q;
+            lx = -lx;
+          }
+          facing = Math.atan2(gate.x - p[0], gate.z - 4 - p[2]);
         }
+        const F = bannerPole(p[0], p[2], facing + (lx < 0 ? Math.PI : 0), 2, { height: 3.7, width: 0.5 });
+        const bw = 2.3;
+        const bh = bw * (CELL.sign[3] / CELL.sign[2]);
+        const B = frameAt(p[0], F.y, p[2], facing);
+        inFrame(B, () => S.box(0, 0.92, 0.09, bw + 0.1, bh + 0.1, 0.06, GOLD_LO, { back: RED_DK, bottom: GOLD_LO }));
+        panel(B, 0, 0.97 + bh / 2, 0.126, bw, bh, CELL.sign);
+        const mid = B.p(0, 0, 0.09);
+        colliders.addBox(mid[0], mid[2], bw + 0.1, 0.3, facing, TAG); // nobody walks through the board
+        const stand = B.p(0, 0, 1.5);
+        register({
+          id: 'residence', position: new THREE.Vector3(stand[0], groundY(stand[0], stand[2]), stand[2]), radius: 1.8, label: 'Read the sign', priority: 1,
+          object3D: pickBox(B, 0, 0.97 + bh / 2, 0.1, bw + 0.3, bh + 0.5, 0.4), onUse: use({ kind: 'residence' }),
+        });
+        spots.residence = { x: p[0], z: p[2], facing, teamId: R.teamId };
       }
     }
 
@@ -779,10 +780,17 @@ export function createRegime(w) {
 
   // ---- the loudspeakers --------------------------------------------------------------------
   const HEAR = 14;
-  let near = false;
+  const GAP = 75; // seconds between lines, anywhere in town
   let lastSaid = -1e9;
-  let line = 0;
+  let line = Math.floor(Math.random() * 1000); // every visit starts on a different line
+  let said = []; // toasts that may still be up
   let clock = 0;
+  // a card or a panel has the floor: take the announcement down
+  const offModal = typeof hud.on === 'function' ? hud.on('modal', (open) => {
+    if (!open) return;
+    for (const t of said) if (t && typeof t.remove === 'function') t.remove();
+    said = [];
+  }) : null;
   function quiet() {
     return hud.isModalOpen() || rig.isCinematic || player.frozen || player.seated
       || (w.traffic && w.traffic.riding) || (w.kick && w.kick.active) || (w.landmarks && w.landmarks.seated);
@@ -791,7 +799,7 @@ export function createRegime(w) {
     const lines = (built.R.broadcasts || []).filter(Boolean);
     if (!lines.length) return;
     lastSaid = t;
-    hud.toast('LOUDSPEAKER: ' + String(lines[line % lines.length]), { ms: 5200 });
+    said = said.filter((t) => t && t.isConnected).concat(hud.toast('LOUDSPEAKER: ' + String(lines[line % lines.length]), { ms: 5200 }) || []);
     line++;
     try {
       audio.sfx('chime', { volume: 0.7 });
@@ -810,12 +818,8 @@ export function createRegime(w) {
     const pp = player.position;
     let d = Infinity;
     for (const sp of built.speakers) d = Math.min(d, Math.hypot(sp.x - pp.x, sp.z - pp.z));
-    if (d > HEAR + 3) near = false;
     if (d > HEAR || quiet()) return;
-    if (!near) {
-      near = true;
-      if (t - lastSaid >= 25) announce(t); // one on the way in, unless one just played somewhere else
-    } else if (t - lastSaid >= 40) announce(t);
+    if (t - lastSaid >= GAP) announce(t); // one on the way in, then never more often than that, whichever pole it is
   }
 
   function apply(model) {
@@ -847,6 +851,7 @@ export function createRegime(w) {
     get triangles() { return built ? built.triangles : 0; },
     dispose() {
       clear();
+      if (typeof offModal === 'function') offModal();
       scene.remove(group);
     },
   };
