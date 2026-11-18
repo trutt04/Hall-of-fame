@@ -1800,6 +1800,47 @@ function buildStories(model, F) {
         []);
     }
   }
+  // ----- the waiver wire, as a league-wide story -----
+  // Real add, drop and trade counts from ESPN. Always a comparison, so the numbers mean something.
+  if (F.mode !== 'fresh' && L > 0) {
+    const wire = model.order.map((id) => team(id)).filter((t) => t.churn && t.churn.total > 0);
+    if (wire.length >= 3) {
+      const adds = wire.reduce((n, t) => n + t.churn.adds, 0);
+      const drops = wire.reduce((n, t) => n + t.churn.drops, 0);
+      // ESPN counts a trade once for each team in it, so the league total is half the sum.
+      const trades = Math.round(wire.reduce((n, t) => n + t.churn.trades, 0) / 2);
+      const busiest = wire.find((t) => t.churn.busiest);
+      const quietest = wire.find((t) => t.churn.quietest);
+
+      // A league that will not trade is a story in itself, and a longer drought is a bigger one.
+      if (trades <= 2) {
+        // The longer the drought runs the bigger the story, and it stops the moment a third trade lands.
+        const drought = Math.min(74, (trades === 0 ? 50 : 42) + L * 2.2);
+        const word = ['Zero', 'One', 'Two'][trades];
+        const tradesWord = trades === 1 ? 'One Trade' : `${word} Trades`;
+        add('trades', drought, [], { trades, tradeN: plural(trades, 'trade'), wkN: plural(L, 'week'), tradesWord }, {},
+          [trades === 0 ? () => `Nobody Has Made A Trade` : (c) => `${c.tradesWord} In ${c.L} Weeks`,
+            trades === 0 ? (c) => `${c.L} Weeks, Zero Trades` : (c) => `The League Has Made ${c.tradesWord}`,
+            fb(() => `Trade Market Remains Closed`)],
+          [trades === 0
+            ? (c) => `${c.N} teams, ${c.wkN} played, and not one trade. Every roster was built at the draft and patched off the wire. The phones work. Nobody is picking up.`
+            : (c) => `${c.N} teams have managed ${c.tradeN} between them in ${c.wkN}. The waiver wire is doing the rest of the work.`],
+          [trades === 0 ? () => `ZERO TRADES. ALL SEASON.` : (c) => `${c.tradeN.toUpperCase()}. ${c.L} WEEKS.`]);
+      }
+
+      if (busiest && quietest && busiest.id !== quietest.id) {
+        add('wire', 50, [busiest.id, quietest.id],
+          { hi: busiest.churn.total, lo: quietest.churn.total, adds, drops, median: busiest.churn.median },
+          { T: lab(busiest.id), Q: lab(quietest.id) },
+          [(c) => `${c.T} Will Not Leave The Wire Alone`, (c) => `${c.T} Makes ${c.hi} Moves, ${c.Q} Makes ${c.lo}`,
+            fb(() => `The Wire Has A Busiest And A Quietest`)],
+          [(c) => `${c.T} has made ${c.hi} roster moves and ${c.Q} has made ${c.lo}. That is ${c.adds} players added and ${c.drops} dropped across ${c.N} teams.`,
+            (c) => `${c.T} leads the league with ${c.hi} roster moves. ${c.Q} has made ${c.lo} all season.`],
+          []);
+      }
+    }
+  }
+
   if (F.mode === 'post') {
     const P = model.cutLine;
     const top = team(model.order[0]);
