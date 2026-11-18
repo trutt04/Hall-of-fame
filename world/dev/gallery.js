@@ -1,5 +1,5 @@
 // Prop gallery: every art export on a ground plane under the world's lighting.
-//   ?show=homes | reactive | setpieces | characters | regime | facility | all | <singleName>   (default homes)
+//   ?show=homes | reactive | setpieces | characters | regime | facility | champion | all | <singleName>   (default homes)
 //   ?night=1        dim the lights, glow the windows, turn porch lights on
 //   ?az=&el=&dist=&cx=&cy=&cz=   camera (degrees / meters), ?t= fixed time, ?labels=0, ?table=0, ?ref=0 (no scale avatars),
 //   ?rm=1 reduced motion, ?light=2 light multiplier, ?porch=win|lose|neutral, ?on=1 lamps on by day, ?anchors=1 show home anchors and colliders,
@@ -137,6 +137,50 @@ const ITEMS = {
   pylon: ['facility', () => [10, 16].map((h) => ({ o: ART.createPylon({ height: h }), label: 'pylon ' + h, w: 8, d: 6 }))],
   substationFence: ['facility', () => [{ o: ART.createSubstationFence({ length: 16 }), label: 'fence', w: 18, d: 3, ref: true }]],
   ballMachine: ['facility', () => [{ o: ART.createBallMachine(), label: 'ball machine', w: 2.6, d: 2.6, ref: true }]],
+  // the champion's lawn
+  championTrophy: ['champion', () => [0xf2c93f, col(3)].map((c, i) => ({
+    o: ART.createChampionTrophy({ color: c }), label: i ? 'trophy (team colour)' : 'trophy', w: 2.6, d: 2.6, ref: i === 0,
+  }))],
+  trophyPlaque: ['champion', () => {
+    // how the world dresses it: a canvas plaque at anchors.plaque, sized plaqueSize
+    const tr = ART.createChampionTrophy();
+    const pl = ART.createPlaque(textCanvas(['CHAMPION 2025'], 512, 176, '#2a2116', '#f5c542'), { width: tr.plaqueSize.w });
+    pl.group.position.copy(tr.anchors.plaque);
+    tr.group.add(pl.group);
+    const o = { group: tr.group, dispose: () => { tr.dispose(); pl.dispose(); } };
+    return [{ o, label: 'trophy + plaque', w: 2.6, d: 2.6 }];
+  }],
+  bannerMast: ['champion', () => [{ o: ART.createBannerMast(), label: 'banner mast', w: 3, d: 3, ref: true }]],
+  bannerMastHung: ['champion', () => {
+    // the world's half of the deal: a plane hung at anchors.bannerTop, sized anchors.bannerSize
+    const mast = ART.createBannerMast();
+    const { bannerTop, bannerSize } = mast.anchors;
+    const tex = new THREE.CanvasTexture(textCanvas(['LEAGUE', 'CHAMPION', '2025'], 320, 640, '#18213f', '#f5c542'));
+    tex.colorSpace = THREE.SRGBColorSpace;
+    const cloth = new THREE.Mesh(new THREE.PlaneGeometry(bannerSize.w, bannerSize.h), new THREE.MeshLambertMaterial({ map: tex, side: THREE.DoubleSide }));
+    cloth.position.set(bannerTop.x, bannerTop.y - bannerSize.h / 2, bannerTop.z);
+    mast.group.add(cloth);
+    const o = { group: mast.group, dispose: () => { mast.dispose(); cloth.geometry.dispose(); cloth.material.dispose(); tex.dispose(); } };
+    return [{ o, label: 'mast + hung banner', w: 3.4, d: 3, ref: true }];
+  }],
+  confetti: ['champion', () => [null, col(9)].map((c, i) => {
+    const fx = ART.createConfetti({ color: c });
+    let wait = i * 0.8;
+    fx.burst(0, 1.0, 0);
+    const o = {
+      group: fx.group,
+      update: (dt, t) => {
+        fx.update(dt, t);
+        if (fx.busy) return;
+        wait -= dt;
+        if (wait <= 0) { fx.burst(0, 1.0, 0); wait = 1.4; }
+      },
+      burst: (x, y, z) => fx.burst(x, y, z),       // so a screenshot script can time a burst
+      get busy() { return fx.busy; },
+      dispose: () => fx.dispose(),
+    };
+    return { o, label: i ? 'confetti (team colour)' : 'confetti', w: 5.4, d: 5.4 };
+  })],
   // the Supreme Commissioner
   leaderStatue: ['regime', () => [{ o: ART.createLeaderStatue(), label: 'leader statue', w: 12, d: 7, ref: true }]],
   leaderBust: ['regime', () => [false, true].map((w) => ({ o: ART.createLeaderBust({ weathered: w }), label: w ? 'bust (weathered)' : 'leader bust', w: 2.8, d: 2.8 }))],
@@ -189,12 +233,13 @@ const NEEDS = {
   hill: 'createHome', heights: 'createHome', bubble: 'createHome', park: 'createHome', dump: 'createHome',
   avatarBack: 'createAvatar', seated: 'createAvatar', raccoon: 'createCritters', dog: 'createCritters', pigeon: 'createCritters', seagull: 'createCritters', fly: 'createCritters',
   substationRow: 'createSubstationBay',
+  trophyPlaque: 'createChampionTrophy', bannerMastHung: 'createBannerMast',
 };
 const fnOf = (name) => NEEDS[name] || 'create' + name[0].toUpperCase() + name.slice(1);
 
 let names;
 if (show === 'all') names = Object.keys(ITEMS);
-else if (['homes', 'reactive', 'setpieces', 'characters', 'regime', 'facility'].includes(show)) names = Object.keys(ITEMS).filter((n) => ITEMS[n][0] === show);
+else if (['homes', 'reactive', 'setpieces', 'characters', 'regime', 'facility', 'champion'].includes(show)) names = Object.keys(ITEMS).filter((n) => ITEMS[n][0] === show);
 else names = show.split(',').filter((n) => ITEMS[n]);
 if (q.get('only')) names = names.filter((n) => q.get('only').split(',').includes(n));
 
@@ -212,7 +257,7 @@ for (const name of names) {
 
 // ---- layout: rows along X, wrapping toward -Z ----------------------------------------------------
 const box = new THREE.Box3(), size = new THREE.Vector3();
-const maxRow = parseFloat(q.get('row') || ({ homes: 95, reactive: 30, setpieces: 60, characters: 24, facility: 60, all: 110 }[show] || 46));
+const maxRow = parseFloat(q.get('row') || ({ homes: 95, reactive: 30, setpieces: 60, characters: 24, facility: 60, champion: 24, all: 110 }[show] || 46));
 let cx = 0, cz = 0, rowDepth = 0;
 const rows = [[]];
 for (const e of entries) {
@@ -282,7 +327,8 @@ function measure(group) {
   return { calls, tris: Math.round(tris) };
 }
 const table = entries.map((e) => Object.assign({ name: e.label }, measure(e.o.group)));
-window.__gallery = { table, missing, entries: entries.length };
+// `props` is for driving a prop from a screenshot script (confetti.burst, setBedTilt and so on).
+window.__gallery = { table, missing, entries: entries.length, props: entries.map((e) => e.o) };
 
 // ---- camera ---------------------------------------------------------------------------------------
 // frame the layout footprints, not the raw bounds (beams and halos reach for the sky)
@@ -343,7 +389,7 @@ const link = (label, params, alt) => {
   a.href = '?' + p.toString(); a.textContent = label; if (alt) a.className = 'alt';
   nav.appendChild(a);
 };
-for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'regime', 'facility', 'all']) link(s, { show: s });
+for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'regime', 'facility', 'champion', 'all']) link(s, { show: s });
 link(night ? 'day' : 'night', { night: night ? null : '1' }, true);
 const tableEl = document.getElementById('table');
 tableEl.textContent = (table.length > 34 || q.get('table') === '0') ? '' : table.map((r) => `${r.name.padEnd(22)} ${String(r.calls).padStart(2)} calls ${String(r.tris).padStart(6)} tris`).join('\n');

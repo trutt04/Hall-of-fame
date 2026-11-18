@@ -463,8 +463,9 @@ export function makeLayout(counts = {}) {
 
   // ---------------------------------------------------------------- places
   const P = (x, z, facing = 0, extra) => Object.assign({ x, z, facing }, extra);
+  const SPAWN = [4, 14]; // where an arrival lands on the plaza, looking north up the valley
   const places = {
-    spawnPlaza: P(4, 14, Math.PI),
+    spawnPlaza: P(SPAWN[0], SPAWN[1], Math.PI),
     statue: P(plaza.x, plaza.z, 0),
     standingsBoard: P(13, -15.5, faceToward(13, -15.5, 3, 12)),
     matchupBoard: P(-16.5, -12, faceToward(-16.5, -12, 3, 12)),
@@ -487,6 +488,17 @@ export function makeLayout(counts = {}) {
     // The new section of the Memorial Gardens: a row of headstones against the substation fence,
     // under the towers. dressing.js fills it, facility.js lays the path to it.
     graveAnnex: P(-55.3, 10, Math.PI / 2, { step: 2.55, count: 4 }),
+    // The champion banners: an arc of masts on the open ground behind the statue, in the gap
+    // between the statue, the Boulevard and the standings board. `from` and `span` are bearings
+    // clockwise from north around the plaza centre, so banner 0 (the newest champion) stands
+    // where the arrival walk looks straight at it and the arc sweeps back in time to the east.
+    // Every cloth is turned toward `aim`, the spot on the walk where a visitor lands.
+    championArc: {
+      x: plaza.x, z: plaza.z, y: plaza.y, r: 8.6,
+      from: 10 * DEG, span: 58 * DEG, maxStep: 15 * DEG,
+      height: 7.6, scale: 1,
+      aim: SPAWN.slice(),
+    },
     fountain: P(fountain.x, fountain.z, 0, { r: fountain.r, basinR: fountain.basinR }),
     hillGate: P(hill.x, hill.z + LOT_SIZE.hill.d / 2, 0),
     overlook: P(hill.x, hill.z + LOT_SIZE.hill.d / 2 - 3, 0),

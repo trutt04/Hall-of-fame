@@ -33,6 +33,8 @@ import { createFacility } from './world/facility.js';
 import { createCatchGame } from './world/catch.js';
 import { createRegime } from './world/regime.js';
 import { createVandal } from './world/vandal.js';
+import { createChampion } from './world/champion.js';
+import { createMascot } from './world/mascot.js';
 import { startFreeRoam } from './world/freeroam.js';
 import { createAvatar, setReducedMotion } from './art/index.js';
 import { createHud } from './ui/hud.js';
@@ -184,7 +186,7 @@ async function boot() {
 
   const world = {
     THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, data,
-    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, facility: null, catch: null, regime: null, vandal: null, hideTags: false,
+    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, facility: null, catch: null, regime: null, vandal: null, champion: null, mascot: null, hideTags: false,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
     get model() { return model; },
     get playerTeam() { return playerTeam; },
@@ -326,6 +328,10 @@ async function boot() {
   regime.apply(model);
   const vandal = (world.vandal = createVandal(world));
   vandal.apply(model);
+  const champion = (world.champion = createChampion(world));
+  champion.apply(model);
+  const mascot = (world.mascot = createMascot(world));
+  if (mascot) mascot.apply(model);
   world.setPlayerTeam(null);
 
   let markers = null;
@@ -354,6 +360,8 @@ async function boot() {
   engine.addSystem(catchGame, 49.55);
   engine.addSystem(regime, 49.6);
   engine.addSystem(vandal, 49.7);
+  engine.addSystem(champion, 49.8);
+  if (mascot) engine.addSystem(mascot, 49.82);
   engine.addSystem({
     update(dt) {
       terrain.zoneAt(player.position.x, player.position.z, zone);
@@ -420,6 +428,8 @@ async function boot() {
     traffic.apply(model);
     regime.apply(model);
     vandal.apply(model);
+    champion.apply(model);
+    if (mascot) mascot.apply(model);
     if (playerTeam !== null) {
       const t = model.teams[playerTeam];
       const av = player.avatar;
@@ -471,6 +481,17 @@ async function boot() {
     get status() { return data.status; },
     get league() { return data.league; },
   };
+  // The flow's first screen is up, which is the picker, not the arrival: startFlow resolves as
+  // soon as something is showing. So this only ARMS the championship confetti. It goes up later,
+  // when the visitor is actually standing in the plaza with no ride, picker, card or seat in the
+  // way (see world/champion.js), which is also what keeps it off the loading veil.
+  const arrived = () => {
+    try {
+      champion.arrived();
+    } catch (err) {
+      console.warn('[lw] the confetti did not arm', err);
+    }
+  };
   // Free roam starts at most once. If the flow fails, even halfway through, whatever it left on
   // screen is removed first, so the stand-in HUD never sits on top of a half-built flow.
   let roaming = false;
@@ -497,6 +518,7 @@ async function boot() {
     } catch (err) {
       console.error('[lw] free roam failed to start', err);
     }
+    arrived();
     hud.hideLoading();
   };
   if (params.get('noflow') === '1') freeRoam(null);
@@ -504,7 +526,7 @@ async function boot() {
     try {
       const flow = await import('./ui/flow.js');
       // startFlow may wait on the visitor (team picker): never block the veil on it
-      Promise.resolve().then(() => flow.startFlow(ctx)).catch((err) => freeRoam(err));
+      Promise.resolve().then(() => flow.startFlow(ctx)).then(arrived, (err) => freeRoam(err));
     } catch (err) {
       freeRoam(err);
     }

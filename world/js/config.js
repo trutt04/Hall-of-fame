@@ -107,6 +107,8 @@ export const PATHS = {
   leaderPortrait: 'img/leader-portrait.jpg', // the official portrait, in colour
   leaderPoster: 'img/leader-poster.png', // red and gold poster art for banners and posters
   loudspeakerVoice: 'audio/loudspeaker.mp3', // the recorded loudspeaker announcement
+  impFace: 'img/imp-face.png', // the league mascot's portrait, the same one the old page uses
+  beatTrack: '../beat.mp3', // the Hall of Fame page's background track, 1.1 MB, only fetched on approach
 };
 
 // The league's running joke: the commissioner as Supreme Leader, with statues, portraits and
@@ -117,6 +119,15 @@ export const REGIME = {
   title: 'Supreme Commissioner',
   // The one line the loudspeakers say out loud. It must match the recording in PATHS.loudspeakerVoice.
   voiceLine: 'Attention, citizens. Report to the Supreme Commissioner statue every thirty minutes, to pay your respects.',
+};
+
+// The league mascot from the Hall of Fame page: the Tiptoe Imp does laps outside one owner's
+// house, with that page's own track playing from the same spot. Keyed on ownerKey rather than
+// team id, because ESPN hands a departing owner's team id to whoever replaces them, so the imp
+// follows the person and moves house as their record moves them. Set to null to take him away.
+export const MASCOT = {
+  ownerKey: 'o_8e34c388',
+  owner: 'Shane', // for whoever reads this file; the key above is what actually matches
 };
 
 export const STORAGE_KEYS = {
