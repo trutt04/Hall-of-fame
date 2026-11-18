@@ -187,8 +187,8 @@ The `reason` values, and what each one means for the world:
 | reason | what happened | the world |
 |---|---|---|
 | `ok` | ESPN answered and the data passed every check | real data |
-| `league_private` | ESPN answered 401 and no login was sent, or the login that was sent is not in this league | last good data kept |
-| `login_expired` | a signed-in request was refused AND the same request without the login was refused too, so the saved `ESPN_S2` / `ESPN_SWID` pair no longer works | last good data kept |
+| `league_private` | ESPN answered 401 (or 403 with an ESPN error body) and no login was sent: none is configured, one of the two secrets was unusable, or `mayCarryLogin()` withheld the cookie because the address in use is not an https ESPN one | last good data kept |
+| `login_expired` | ESPN answered 401 to a signed-in request and the same request without the login did not succeed, so the saved `ESPN_S2` / `ESPN_SWID` pair no longer works, or that ESPN account is no longer a member of this league (ESPN answers the same 401 either way) | last good data kept |
 | `not_found` | 404 or 410 | last good data kept |
 | `endpoint_moved` | a redirect, a web page, or a 403 with no ESPN error body | last good data kept |
 | `rate_limited` | 429 | last good data kept |

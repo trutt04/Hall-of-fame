@@ -18,6 +18,8 @@
 #     the repo, are sent only to ESPN, and are scrubbed out of every line the sync prints or
 #     writes, so they never reach a log, a data file or the public site. See world/README.md
 #     ("Reading a private league") for how to set them, and never paste them into a file.
+#   - The login is given only to runs on main. A push to another branch still runs the sync,
+#     but without the login, so a branch cannot be used to print the login into a public log.
 #   - If the login expires the job stays green, keeps the saved data, and says
 #     "login_expired" in world/data/status.json with the plain-English fix in the run log.
 #   - A commit is made only when a data file really changed.
@@ -68,8 +70,12 @@ jobs:
           # they resolve to empty, no login is sent, and the public attempt happens as before.
           # Both are needed, or neither. Set them under Settings, Secrets and variables,
           # Actions. Never write their values anywhere in this repo.
-          ESPN_S2: ${{ secrets.ESPN_S2 }}
-          ESPN_SWID: ${{ secrets.ESPN_SWID }}
+          # Only a run on main gets the login. A push to any other branch runs whatever that
+          # branch's scripts/ says, so handing it the login would turn push access into read
+          # access on the owner's ESPN account. Other branches get empty strings, which is the
+          # documented "no login set" path: the public attempt, league_private, still green.
+          ESPN_S2: ${{ github.ref == 'refs/heads/main' && secrets.ESPN_S2 || '' }}
+          ESPN_SWID: ${{ github.ref == 'refs/heads/main' && secrets.ESPN_SWID || '' }}
           # ESPN_BASE_URLS: https://new-address.example/apis/v3/games/ffl
         run: |
           if [ "$SCHEDULE" = "*/10 * * * *" ]; then

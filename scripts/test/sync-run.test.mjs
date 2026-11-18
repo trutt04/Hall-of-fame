@@ -870,6 +870,35 @@ test('login: the scrubber guards every string the run prints, publishes or commi
   assert.equal(readData(dir, 'status.json').detail, 'Synced season 2026, week 10');
 });
 
+test('command line: an unusable secret says so in the step summary, not just in an annotation', async (t) => {
+  const { mock, dir } = await setup(t);
+  privateButOpenable(mock);
+  const summaryFile = path.join(dir, 'github-summary.md');
+  const env = {
+    ESPN_BASE_URLS: mock.url, LEAGUE_WORLD_DATA_DIR: dir, LEAGUE_WORLD_NOW: later(1).toISOString(),
+    ESPN_TIMEOUT_MS: '2000', ESPN_BACKOFF_MS: '1', GITHUB_ACTIONS: 'true',
+    GITHUB_OUTPUT: path.join(dir, 'github-output.txt'), GITHUB_STEP_SUMMARY: summaryFile,
+    // Both secrets are set, but one picked up a space on the way out of the browser. No login
+    // can be sent, so ESPN answers 401 and the reason is league_private, exactly as it is with
+    // no secrets at all. The summary is the one place world/README.md sends the owner, so it
+    // has to be the place that tells the two apart.
+    ESPN_S2: 'AEBfake value with a space', ESPN_SWID: SWID,
+  };
+
+  const run = await runCli([], env);
+
+  assert.equal(run.code, 0, run.stderr);
+  const summary = fs.readFileSync(summaryFile, 'utf8');
+  assert.match(summary, /Result: \*\*league_private\*\*/);
+  assert.match(summary, /ESPN login: .*cannot be sent to ESPN/);
+  assert.match(run.stdout, /::warning title=League sync::.*could not be used/);
+  assert.doesNotMatch(run.stdout, /once the two login secrets are set/, 'they ARE set: do not send him to set them');
+  // And the value itself is nowhere, as always.
+  for (const sink of [run.stdout, run.stderr, summary, fs.readFileSync(path.join(dir, 'status.json'), 'utf8')]) {
+    assert.ok(!sink.includes('AEBfake value with a space'));
+  }
+});
+
 test('command line: an expired login leaks nothing into the Actions log, the summary or the commit', async (t) => {
   const { mock, dir } = await setup(t);
   rotatedLogin(mock);

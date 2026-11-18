@@ -93,13 +93,13 @@ Things worth knowing:
 | ESPN moves its address again | GitHub emails you after the job has failed for a day. Add the new address as the first line of `DEFAULT_BASE_URLS` in `scripts/lib/espn-client.mjs`. Nothing else changes. |
 | You want to pause the job | On GitHub: Actions tab, "ESPN sync", the "..." menu, "Disable workflow". |
 | The league goes private again | Nothing breaks. The world keeps showing the last data it got. You can add your ESPN login so it keeps updating. See "Reading a private league". |
-| The world goes back to saying "sample data" | Your ESPN login has probably expired. See "When the login stops working". |
+| The standings stop changing for a day or two | Open the standings panel and read the line under the table. If it says the last check with ESPN did not go through, your login has expired. See "When the login stops working". |
 
 ## Reading a private league
 
-Our league is private, so ESPN will not show it to a stranger. The job can show ESPN that it is
-you by using the same two little files your browser already uses to keep you signed in. They are
-called cookies. Their names are `espn_s2` and `SWID`.
+Our league is private, so ESPN will not show it to a stranger. The job can prove it is you by
+using the same two values your browser already uses to keep you signed in. They are called
+cookies. Their names are `espn_s2` and `SWID`.
 
 **Read this part first.** Those two values together are your ESPN login. Anyone who has them can
 use ESPN as you. So:
@@ -109,25 +109,40 @@ use ESPN as you. So:
   shows them again, not even to you.
 - The job is built so that they do not end up in the repo, in the data files, on the website or
   in the job's own logs. It blanks them out of every line it prints or saves, as a last check.
-- If you think someone else has seen them, sign out of ESPN everywhere and sign back in. That
-  makes the old ones useless straight away. Then do step 1 and step 2 again.
+- If you think someone else has seen them, change your ESPN password. That makes the old values
+  useless straight away. Then do step 1 and step 2 again with the new ones. (Signing out of ESPN
+  also works, if you sign out on every device you use it on.)
 
 ### Step 1: get the two values from your browser
 
-On a computer, in Chrome or Edge:
+You need a laptop or a desktop computer for this step. Phones and tablets cannot show you
+cookies. Step 2 can be done on a phone afterwards if you prefer.
+
+In Chrome or Edge:
 
 1. Go to `fantasy.espn.com` and sign in, so you can see our league.
 2. Press F12. A panel opens. (On a Mac: Command, Option, I.)
 3. Click the **Application** tab at the top of that panel. If you do not see it, click the small
    arrows to show more tabs.
 4. In the list on the left, open **Cookies**, then click `https://fantasy.espn.com`.
-5. A table appears. Find the row named `espn_s2`. Click it. Copy the whole **Value**. It is very
-   long, a couple of hundred characters, and has `%` signs in it. Copy all of it.
-6. Find the row named `SWID`. Copy its whole **Value** too. It looks like
+5. A table appears. Find the row named `espn_s2`. **Double-click its Value cell**, then press
+   Ctrl+A and Ctrl+C (on a Mac, Command+A then Command+C). That copies the whole thing. The
+   value is about 300 characters long and has `%` signs in it. Do not drag across it to select
+   it: the column only shows the beginning, and a half-copied value looks fine to you but is
+   rejected by ESPN.
+6. Do the same for the row named `SWID`. That one is short and looks like
    `{AB12CD34-56EF-78AB-90CD-EF1234567890}`.
+
+If the panel offers a tick box called "Show URL-decoded", leave it unticked. The `espn_s2` value
+is supposed to arrive with its `%` signs in it, and ESPN rejects it without them.
 
 In Safari, turn on the Develop menu first: Safari, Settings, Advanced, "Show features for web
 developers". Then Develop, Show Web Inspector, and use the Storage tab instead of Application.
+
+Browsers move these panels around and rename things between versions, so what you see may not
+match the words above. That is fine. All you need is the value of the two cookies named
+`espn_s2` and `SWID`, so any up-to-date guide for your own browser will get you to the same
+place.
 
 Keep the browser window open until you have finished step 2.
 
@@ -144,29 +159,39 @@ Keep the browser window open until you have finished step 2.
 
 You should now see two secrets listed, `ESPN_S2` and `ESPN_SWID`. GitHub shows only the names.
 
-Do not worry about the curly braces, spare spaces, quote marks or a leftover `SWID=` in front of
-the value. The job tidies all of that up. Both names must be spelled exactly as above, and you
-need both. One on its own does nothing, and the job will say so in its log.
+Do not worry about the curly braces, a space or a newline at either end, quote marks, or a
+leftover `SWID=` in front of the value. The job tidies all of that up. What it cannot fix is a
+space or a line break in the MIDDLE of a value, which is what you get if the value was copied in
+two pieces. Both names must be spelled exactly as above, and you need both. One on its own does
+nothing, and the job says so on the run page.
 
 ### Step 3: check it worked
 
-On GitHub: the **Actions** tab, then "ESPN sync", then **Run workflow**. Wait a minute, then open
-the run. If it worked, the summary at the top says `Result: ok`. Open the world and the "sample
-data" label on the standings board is gone.
+On GitHub: the **Actions** tab, then "ESPN sync", then **Run workflow**. Give it a minute or two,
+then open the run. If it worked, the summary at the top says `Result: ok`. That summary is the
+part that tells you whether it worked.
+
+The world itself takes longer to catch up, usually 10 to 20 minutes, because GitHub has to
+republish the site. Once it does, the "sample data" label on the standings board is gone.
 
 If the summary says `login_expired`, ESPN would not accept the two values. ESPN does not tell us
-why, so it is one of these three:
+why, so it is one of these four:
 
 - one of the values was copied wrong, or only part of it was copied,
+- the `espn_s2` value was copied with the `%` signs stripped out of it (the summary points this
+  one out on its own "ESPN login" line, and step 1 says which tick box causes it),
 - the values have already changed (see "When the login stops working" below),
 - or the ESPN account they came from is not in this league.
 
 Go back to step 1 in the same browser you are signed in to, check that you can see our league
 there, and copy both values again.
 
-If the summary still says `league_private` with both secrets set, the job did not send the login
-at all, because the address it was told to use is not an ESPN one. That only happens if someone
-has set `ESPN_BASE_URLS` in the job. Remove it and run the job again.
+If the summary still says `league_private` even though both secrets are set, the job chose not to
+send the login at all. The summary says why on its own "ESPN login" line, and there is a yellow
+note headed "ESPN login" near the top of the run page as well. Almost always it is that the
+pasted value picked up a space or a line break, so copy that one value again, on its own, and
+update the secret with its pencil icon. (The other possible cause is an `ESPN_BASE_URLS` setting
+in the job that does not point at ESPN. It is normally not set at all.)
 
 ### What this means for privacy
 
@@ -174,20 +199,32 @@ Once this works, the job writes the league's **real** names, rosters, scores, dr
 seasons into this repo, and this repo is public. That means:
 
 - Anybody with the link can read our real team names, records, scores, lineups and draft.
-- Anybody can also see them in the files on GitHub, and in the repo's history, forever.
-- The job deliberately leaves out some things ESPN sends, such as member ids and the email
-  addresses and real names attached to accounts. It never saves those.
+- Each manager's **first name** is saved as well, exactly as ESPN has it, so it is public too.
+  Last names are not.
+- Anybody can also see all of it in the files on GitHub, and in the repo's history, forever.
+- The job does leave out the rest of what ESPN sends about people. Last names, display names,
+  email addresses and ESPN member ids are never saved. Each owner gets a short one-way hash
+  instead, so the world can follow the same person across seasons without storing who they are.
+  (The invented sample league under `scripts/fixtures/` contains made-up ids that look like real
+  ones. They are produced by a random generator in `scripts/make-fixture.mjs` and belong to
+  nobody.)
 - Your ESPN login itself is never written anywhere. Only the league data is.
 
-If any of that is not okay, do not add the secrets. The world runs happily on sample data.
+If any of that is not okay, do not add the secrets. The world runs happily on sample data. The
+other managers are in this too, so it is worth telling them before you switch it on.
 
 ### When the login stops working
 
-ESPN changes these values from time to time, usually every few weeks, and always when you change
-your ESPN password or sign out. When that happens:
+ESPN changes these values from time to time. It always happens when you change your ESPN password
+or sign out, and it can also happen on its own. There is no schedule to plan around, so do not
+watch the calendar: the job tells you when it has happened. When it does:
 
-- Nothing breaks and nothing is lost. The world keeps showing the last data it got, and starts
-  saying "sample data" again if it never had real data.
+- Nothing breaks and nothing is lost, and that is exactly why it is easy to miss. The job still
+  finishes green, GitHub does not email you, and the world keeps showing the last data it got.
+  Once it has had real data once, the "sample data" label does NOT come back.
+- How to spot it in the world: open the standings panel. The line under the table changes to
+  "The data was last saved ... ago. The last check with ESPN did not go through, so this is the
+  most recent good copy." If the standings have stopped moving, read that line first.
 - `world/data/status.json` says `login_expired`, and the job's log says in plain words what to do.
 - The fix is to do step 1 and step 2 again. In step 2 you click the existing secret's pencil icon
   and paste the new value instead of making a new secret. `ESPN_S2` is usually the only one that

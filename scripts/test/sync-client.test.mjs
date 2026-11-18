@@ -8,7 +8,7 @@ import {
   autoSeason, classifyResponse, createClient, mayCarryLogin, parseBaseUrls, readConfig,
   DEFAULT_BASE_URLS, DEFAULT_LEAGUE_ID, REASONS, USER_AGENT, VIEWS,
 } from '../lib/espn-client.mjs';
-import { readLogin } from '../lib/espn-login.mjs';
+import { LOGIN_EXPIRED_DETAIL, readLogin } from '../lib/espn-login.mjs';
 import { startMockEspn } from '../testing/mock-espn.mjs';
 import { FAST } from '../testing/helpers.mjs';
 
@@ -392,6 +392,65 @@ test('login: the scrubber catches a value, in plain and url-encoded form', () =>
   assert.equal(readLogin({ ESPN_S2: 'a.*b+c(d)[e]', ESPN_SWID: SWID }).scrub('x aXXXbbbcd y'), 'x aXXXbbbcd y');
 });
 
+test('login: a value cut short by a length limit upstream is still redacted', () => {
+  // Several strings are capped BEFORE they reach the scrubber: a detail is sliced to 160 or
+  // 300 characters, normalize caps a text field at 80. A cut leaves a prefix, and a prefix of
+  // a login is still far too much to publish, so prefixes are needles too.
+  const long = `AEBfakefake%2Fnotreal%2Bvalue${'abcdefghij'.repeat(12)}`;
+  const { scrub } = readLogin({ ESPN_S2: long, ESPN_SWID: SWID });
+  for (const cut of [32, 48, 80, 120, 160, long.length]) {
+    const out = scrub(`detail: ${long.slice(0, cut)} end`);
+    assert.match(out, /\[redacted\]/, `a ${cut} character cut must be caught`);
+    // Whatever a cut between two needle lengths leaves behind is a handful of characters.
+    assert.ok(out.length - '[redacted]'.length - 'detail:  end'.length < 16, `too much left of a ${cut} character cut`);
+  }
+  // The whole value is replaced by one [redacted], never by a prefix plus a readable tail.
+  assert.equal(scrub(`x ${long} y`), 'x [redacted] y');
+
+  // JSON escaping is another form of the same value: the data files are scrubbed as serialized
+  // JSON, where a quote or a backslash inside a value would no longer match the plain form.
+  const quoted = 'AEB"with\\quotes%2Fand%2Bslashes1234567890abcdefghij';
+  const esc = readLogin({ ESPN_S2: quoted, ESPN_SWID: SWID }).scrub;
+  assert.equal(esc(JSON.stringify({ detail: quoted })), '{"detail":"[redacted]"}');
+
+  // And none of this turns the scrubber into something that eats ordinary league text.
+  assert.equal(scrub("Dan's Real Cool League, generatedAt 2026-11-18T04:53:00Z"), "Dan's Real Cool League, generatedAt 2026-11-18T04:53:00Z");
+});
+
+test('login: the notes name the copying mistake, never the value', () => {
+  // A real espn_s2 is percent-encoded. Chrome's cookie panel has a "Show URL-decoded" tick box
+  // that stays ticked, and a decoded value is header-safe, so it is accepted and refused by
+  // ESPN, whose only advice ("copy it again") reproduces the same wrong value.
+  const decoded = readLogin({ ESPN_S2: decodeURIComponent(S2), ESPN_SWID: SWID });
+  assert.equal(decoded.state, 'ready', 'still used: a note is a hint, not a refusal');
+  assert.match(decoded.note, /no % signs in it/);
+  assert.match(decoded.note, /URL-decoded/);
+  assert.equal(readLogin({ ESPN_S2: S2, ESPN_SWID: SWID }).note, null, 'a normal pair says nothing');
+
+  // A secret that exists but holds nothing usable is a different mistake from a missing one,
+  // and "Only one of the two is set" sends the owner to look at a secret that is plainly there.
+  for (const raw of ['SWID=', '{}', '""', '{ }']) {
+    const login = readLogin({ ESPN_S2: S2, ESPN_SWID: raw });
+    assert.equal(login.state, 'partial');
+    assert.equal(login.cookie, null);
+    assert.match(login.note, /holds no usable value/);
+    assert.doesNotMatch(login.note, /Only one of the two/);
+  }
+  // Both missing is still the quiet default, and nothing is said about it at all.
+  assert.deepEqual([readLogin({}).state, readLogin({}).note], ['none', null]);
+  // Both boxes filled with nothing usable is reported, not treated as "no login configured".
+  const bothEmpty = readLogin({ ESPN_S2: '""', ESPN_SWID: '{}' });
+  assert.equal(bothEmpty.state, 'partial');
+  assert.match(bothEmpty.note, /holds no usable value/);
+
+  // No note ever carries a value, a prefix of one, or its length.
+  for (const login of [decoded, readLogin({ ESPN_S2: S2, ESPN_SWID: 'SWID=' }), readLogin({ ESPN_S2: 'has spaces in it', ESPN_SWID: SWID })]) {
+    const text = String(login.note ?? '');
+    assert.ok(!text.includes(S2) && !text.includes(SWID_BARE) && !text.includes(decodeURIComponent(S2)));
+    assert.doesNotMatch(text, new RegExp(`${S2.slice(0, 8)}|${String(S2.length)} characters`));
+  }
+});
+
 test('login: the cookie goes on league requests only, never to the public endpoints', async (t) => {
   const mock = await withMock(t);
   mock.behavior.auth = { espn_s2: S2, swid: SWID }; // private, but openable with this login
@@ -456,6 +515,83 @@ test('login: a stale login does not matter once the league is public', async (t)
   assert.equal(res.data.teams.length, 12);
   assert.equal(mock.count('current'), 2);
   assert.match(lines.join('\n'), /it worked without the login: the league is public/);
+});
+
+test('login: only a working cookie-free try may overrule the signed-in refusal', async (t) => {
+  const mock = await withMock(t);
+  // The signed-in request is refused (the saved pair is not the one ESPN wants any more), and
+  // the cookie-free try meets something that is NOT a 401. That second answer says nothing
+  // about the login, so it must not replace the verdict: reporting endpoint_moved or not_found
+  // here would start the 24 hour "ESPN moved" clock and send the owner to edit base URLs.
+  for (const [mode, wouldHaveBeen] of [['html', 'endpoint_moved'], ['notfound', 'not_found'], ['error', 'server_error'], ['ratelimit', 'rate_limited'], ['drop', 'network']]) {
+    mock.reset();
+    mock.behavior.auth = { espn_s2: 'rotated-since', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}', allowAnonymous: true };
+    mock.behavior.byKind = { current: mode };
+    const { client, lines } = clientFor(mock, { cookie: COOKIE });
+
+    const res = await client.fetchLeague(2026, VIEWS.current, {}, { tryAllBases: false });
+
+    assert.equal(res.reason, 'login_expired', `a cookie-free ${wouldHaveBeen} must not overrule the 401`);
+    assert.equal(res.detail, LOGIN_EXPIRED_DETAIL);
+    assert.equal(res.retryable, false);
+    assert.match(lines.join('\n'), /the saved login is the thing that stopped working/);
+  }
+
+  // ...and a cookie-free try that WORKS still wins, because the league really is public now.
+  mock.reset();
+  mock.behavior.auth = { espn_s2: 'rotated-since', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}', allowAnonymous: true };
+  const { client } = clientFor(mock, { cookie: COOKIE });
+  assert.equal((await client.fetchLeague(2026, VIEWS.current)).ok, true);
+});
+
+test('login: a 403 is ESPN forbidding the request, and is never published as an expired login', async () => {
+  // classifyResponse maps a 403 WITH an ESPN error body to league_private, the same reason a
+  // 401 gets. Only a 401 is ESPN answering "this login does not get you in", so the promotion
+  // is keyed on the status: otherwise status.json tells the public web that "ESPN answered 401"
+  // when it did not, and the owner is told to replace a login that still works.
+  const seen = [];
+  const body = JSON.stringify({ messages: ['Forbidden'], details: [{ type: 'ACCESS_DENIED' }] });
+  const fetchImpl = async (url, init) => {
+    seen.push(init.headers.Cookie ?? null);
+    return new Response(body, { status: 403, headers: { 'content-type': 'application/json' } });
+  };
+  const client = createClient({ baseUrls: ['https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl'], ...FAST, cookie: COOKIE, fetchImpl });
+
+  const res = await client.fetchLeague(2026, VIEWS.current, {}, { tryAllBases: false });
+
+  assert.equal(res.reason, 'league_private');
+  assert.equal(res.status, 403);
+  assert.doesNotMatch(res.detail, /401/);
+  assert.equal(seen.length, 1, 'no cookie-free try: a 403 is not a question about the login');
+});
+
+test('login: the cookie-free try happens once a run, not once a season', async (t) => {
+  const mock = await withMock(t);
+  // A run asks for the current season and up to seven past ones. With a stale login, repeating
+  // the cookie-free try for each of them would double every request in the run and push ESPN
+  // towards a rate limit, and the second one could not say anything the first did not.
+  mock.behavior.auth = { espn_s2: 'rotated-since', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}' };
+  const { client } = clientFor(mock, { cookie: COOKIE });
+
+  for (const year of [2025, 2024, 2023]) {
+    assert.equal((await client.fetchPastSeason(year)).reason, 'login_expired', String(year));
+  }
+
+  assert.equal(mock.count('history'), 4, 'three signed-in requests and one cookie-free try in all');
+  assert.deepEqual(
+    mock.requests.map((r) => Boolean(r.headers.cookie)),
+    [true, false, true, true],
+    'only the first refusal is double-checked',
+  );
+
+  // But a league that IS readable without the login keeps being read that way, season after
+  // season: that is the whole point of the cookie-free try and it must not be memoised away.
+  mock.reset();
+  mock.behavior.auth = { espn_s2: 'rotated-since', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}', allowAnonymous: true };
+  const fresh = clientFor(mock, { cookie: COOKIE }).client;
+  for (const year of [2025, 2024, 2023]) {
+    assert.equal((await fresh.fetchPastSeason(year)).ok, true, `${year} is public and must still be read`);
+  }
 });
 
 test('login: with no login configured nothing about the request changes', async (t) => {

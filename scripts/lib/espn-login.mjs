@@ -34,12 +34,31 @@ export const REDACTED = '[redacted]';
 const MIN_SCRUB_LENGTH = 8;
 
 /**
+ * Some strings are cut to a maximum length BEFORE they reach the scrubber: a detail is sliced
+ * to 160 or 300 characters, normalize caps a text field at 80. A cut always leaves a PREFIX of
+ * whatever it cut, so prefixes are needles too, from this length upward in these steps. Half a
+ * login is still too much to publish. 32 characters is far longer than any coincidence with
+ * ordinary league text, and the step bounds what a cut in the middle of a step can leave
+ * behind at 5 characters of a value hundreds long. The floor is low on purpose: normalize caps a
+ * team abbrev at 12 characters and a first name at 20, so a higher floor would let a short slice
+ * of a login through those two sinks. 10 characters of base64 is still far past coincidence.
+ */
+const MIN_PARTIAL_LENGTH = 10;
+const PARTIAL_STEP = 6;
+
+/**
  * What status.json says when a signed-in request was still refused. A FIXED sentence: the
  * detail is published on the public web, so it carries no value, no length and no host.
  */
 export const LOGIN_EXPIRED_DETAIL =
   'The ESPN login saved in the GitHub secrets no longer works: ESPN answered 401 for the signed-in request, ' +
   'and the league is not public either. Copy espn_s2 and SWID from your browser again and update the two secrets.';
+
+/** Said when a secret exists but nothing usable survived cleaning (a bare name, braces, quotes). */
+const EMPTY_VALUE_NOTE =
+  'One of the two ESPN login secrets holds no usable value: after the quotes, braces and any "SWID=" in front are ' +
+  'taken off there is nothing left, so this run asked ESPN without a login. Open that secret with its pencil icon ' +
+  'and paste just the value from the browser.';
 
 /** The two environment variables, in the order the owner sets them up. */
 export const LOGIN_ENV = Object.freeze(['ESPN_S2', 'ESPN_SWID']);
@@ -87,24 +106,49 @@ function variantsOf(value) {
     out.push(decodeURIComponent(value));
   } catch { /* a lone % is not decodable, which is fine */ }
   out.push(`{${value}}`, value.replace(/^\{+/, '').replace(/\}+$/, ''));
+  // The data files are scrubbed as serialized JSON, where a quote or a backslash in a value
+  // would have become \" or \\ and so would no longer match the plain form.
+  const escaped = JSON.stringify(value).slice(1, -1);
+  if (escaped !== value) out.push(escaped);
+  return out;
+}
+
+/** Every form of one value worth searching for: the whole thing, and its longer prefixes. */
+function needlesFor(value) {
+  const forms = variantsOf(value);
+  const out = [...forms];
+  for (const form of forms) {
+    for (let n = MIN_PARTIAL_LENGTH; n < form.length; n += PARTIAL_STEP) out.push(form.slice(0, n));
+  }
   return out;
 }
 
 /**
- * Build the scrubber: a function that replaces every occurrence of any secret value, in plain
- * or url-encoded form, with [redacted]. Plain string search, so a value full of regex
- * metacharacters is handled too. With nothing to hide it is the identity function, which keeps
- * the no-secrets path byte-for-byte as it was.
+ * Build the scrubber: a function that replaces every occurrence of any secret value, in plain,
+ * url-encoded, JSON-escaped or cut-short form, with [redacted]. Plain string search, so a value
+ * full of regex metacharacters is handled too. Longest needle first, so a whole value is never
+ * replaced by its own prefix plus a readable tail. With nothing to hide it is the identity
+ * function, which keeps the no-secrets path byte-for-byte as it was.
  */
 export function makeScrub(values = []) {
-  const needles = [...new Set(values.filter(Boolean).flatMap((v) => variantsOf(String(v))))]
+  const needles = [...new Set(values.filter(Boolean).flatMap((v) => needlesFor(String(v))))]
     .filter((n) => n.length >= MIN_SCRUB_LENGTH)
     .sort((a, b) => b.length - a.length); // longest first, so a braced value is not half-redacted
   if (needles.length === 0) return (text) => text;
+  // Case-insensitive: a sink may change case on the way through (firstNameOnly title-cases what
+  // it keeps), and a case-folded half of a login is still a leak. Matching is done on lowered
+  // copies while the ORIGINAL text is spliced, so nothing else about the string is disturbed.
+  const lowered = needles.map((n) => n.toLowerCase());
   return (text) => {
     if (typeof text !== 'string' || text === '') return text;
     let out = text;
-    for (const needle of needles) if (out.includes(needle)) out = out.split(needle).join(REDACTED);
+    for (const needle of lowered) {
+      for (;;) {
+        const at = out.toLowerCase().indexOf(needle);
+        if (at < 0) break;
+        out = out.slice(0, at) + REDACTED + out.slice(at + needle.length);
+      }
+    }
     return out;
   };
 }
@@ -118,24 +162,36 @@ export function makeScrub(values = []) {
  *           'unusable' both are set but one cannot go in a header (no login is sent)
  *   cookie  the finished "espn_s2=...; SWID={...}" header string, or null
  *   scrub   see makeScrub
- *   note    one plain sentence for the owner, or null. Never names a value.
+ *   note    one or two plain sentences for the owner, or null. Never names a value.
  */
 export function readLogin(env = process.env) {
   const rawS2 = env.ESPN_S2;
   const rawSwid = env.ESPN_SWID;
   const s2 = cleanLoginValue(rawS2, 'espn_s2');
   const swid = cleanLoginValue(rawSwid, 'swid');
+  // "Set but holds nothing we can use" is a different mistake from "not set at all", and it
+  // sends the owner to a different place, so the two are not reported with one sentence.
+  const setButEmpty = (raw, cleaned) => !cleaned && String(raw ?? '').trim() !== '';
   // Built from the raw and the cleaned forms, whatever the state: a half-set secret is still
   // a secret, and a value we refuse to send must still never be printed.
   const scrub = makeScrub([String(rawS2 ?? '').trim(), String(rawSwid ?? '').trim(), s2, swid]);
   const nothing = (state, note = null) => ({ state, cookie: null, scrub, note });
 
-  if (!s2 && !swid) return nothing('none');
+  if (!s2 && !swid) {
+    // Both empty, but if a value was pasted and nothing survived cleaning, say so: otherwise
+    // the owner reads "none set" while looking at two secrets that are plainly there.
+    if (setButEmpty(rawS2, s2) || setButEmpty(rawSwid, swid)) {
+      return nothing('partial', EMPTY_VALUE_NOTE);
+    }
+    return nothing('none');
+  }
   if (!s2 || !swid) {
     return nothing(
       'partial',
-      'Only one of the two ESPN login secrets is set. Both ESPN_S2 and ESPN_SWID are needed, so this run asked ESPN ' +
-      'without a login. Add the missing one in Settings, Secrets and variables, Actions.',
+      setButEmpty(rawS2, s2) || setButEmpty(rawSwid, swid)
+        ? EMPTY_VALUE_NOTE
+        : 'Only one of the two ESPN login secrets is set. Both ESPN_S2 and ESPN_SWID are needed, so this run asked ESPN ' +
+          'without a login. Add the missing one in Settings, Secrets and variables, Actions.',
     );
   }
   if (!HEADER_SAFE.test(s2) || !HEADER_SAFE.test(swid)) {
@@ -147,15 +203,33 @@ export function readLogin(env = process.env) {
     );
   }
 
+  // Notes on a login that IS used: they describe the shape of a known copying mistake, never
+  // the value. A false alarm costs nothing, because the value is sent either way.
+  const notes = [];
+  if (!GUID.test(swid)) {
+    notes.push(
+      'The ESPN_SWID secret does not look like the usual {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX} shape. It was used ' +
+      'anyway. If ESPN refuses the login, copy the whole value again, braces included.',
+    );
+  }
+  // A real espn_s2 is percent-encoded, so it always carries % signs. None at all almost always
+  // means the browser's cookie panel was showing the decoded value (Chrome has a "Show
+  // URL-decoded" tick box that stays ticked), and ESPN refuses the decoded bytes. Without this
+  // note the only advice the owner gets is "copy it again", which reproduces the same value.
+  if (!s2.includes('%')) {
+    notes.push(
+      'The ESPN_S2 secret has no % signs in it, which usually means it was copied with the "Show URL-decoded" box ' +
+      'ticked in the browser\'s cookie panel. It was used anyway. If ESPN refuses the login, untick that box and ' +
+      'copy the value again.',
+    );
+  }
+
   return {
     state: 'ready',
     // The SWID braces are what ESPN itself sets, so they go back on here. Uppercase SWID and
     // lowercase espn_s2 are the names every working client sends.
     cookie: `espn_s2=${s2}; SWID={${swid}}`,
     scrub,
-    note: GUID.test(swid)
-      ? null
-      : 'The ESPN_SWID secret does not look like the usual {XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX} shape. It was used ' +
-        'anyway. If ESPN refuses the login, copy the whole value again, braces included.',
+    note: notes.length ? notes.join(' ') : null,
   };
 }

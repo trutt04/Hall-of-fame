@@ -19,11 +19,12 @@
  *   - sent only on league-scoped requests, never on the public NFL schedule or player list,
  *     so an expired login can never break the parts that work without one
  *   - sent only over https to an espn.com address (loopback is allowed so the tests can use
- *     the local mock), because ESPN_BASE_URLS is operator-supplied and redirects are followed
+ *     the local mock), because ESPN_BASE_URLS is operator-supplied: the address the login is
+ *     offered to is checked here rather than trusted
  *   - never interpolated into a detail, a log line or an error: headers are not printed here,
  *     and describeFetchError deliberately tests the fetch error message without echoing it
- *   - when ESPN refuses a signed-in request, the same request is retried WITHOUT the login (a
- *     league that has since been made public still works) and only then reported as
+ *   - when ESPN answers 401 to a signed-in request, the same request is retried WITHOUT the
+ *     login (a league that has since been made public still works) and otherwise reported as
  *     "login_expired", whose detail is a fixed sentence holding no value of any kind
  *
  * IF ESPN MOVES AGAIN: add the new address at the top of DEFAULT_BASE_URLS below, or set the
@@ -118,8 +119,9 @@ function hostOf(url) {
 /**
  * May the login be sent to this address? Only https ESPN addresses, plus loopback so the
  * tests can point the client at scripts/testing/mock-espn.mjs. Everything else gets the
- * ordinary public request: ESPN_BASE_URLS can be set by hand and redirects are followed, so
- * the login must not be allowed to travel just anywhere.
+ * ordinary public request: ESPN_BASE_URLS can be set by hand, so the address a login is
+ * offered to is checked instead of trusted. (Node's fetch drops a manually set Cookie header
+ * on a cross-origin redirect by itself, so this guards the address we choose, not the hops.)
  */
 export function mayCarryLogin(url) {
   try {
@@ -218,7 +220,10 @@ export function createClient({
 } = {}) {
   const bases = baseUrls.map((b) => String(b).replace(/\/+$/, ''));
   const login = typeof cookie === 'string' && cookie !== '' ? cookie : null;
-  const state = { base: bases[0], requests: 0, started: Date.now() };
+  // anonymousRefused: a cookie-free league request has already been refused in this run, so
+  // repeating it for every remaining season would only add 401s. Nothing about the league's
+  // visibility changes inside one run.
+  const state = { base: bases[0], requests: 0, started: Date.now(), anonymousRefused: false };
 
   const timeLeft = () => budgetMs - (Date.now() - state.started);
 
@@ -330,16 +335,37 @@ export function createClient({
   /**
    * A league-specific request for one season: the only kind that needs the login.
    *
-   * If a signed-in request is refused, the same request is tried once more WITHOUT the login.
-   * That matters because ESPN answers the same 401 whether the login is dead, the league is
-   * private, or both: the second try is what tells "the login expired" (401 again) apart from
+   * If a signed-in request is refused with a 401, the same request is tried once more WITHOUT
+   * the login. That matters because ESPN answers the same 401 whether the login is dead, the
+   * league is private, or both: the second try is what tells "the login expired" apart from
    * "the league was made public in the meantime" (it just works).
+   *
+   * The second try may only UPGRADE the verdict, never replace it. A 401 on the signed-in
+   * request is the authoritative word on the login, and it also proves ESPN itself is alive
+   * and answering at this address. If the cookie-free try answers anything else (an HTML
+   * challenge page, a 404, a 429, a dropped connection) that answer must not be allowed to
+   * blame the address instead: reporting endpoint_moved or not_found here would start the 24
+   * hour "ESPN moved" clock, turn the job red, and tell the owner to edit DEFAULT_BASE_URLS
+   * when the real fix is to copy two cookies again.
+   *
+   * The promotion is keyed on the HTTP status, not on the reason: classifyResponse also maps a
+   * 403 with an ESPN error body to league_private, and a 403 is ESPN forbidding the request,
+   * not a statement about the login. Those stay league_private.
+   *
+   * The cookie-free try is made at most once per run. A run asks for the current season and
+   * then up to seven past ones, and ESPN answers 401 at one season and not another, so without
+   * this a stale login would double every one of those requests and push the run towards a
+   * rate limit. Once a cookie-free request has been refused, the answer is known.
    */
   async function fetchLeague(season, views, params = {}, { label = `league ${season}`, tryAllBases = true } = {}) {
     const leaguePath = `/seasons/${season}/segments/0/leagues/${leagueId}`;
     const signedIn = await cascade(leaguePath, views, params, { label, tryAllBases, withLogin: true });
-    // Only a login that was really sent can be the thing ESPN refused.
-    if (!signedIn.loginSent || signedIn.reason !== 'league_private') return signedIn;
+    // Only a login that was really sent, and really answered with a 401, can be the thing
+    // ESPN refused.
+    if (!signedIn.loginSent || signedIn.status !== 401) return signedIn;
+    // A fixed detail, because this one is published: no value, no length, not even a host.
+    const expired = { ...signedIn, reason: 'login_expired', detail: LOGIN_EXPIRED_DETAIL, retryable: false };
+    if (state.anonymousRefused) return expired;
 
     log('  ESPN refused the signed-in request. Trying again without the login, in case the league is public now.');
     const anonymous = await cascade(leaguePath, views, params, { label: `${label}, without the login`, tryAllBases, withLogin: false });
@@ -347,9 +373,9 @@ export function createClient({
       log('  it worked without the login: the league is public. The saved login is not needed but looks stale.');
       return anonymous;
     }
-    // A fixed detail, because this one is published: no value, no length, not even a host.
-    if (anonymous.reason === 'league_private') return { ...anonymous, reason: 'login_expired', detail: LOGIN_EXPIRED_DETAIL, retryable: false };
-    return anonymous;
+    state.anonymousRefused = true;
+    log('  that was refused too, so the saved login is the thing that stopped working.');
+    return expired;
   }
 
   /** A game-level request (not tied to the league), e.g. the NFL schedule. */

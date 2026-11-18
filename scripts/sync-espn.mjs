@@ -417,7 +417,15 @@ async function syncHistory(ctx, { client, main, season, existing, prevStatus, li
 
   const merged = new Map([...have, ...fresh]);
   const history = buildHistory([...merged.values()], { source: 'espn', generatedAt: now });
+  // A real history never shrinks: `have` carries every season already saved into `merged`, so
+  // a run where every fetch fails can only ever leave it exactly as it was. The one case that
+  // does replace a fuller file with an emptier one is the placeholder being replaced by an
+  // honest empty history, which is deliberate: invented champions must not sit in the Hall of
+  // Fame next to real standings. Nothing is lost, and the seasons are retried the next day.
   const changed = !haveReal || !sameIgnoringStamp(existing, history);
+  if (changed && !haveReal && merged.size === 0) {
+    log('  no past season could be read yet, so the invented ones are cleared rather than shown as real. They are retried tomorrow.');
+  }
   return { history, changed, attempted: toFetch.length > 0, sampleRaw, sampleYear, saved: merged.size, wanted: wanted.length };
 }
 
@@ -534,7 +542,9 @@ async function runLive(ctx) {
         league = null;
       }
     } catch (err) {
-      outcome = { ok: false, reason: 'bad_shape', detail: `ESPN answered but it could not be read: ${String(err?.message ?? err).slice(0, 160)}` };
+      // Scrubbed BEFORE the slice: a cut value would no longer match the needle for the whole
+      // one. (The scrubber also knows the longer prefixes, so this is belt and braces.)
+      outcome = { ok: false, reason: 'bad_shape', detail: `ESPN answered but it could not be read: ${ctx.scrub(String(err?.message ?? err)).slice(0, 160)}` };
       log(`ESPN answered, but normalizing it failed: ${err?.stack ?? err}`);
       league = null;
     }
@@ -613,12 +623,19 @@ async function runLive(ctx) {
   if (outcome.ok) {
     message = `${outcome.detail}. ${dataWritten ? 'New data saved.' : 'No changes.'}`;
   } else if (outcome.reason === 'league_private') {
-    // With a usable login this reason means the login was never sent, because the address in
-    // use is not an https ESPN one. A login that WAS sent and refused is login_expired below.
-    message = login.state === 'ready'
-      ? 'The league is still private (ESPN answered 401), and the saved login was not sent because the address in use is not an https ESPN address. Saved data was kept.'
-      : 'The league is still private (ESPN answered 401). Saved data was kept. This starts working by itself once the league is made public, or once the two login secrets are set.';
-    log('What this means: the league is private. Nothing is broken. Either make the league viewable to the public, or set the ESPN_S2 and ESPN_SWID secrets (see world/README.md).');
+    // This reason always means no login went out. Which of the three ways that happened is
+    // the one thing the owner needs, and the summary is the only place he is told to look.
+    if (login.state === 'ready') {
+      message = 'The league is still private (ESPN answered 401), and the saved login was not sent because the address in use is not an https ESPN address. Saved data was kept.';
+      log('What this means: the league is private and the saved login was never offered, because the address in use is not an https ESPN one (ESPN_BASE_URLS). Saved data was kept.');
+    } else if (login.state === 'none') {
+      message = 'The league is still private (ESPN answered 401). Saved data was kept. This starts working by itself once the league is made public, or once the two login secrets are set.';
+      log('What this means: the league is private. Nothing is broken. Either make the league viewable to the public, or set the ESPN_S2 and ESPN_SWID secrets (see world/README.md).');
+    } else {
+      level = 'warning';
+      message = 'The league is still private (ESPN answered 401) and the saved login could not be used, so none was sent. Saved data was kept. See the "ESPN login" note on this run for which secret to redo.';
+      log('What this means: the league is private AND the two login secrets could not be used, so this run asked as the public. Fix the secrets (see the ESPN login note above) and run it again.');
+    }
   } else if (outcome.reason === 'login_expired') {
     level = 'warning';
     message = 'The saved ESPN login no longer works, and the league is not public. Saved data was kept. Fix: copy espn_s2 and SWID from your browser again and update the ESPN_S2 and ESPN_SWID secrets.';
@@ -651,7 +668,7 @@ async function runLive(ctx) {
     level,
     title: 'League sync',
     message,
-    summary: `### League sync\n\n- Result: **${outcome.ok ? 'ok' : outcome.reason}**\n- ${outcome.detail}\n- Files written: ${Object.entries(wrote).filter(([, v]) => v).map(([k]) => `${k}.json`).join(', ') || 'none'}\n`,
+    summary: `### League sync\n\n- Result: **${outcome.ok ? 'ok' : outcome.reason}**\n- ${outcome.detail}\n${login.note ? `- ESPN login: ${login.note}\n` : ''}- Files written: ${Object.entries(wrote).filter(([, v]) => v).map(([k]) => `${k}.json`).join(', ') || 'none'}\n`,
   });
 
   return { exitCode, outcome, wrote, status, alertNow, commitMessage, requests: client.requests, league, history: historyResult?.history ?? null };
