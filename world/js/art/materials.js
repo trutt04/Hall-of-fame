@@ -6,6 +6,14 @@ import * as THREE from '../../lib/three.module.min.js';
 export const flatMat = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
 flatMat.name = 'lw-flat';
 
+// Gold that reads as precious metal under flat shading. The warm emissive lifts the shadow side
+// so it glints instead of going muddy, which is what tells the eye "polished" rather than "yellow".
+export const goldMat = new THREE.MeshLambertMaterial({
+  vertexColors: true, flatShading: true, emissive: 0x3d2a04, emissiveIntensity: 1,
+});
+goldMat.name = 'lw-gold';
+goldMat.userData = { shared: true };
+
 // Unlit: bulbs, flames, neon. Looks the same day and night.
 export const glowMat = new THREE.MeshBasicMaterial({ vertexColors: true });
 glowMat.name = 'lw-glow';

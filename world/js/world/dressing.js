@@ -103,7 +103,7 @@ export function createDressing(w) {
       at.y = terrain.heightAt(at.x, at.z);
       interact.register({ id: 'board:' + name, position: at, radius: 5, label, onUse: use({ kind }), object3D: frame.screen });
     };
-    mk('standings', P.standingsBoard, 12, 12.4, 990, 1024, 'Standings', 'standings');
+    mk('standings', P.standingsBoard, 24, 24.8, 1536, 1587, 'Standings', 'standings'); // about twice the size, with a sharper canvas to match
     mk('matchups', P.matchupBoard, 9, 6, 1024, 683, 'Matchups', 'matchups');
 
     const box = createNewspaperBox();

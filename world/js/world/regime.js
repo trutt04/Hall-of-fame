@@ -382,7 +382,7 @@ export function createRegime(w) {
 
     // ============================================================ 1. the monument
     {
-      const k = 0.9;
+      const k = 1.35; // the owner asked for about 50 percent larger
       const M = { x: 17.5, z: 5.5 };
       const plaza = layout.stations.plaza;
       const facing = Math.atan2(plaza.x - M.x, plaza.z - M.z);
@@ -433,9 +433,11 @@ export function createRegime(w) {
         const p = F.p(sx * (3.75 * k + 1.5), 0, 0.7);
         bannerPole(p[0], p[2], facing + (sx < 0 ? Math.PI : 0), sx < 0 ? 0 : 4, { height: 7.4, width: 1.3 });
       }
-      const stand = F.p(0, 0, plaqueAt[2] + 1.5);
+      // Stand back far enough that the whole figure fits on a phone screen. The camera trails
+      // behind the visitor, so the gap has to grow with the statue, not stay a fixed 1.5 m.
+      const stand = F.p(0, 0, plaqueAt[2] + 1.2 + tall * 0.45);
       register({
-        id: 'monument', position: v3(stand), radius: 3.4, label: 'Pay your respects', priority: 2,
+        id: 'monument', position: v3(stand), radius: 3.4 + tall * 0.2, label: 'Pay your respects', priority: 2,
         object3D: pickBox(F, 0, tall / 2, 0, 6.0 * k, tall, 3.6 * k), onUse: use({ kind: 'monument' }),
       });
       // The map lands the visitor off to one side. Straight in front would put the camera, which
@@ -443,8 +445,9 @@ export function createRegime(w) {
       const dl = Math.hypot(plaza.x - M.x, plaza.z - M.z) || 1;
       const dx = (plaza.x - M.x) / dl;
       const dz = (plaza.z - M.z) / dl;
-      const sx = M.x + dx * 4.0 - dz * 2.8;
-      const sz = M.z + dz * 4.0 + dx * 2.8;
+      const back = 3.0 + tall * 0.92; // scales with the statue so the whole figure clears the HUD
+      const sx = M.x + dx * back - dz * (2.2 + tall * 0.16);
+      const sz = M.z + dz * back + dx * (2.2 + tall * 0.16);
       spots.monument = { x: M.x, z: M.z, facing, stand: { x: sx, z: sz, facing: Math.atan2(M.x - sx, M.z - sz) } };
     }
 

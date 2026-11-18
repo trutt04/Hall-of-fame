@@ -7,15 +7,16 @@
 //   createLoudspeaker({ scale })   -> { group, height, radius, colliders, anchors: { top, horns }, dispose() }
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, shade } from './geo.js';
-import { flatMat } from './materials.js';
+import { flatMat, goldMat } from './materials.js';
 import { rng, makeProp, addMesh, V3 } from './util.js';
 import { C } from './parts.js';
 
-// One olive-gold bronze. Hair and beard are a darker bronze, the sunglasses near-black with gold rims.
+// Solid gold, not bronze. Wide value range so flat shading reads as polished metal rather than
+// flat yellow: deep shadows, hot highlights, and the rock the figure rises out of is gold too.
 const K = {
-  F: 0xbaa758, Fh: 0xd6c476, Fl: 0x8c7b3e, coat: 0x9d8c49, coatHi: 0xb5a358, coatDk: 0x74652f,
-  hair: 0x55461f, fade: 0x86743a, lens: 0x14151a, rim: C.goldHi, lip: 0xe2d08a,
-  rock: 0x8f7f47, rockDk: 0x776937, rockLt: 0xa39458, red: 0xc4122e, redDk: 0x8f0d22, stone: 0xb9b3a2, stoneDk: 0x97917f,
+  F: 0xf2c93f, Fh: 0xfff0a6, Fl: 0xa8761a, coat: 0xe5b72f, coatHi: 0xffe07a, coatDk: 0x8f6412,
+  hair: 0x9a6a12, fade: 0xd9a92c, lens: 0x14151a, rim: 0xfff3b0, lip: 0xfff6cc,
+  rock: 0xd9ad33, rockDk: 0x97690f, rockLt: 0xffd964, red: 0xc4122e, redDk: 0x8f0d22, stone: 0xb9b3a2, stoneDk: 0x97917f,
 };
 
 // The head, in monument units (2.4 tall), neck base on y = 0, facing +Z.
@@ -125,7 +126,7 @@ export function createLeaderStatue({ scale = 1 } = {}) {
   g.at(0, 6.36, 0.02, 0, -0.04); g.scale(1.12); drawLeaderHead(g); g.restore();
   g.jit = 0;
   g.shadeY(0.9 * scale, 3.0 * scale, 0.86);
-  addMesh(group, g, flatMat, own, 'leaderStatue');
+  addMesh(group, g, goldMat, own, 'leaderStatue');
   const s = scale;
   return makeProp(group, own, null, {
     height: 9.05 * s,
@@ -170,7 +171,7 @@ export function createLeaderBust({ weathered = false, scale = 1 } = {}) {
   }
   g.restore();
   g.shadeY(0, 0.8 * scale, 0.88);
-  addMesh(group, g, flatMat, own, 'leaderBust');
+  addMesh(group, g, goldMat, own, 'leaderBust');
   const k = scale, top = Y0 + (6.38 + 2.4 - CUT) * s;
   return makeProp(group, own, null, {
     height: top * k,
