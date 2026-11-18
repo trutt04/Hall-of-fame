@@ -186,7 +186,7 @@ export function createTown(w) {
     const trophySpot = () => P(A.trophy.x, A.trophy.y, A.trophy.z - slot++ * 1.8);
     const champ = seasonChampion(model);
     if (champ && champ.teamId === t.id) {
-      const cup = createLawnTrophy({ teamName: champ.teamName, season: champ.season, color: t.color, sample: !!model.meta.isSample });
+      const cup = createLawnTrophy({ teamName: champ.teamName, season: champ.season, sample: !!model.meta.isSample });
       if (cup) local(cup, trophySpot());
     }
     if (t.trophy && t.trophy.toilet) local(createGoldenToilet(), trophySpot());

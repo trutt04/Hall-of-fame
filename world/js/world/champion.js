@@ -11,12 +11,12 @@
 //   seasonChampion(model)        -> the completed season's winner, or null
 //   createLawnTrophy({ ... })    -> a Prop: the cup and its name plate
 //
-// Budget. The banners are ONE textured mesh on ONE atlas canvas (the same trick regime.js uses),
-// so five of them cost one draw call however many there are, and the masts cost one more while
-// the stand-in art is in use. The whole arc is hidden past 95 m, the way facility.js hides its
-// small props, so it costs nothing at all from the Hill. Every art builder is looked up through
-// the art index at call time, so one that is missing or throws costs this feature its detail and
-// nothing else.
+// Budget. The banners are ONE textured mesh on ONE atlas canvas (the same trick regime.js uses)
+// and the masts bake into ONE merged mesh, so the whole arc is two draw calls however many
+// champions the league has. It is hidden past 95 m, the way facility.js hides its small props,
+// so it costs nothing at all from the Hill terrace. Every art builder is looked up through the
+// art index at call time (the same guard facility.js and regime.js use), so one that is missing
+// or throws costs this feature its detail and nothing else.
 
 import * as THREE from '../../lib/three.module.min.js';
 import * as ART from '../art/index.js';
@@ -26,10 +26,9 @@ import { makeCanvas, fit, wrap, FONT_BODY, FONT_DISPLAY } from './signs.js';
 import { boardTexture } from './boards.js';
 
 const FAR = 95; // the masts stop drawing past this, like facility.js and its small props
-const NEAR_PLAZA = 55; // the confetti waits until the visitor is this close to the plaza
+const PLAZA_MARGIN = 4; // the confetti waits until the visitor is this far inside the plaza rim
 const SEEN_KEY = 'lw.champ.seen'; // the last season whose confetti this device has already had
-const LAST_SEEN_KEY = 'lw.lastSeen'; // the flow's own "since you were last here" record (ui/recap.js)
-const MAX_BANNERS = 6; // the arc has room for this many before they start to crowd each other
+const MAX_BANNERS = 5; // the five most recent, the same list the statue's plaque carries (boards.js)
 
 const GOLD = 0xf5c542;
 const GOLD_LO = 0xd49a25;
@@ -146,9 +145,12 @@ function drawBannerCell(g, x, y, w, h, c, sample) {
   g.globalAlpha = 0.55;
   g.fillRect(x + pad * 1.4, y + h * 0.265, w - pad * 2.8, Math.max(2, h * 0.005));
   g.globalAlpha = 1;
+  // Shrink and wrap to three lines, then stop: a name long enough to need smaller type than this
+  // is cut with an ellipsis rather than printed at a size nobody can read.
+  const floor = Math.max(10, Math.round(h * 0.042));
   let size = Math.round(h * 0.085);
   let lines = [];
-  for (; size >= 10; size -= Math.max(1, Math.round(size * 0.08))) {
+  for (; size > floor; size -= Math.max(1, Math.round(size * 0.08))) {
     g.font = `700 ${size}px ${FONT_BODY}`;
     lines = wrap(g, c.teamName, box, 3);
     const widest = Math.max(...lines.map((l) => g.measureText(l).width), 0);
@@ -156,7 +158,7 @@ function drawBannerCell(g, x, y, w, h, c, sample) {
   }
   const lh = size * 1.12;
   lines.forEach((l, i) => {
-    g.fillText(fit(g, l, box, size, 10, FONT_BODY, '700'), cx, y + h * 0.52 + (i - (lines.length - 1) / 2) * lh);
+    g.fillText(fit(g, l, box, size, floor, FONT_BODY, '700'), cx, y + h * 0.52 + (i - (lines.length - 1) / 2) * lh);
   });
   if (c.record) g.fillText(fit(g, c.record, box, h * 0.07, 10, FONT_DISPLAY, '400'), cx, y + h * 0.815);
   if (sample) {
@@ -188,7 +190,6 @@ function standInMast({ height = 8, scale = 1 } = {}) {
   group.add(mesh);
   return {
     group,
-    mesh,
     height: H,
     colliders: [{ x: 0, z: 0, r: 0.3 * scale }],
     anchors: { bannerTop: new THREE.Vector3(0, H - 0.46 * scale, 0), bannerSize: { w: bw, h: bh } },
@@ -313,10 +314,11 @@ function standInConfetti({ count = 180, color = null } = {}) {
 
 // ------------------------------------------------------------------ the lawn trophy (Contract 7 detail)
 /**
- * The cup the champion keeps on the lawn, with a plate naming the team and the season.
+ * The cup the champion keeps on the lawn, with a plate naming the team and the season. It is
+ * gold, not the team's color: one trophy, the same one every year, is the whole point of it.
  * Returns a Prop town.js can hang at a home's `trophy` anchor, or null if nothing could be built.
  */
-export function createLawnTrophy({ teamName = '', season = 0, color = GOLD, sample = false } = {}) {
+export function createLawnTrophy({ teamName = '', season = 0, sample = false } = {}) {
   const group = new THREE.Group();
   group.name = 'championLawn';
   const own = [];
@@ -390,53 +392,44 @@ export function createChampion(w) {
   const { scene, layout, terrain, colliders, hud, player, audio } = w;
   const ARC = layout.places.championArc;
   const PLAZA = layout.stations.plaza;
+  const NEAR = (PLAZA.r || 22) + PLAZA_MARGIN; // the confetti goes up when the visitor is this close in
   const group = new THREE.Group();
   group.name = 'champions';
   scene.add(group);
 
   const TAG = 'champion';
-  let built = null; // { own, props, sig }
+  let built = null; // { own, props, nodes, count }
   let model = null;
   let champ = null; // the season just decided, or null
   let armed = false; // a visitor is in the world and has not had this season's confetti
   let thrown = false; // ... and it has gone up, so it never goes up twice in one visit
   let visitorHere = false; // arrived() has been called at least once this visit
   let visible = true;
+  let night = -1;
   const cam = new THREE.Vector3();
 
-  // Three throws across the plaza, each its own prop: one burst reaches about 3 m, and a town
-  // that has waited a year for this deserves more than one puff over the statue. The group sits
-  // on the paving, so a burst is thrown in LOCAL coordinates with y = 0 the ground it lands on.
-  // Between bursts every piece is hidden and the lot costs nothing.
-  const THROWS = [[0, 0], [-7.5, 7], [8, 6.5]];
-  const confetti = THROWS.map(([ox, oz], i) => {
-    const prop = artProp('createConfetti', { count: i ? 110 : 150, color: null }) || standInConfetti({ count: i ? 110 : 150, color: null });
+  // Three throws, each its own prop: one burst reaches about three metres, and a town that has
+  // waited a season for this deserves more than one puff over the statue. Each group is moved
+  // onto the paving around the visitor just before it goes up, because confetti thrown over an
+  // empty corner of the plaza is confetti nobody sees. A burst is thrown in LOCAL coordinates,
+  // with y = 0 the ground its pieces land on. Between bursts every piece is hidden and free.
+  const THROWS = [[0, 8], [-6.5, 3.5], [6.5, 3.5]]; // [right, forward] of where the visitor stands
+  const confetti = THROWS.map((_, i) => {
+    const prop = artProp('createConfetti', { count: i ? 120 : 160, color: null }) || standInConfetti({ count: i ? 120 : 160, color: null });
     if (!prop || !prop.group) return null;
-    prop.group.position.set(PLAZA.x + ox, terrain.heightAt(PLAZA.x + ox, PLAZA.z + oz), PLAZA.z + oz);
+    prop.group.position.set(PLAZA.x, terrain.heightAt(PLAZA.x, PLAZA.z), PLAZA.z);
     group.add(prop.group);
     return prop;
   }).filter(Boolean);
 
   // ---------------------------------------------------------------- storage (see ui/recap.js)
-  // The flow already keeps one "since you were last here" record. This adds one small line of
-  // its own, the season whose confetti has been and gone, and reads the flow's record as well so
-  // a member who was already here after the final whistle is not handed confetti for old news.
-  function readJson(key) {
-    try {
-      const raw = safeStorageGet(key);
-      if (!raw) return null;
-      const v = JSON.parse(raw);
-      return v && typeof v === 'object' ? v : null;
-    } catch (err) {
-      return null;
-    }
-  }
+  // The same mechanism the recap uses: one small record on this device, read when the visitor
+  // arrives and written when the thing it guards has happened. It is a key of its own rather
+  // than a field on the flow's `lastSeen` record, because the flow owns that record, rewrites
+  // the whole of it moments after arrival, and only writes it at all for a visitor with a team.
+  // Storage can be blocked, so a read that comes back empty simply means a celebration.
   function alreadyCelebrated(season) {
-    if (String(safeStorageGet(SEEN_KEY) || '') === String(season)) return true;
-    const prev = readJson(LAST_SEEN_KEY);
-    // the flow stores the season and week of the last visit: the same pair means they were here
-    // after this season ended, so the confetti has already been somebody else's problem
-    return !!(prev && Number(prev.season) === Number(season) && model && Number(prev.week) === Number(model.meta.week));
+    return String(safeStorageGet(SEEN_KEY) || '') === String(season);
   }
 
   // ---------------------------------------------------------------- build the arc
@@ -581,6 +574,7 @@ export function createChampion(w) {
     geo.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(uv), 2));
     geo.computeVertexNormals();
     geo.computeBoundingSphere();
+    // lit like the boards after dark, so a banner is still readable at night
     const mat = new THREE.MeshLambertMaterial({ map: tex, emissive: 0xffffff, emissiveMap: tex, emissiveIntensity: 0.12 });
     const cloth = new THREE.Mesh(geo, mat);
     cloth.name = 'championBanners';
@@ -589,7 +583,9 @@ export function createChampion(w) {
     nodes.push(cloth);
     own.push(geo, mat, tex);
 
-    built = { own, props, nodes, count: masts.length };
+    for (const node of nodes) node.visible = visible; // a rebuild must not undo the distance cull
+    built = { own, props, nodes, mat, count: masts.length };
+    night = -1; // make the next frame light the new cloth
   }
 
   // ---------------------------------------------------------------- the model
@@ -636,10 +632,27 @@ export function createChampion(w) {
     armed = false;
     thrown = true;
     if (champ) safeStorageSet(SEEN_KEY, String(champ.season));
-    for (const prop of confetti) {
+    // around the visitor, turned to wherever they are facing, and kept on the plaza paving
+    const yaw = w.rig && typeof w.rig.yaw === 'number' ? w.rig.yaw + Math.PI : player.heading || 0;
+    const cs = Math.cos(yaw);
+    const sn = Math.sin(yaw);
+    for (let i = 0; i < confetti.length; i++) {
+      const prop = confetti[i];
       if (typeof prop.burst !== 'function') continue;
+      const o = THROWS[i % THROWS.length];
+      let x = player.position.x + o[0] * cs + o[1] * sn;
+      let z = player.position.z - o[0] * sn + o[1] * cs;
+      const dx = x - PLAZA.x;
+      const dz = z - PLAZA.z;
+      const d = Math.hypot(dx, dz);
+      const edge = PLAZA.r - 2;
+      if (d > edge) {
+        x = PLAZA.x + (dx / d) * edge;
+        z = PLAZA.z + (dz / d) * edge;
+      }
+      prop.group.position.set(x, terrain.heightAt(x, z), z);
       try {
-        prop.burst(0, 1.2, 0); // thrown from head height, so it rises and comes down over the paving
+        prop.burst(0, 1.4, 0); // thrown from head height, so it rises before it comes back down
       } catch (err) {
         console.warn('[lw] the confetti did not go up', err);
       }
@@ -648,7 +661,7 @@ export function createChampion(w) {
       audio.sfx('fanfare', { volume: 0.8 });
     } catch (err) { /* sound is optional */ }
     if (hud && typeof hud.toast === 'function' && champ) {
-      hud.toast(champ.season + ' is in the books. The trophy is on ' + champ.teamName + "'s lawn.", { ms: 5600 });
+      hud.toast(champ.season + ' is in the books. ' + champ.teamName + ' keeps the trophy on the lawn.', { ms: 5600 });
     }
   }
 
@@ -662,7 +675,14 @@ export function createChampion(w) {
       visible = near;
       if (built) for (const node of built.nodes) node.visible = near;
     }
-    if (near && built) for (const p of built.props) if (p.update) p.update(dt, t);
+    if (built) {
+      const n = w.sky ? w.sky.nightAmount : 0;
+      if (Math.abs(n - night) > 0.02) {
+        night = n;
+        built.mat.emissiveIntensity = 0.12 + 0.3 * n;
+      }
+      if (near) for (const p of built.props) if (p.update) p.update(dt, t);
+    }
     for (const prop of confetti) if (prop.update) prop.update(dt, t);
     if (!armed) return;
     // Wait for the visitor to be standing in the plaza with nothing in the way: no ride, no
@@ -671,7 +691,7 @@ export function createChampion(w) {
     if (hud && typeof hud.isModalOpen === 'function' && hud.isModalOpen()) return;
     const px = player.position.x - PLAZA.x;
     const pz = player.position.z - PLAZA.z;
-    if (px * px + pz * pz > NEAR_PLAZA * NEAR_PLAZA) return;
+    if (px * px + pz * pz > NEAR * NEAR) return;
     fire();
   }
 
