@@ -17,6 +17,11 @@ import * as THREE from '../../lib/three.module.min.js';
 import { Geo } from './geo.js';
 import { flatMat } from './materials.js';
 
+// scratch, so the dance allocates nothing per frame
+const _wp = new THREE.Vector3();
+const _q = new THREE.Quaternion();
+const _e = new THREE.Euler(0, 0, 0, 'YXZ');
+
 // Straight from the old page, so he is recognisably the same fellow.
 const SKIN = 0xf0c7b0;
 const HAIR = 0xd8d0c2;
@@ -156,8 +161,12 @@ export function createImp(o = {}) {
     radius: 0.55 * K * scale,
     colliders: [{ x: 0, z: 0, r: 0.4 * K * scale }],
     triangles,
-    /** Drive the dance. `t` is world time in seconds. */
-    update(dt, t) {
+    /**
+     * Drive the dance. `t` is world time in seconds. Pass the camera and his portrait turns to
+     * follow it: it is a flat photograph, so side on it would otherwise go edge on and vanish.
+     * The rest of him keeps walking whichever way he is going.
+     */
+    update(dt, t, camera) {
       beat = t * 5.2;
       for (const p of legs) {
         p.rotation.x = Math.sin(beat + (p.userData.s > 0 ? 0 : Math.PI)) * 0.92;
@@ -169,6 +178,13 @@ export function createImp(o = {}) {
       }
       body.rotation.z = Math.sin(beat * 0.5) * 0.12;
       body.rotation.x = -0.06;
+      if (face && camera) {
+        face.getWorldPosition(_wp);
+        const want = Math.atan2(camera.position.x - _wp.x, camera.position.z - _wp.z);
+        face.parent.getWorldQuaternion(_q);
+        _e.setFromQuaternion(_q);
+        face.rotation.y = want - _e.y;
+      }
       glint.rotation.y += dt * 2.2;
       glint.position.y = 2.12 + 0.08 * Math.sin(beat);
       // he bounces on the spot; whoever places him decides where "the spot" is

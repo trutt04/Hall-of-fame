@@ -440,6 +440,13 @@ export function createChampion(w) {
       if (p.dispose) p.dispose();
     }
     for (const o of built.own) if (o && o.dispose) o.dispose();
+    // The baked masts and the cloth are added straight to the group, not through props, so they
+    // have to be taken out by hand. Without this every rebuild stacked another disposed copy
+    // into the scene, and main.js rebuilds on every data refresh.
+    for (const n of built.nodes || []) {
+      if (n && n.parent) n.parent.remove(n);
+      if (n && n.geometry && n.geometry.dispose) n.geometry.dispose();
+    }
     colliders.removeGroup(TAG);
     built = null;
   }

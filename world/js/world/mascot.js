@@ -107,7 +107,7 @@ export function createMascot(w) {
     }
     // Out on the lawn in front of the door, far enough back to have room for a lap.
     const A = e.home.anchors;
-    const at = e.toWorld(new THREE.Vector3(A.door.x, 0, A.door.z + LAP + 0.6));
+    const at = e.toWorld(new THREE.Vector3(A.door.x, 0, A.door.z + LAP + 1.9)); // near edge clears the porch
     const y = terrain.heightAt(at.x, at.z);
     here = { x: at.x, y, z: at.z };
     group.position.set(at.x, y, at.z);
@@ -142,7 +142,7 @@ export function createMascot(w) {
     const z = Math.cos(angle) * LAP;
     imp.group.position.set(x, terrain.heightAt(here.x + x, here.z + z) - here.y, z);
     imp.group.rotation.y = angle + Math.PI / 2;
-    imp.update(dt, t);
+    imp.update(dt, t, w.camera3D);
   }
 
   return {

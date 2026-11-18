@@ -228,11 +228,24 @@ export function createAudio() {
   // Build the looping source for a file drone, or start fetching it and come back next tick.
   function fileNode(d, out) {
     if (!d.buffer) {
+      // A failed fetch used to be retried on the very next tick, five times a second, each one
+      // reaching for the whole file. Back off hard and then give up: a track that will not load
+      // is not worth a megabyte a second on somebody's phone.
+      if (d.dead) return null;
+      if (d.retryAt && ctx.currentTime < d.retryAt) return null;
       if (!d.loading) {
         d.loading = true;
         loadClip(d.url).then((buf) => {
-          d.buffer = buf || null;
           d.loading = false;
+          d.buffer = buf || null;
+          if (buf) {
+            d.fails = 0;
+            d.retryAt = 0;
+            return;
+          }
+          d.fails = (d.fails || 0) + 1;
+          d.retryAt = ctx.currentTime + Math.min(60, 4 * 2 ** (d.fails - 1));
+          if (d.fails >= 4) d.dead = true; // four goes is plenty; stop asking
         });
       }
       return null;
@@ -250,9 +263,11 @@ export function createAudio() {
     try {
       d.node.stop();
       d.gain.disconnect();
+      if (d.pan) d.pan.disconnect(); // or every approach leaves a panner wired to the bus
     } catch (e) { /* the context went away under us */ }
     d.node = null;
     d.gain = null;
+    d.pan = null;
   }
 
   function updateDrones(now) {

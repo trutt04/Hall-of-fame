@@ -481,8 +481,10 @@ async function boot() {
     get status() { return data.status; },
     get league() { return data.league; },
   };
-  // The visitor is through the door: the championship confetti arms itself here and goes up when
-  // they are actually standing in the plaza with nothing in front of it (see world/champion.js).
+  // The flow's first screen is up, which is the picker, not the arrival: startFlow resolves as
+  // soon as something is showing. So this only ARMS the championship confetti. It goes up later,
+  // when the visitor is actually standing in the plaza with no ride, picker, card or seat in the
+  // way (see world/champion.js), which is also what keeps it off the loading veil.
   const arrived = () => {
     try {
       champion.arrived();

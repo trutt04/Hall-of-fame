@@ -187,7 +187,16 @@ export function createTown(w) {
     const champ = seasonChampion(model);
     if (champ && champ.teamId === t.id) {
       const cup = createLawnTrophy({ teamName: champ.teamName, season: champ.season, sample: !!model.meta.isSample });
-      if (cup) local(cup, trophySpot());
+      if (cup) {
+        const spot = trophySpot();
+        local(cup, spot);
+        // local() does not register colliders, which is right for flamingos and trash bags.
+        // A 2.2 m trophy is not scenery, so it gets its own, or you can walk through it.
+        for (const c of cup.colliders || []) {
+          e.toWorld(v.set(spot.x + c.x, 0, spot.z + c.z), v);
+          colliders.addCircle(v.x, v.z, c.r, e.tag1);
+        }
+      }
     }
     if (t.trophy && t.trophy.toilet) local(createGoldenToilet(), trophySpot());
     if (t.trophy && t.trophy.spotlight) local(createSpotlight(), trophySpot());
