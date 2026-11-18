@@ -72,7 +72,7 @@ export function buildHistory(history, cur) {
     people[key] || (people[key] = { ownerKey: key, owner: '', teamName: '', teamId: null, label: '' });
   const stat = (key) =>
     stats[key] ||
-    (stats[key] = { titles: [], lastPlaces: [], seasons: 0, wins: 0, losses: 0, ties: 0, h2h: {} });
+    (stats[key] = { titles: [], lastPlaces: [], finishes: [], seasons: 0, wins: 0, losses: 0, ties: 0, h2h: {} });
 
   // Who is who. Later seasons overwrite earlier names, the current season overwrites everything.
   for (const s of seasons) {
@@ -159,6 +159,8 @@ export function buildHistory(history, cur) {
     for (const t of s.teams) {
       keyOf[t.id] = t.ownerKey;
       stat(t.ownerKey).seasons++;
+      // Every finish on file, so the world can say "best ever 5th" next to "1st today".
+      if (t.finalRank > 0) stat(t.ownerKey).finishes.push({ season: s.season, rank: t.finalRank });
       if (t.finalRank === 1 && !champ) champ = t;
       if (t.finalRank > 1 && (!last || t.finalRank > last.finalRank)) last = t;
 
@@ -226,6 +228,9 @@ export function buildHistory(history, cur) {
     owners[key] = {
       titles: st.titles.slice(),
       lastPlaces: st.lastPlaces.slice(),
+      finishes: st.finishes.slice().sort((a, b) => a.season - b.season),
+      bestFinish: st.finishes.length ? st.finishes.reduce((a, b) => (b.rank < a.rank ? b : a)) : null,
+      worstFinish: st.finishes.length ? st.finishes.reduce((a, b) => (b.rank > a.rank ? b : a)) : null,
       seasonsPlayed: st.seasons,
       seasonsSinceTitle: lastTitle == null ? null : seasons.filter((s) => s.season > lastTitle).length,
       allTime: { wins: st.wins, losses: st.losses, ties: st.ties, text: recordText(st.wins, st.losses, st.ties) },

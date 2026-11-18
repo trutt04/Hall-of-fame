@@ -99,6 +99,24 @@ export function createCards(ctx, api) {
       else rows.push(['Titles', 'None in ' + (t.history.seasonsPlayed || 0) + (t.history.seasonsPlayed === 1 ? ' season' : ' seasons'), hs]);
       const n = t.history.nemesis;
       if (n) rows.push(['Owned by', label(n) + ' · ' + n.wins + '-' + n.losses + ' all time', hs]);
+      // Where they live today against the best they have ever managed. The mansion is rarely
+      // occupied by somebody who has earned it.
+      const bf = t.history.bestFinish;
+      if (bf && bf.rank) {
+        const only = (t.history.finishes || []).length === 1;
+        const best = only ? 'Only season ' + ordinal(bf.rank) + ' (' + bf.season + ')' : 'Best ' + ordinal(bf.rank) + ' (' + bf.season + ')';
+        const now = ordinal(t.rank) + ' now';
+        rows.push(['All time', bf.rank > t.rank ? best + ' · ' + now + ', a career high' : best + ' · ' + now, hs]);
+      }
+    }
+    // The waiver wire: ESPN counts every add and drop, and nothing in the world ever showed them.
+    if (t.churn && t.churn.total > 0) {
+      const c = t.churn;
+      const parts = [c.adds + ' in, ' + c.drops + ' out'];
+      if (c.trades) parts.push(c.trades === 1 ? '1 trade' : c.trades + ' trades');
+      if (c.busiest) parts.push('busiest in the league');
+      else if (c.quietest) parts.push('quietest in the league');
+      rows.push(['Waiver wire', parts.join(' · ')]);
     }
     if (t.ir && t.ir.count) rows.push(['On IR', (t.ir.names && t.ir.names.length ? t.ir.names.join(', ') : String(t.ir.count))]);
     if (t.lineupNotes && t.lineupNotes.length) rows.push(['Lineup', t.lineupNotes.join('. ')]);

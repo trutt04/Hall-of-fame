@@ -46,6 +46,16 @@ function uniquePositive(values) {
 
 // ---------- reading the raw data defensively ----------
 
+/** Waiver wire activity. ESPN counts these per team; the world had never looked at them. */
+function readMoves(raw) {
+  if (!isObj(raw)) return null;
+  const adds = Math.max(0, int(raw.acquisitions));
+  const drops = Math.max(0, int(raw.drops));
+  const trades = Math.max(0, int(raw.trades));
+  if (adds + drops + trades === 0) return null;
+  return { adds, drops, trades, total: adds + drops };
+}
+
 function readRoster(raw) {
   if (!isObj(raw)) return null;
   const players = (list) =>
@@ -84,6 +94,7 @@ function readTeams(list) {
       pointsAgainst: round2(t.pointsAgainst),
       streakType,
       streakLength: streakType ? Math.max(0, int(t.streakLength)) : 0,
+      moves: readMoves(t.moves),
       roster: readRoster(t.roster),
     });
   }
@@ -622,6 +633,7 @@ export function derive(league, history, opts) {
         spotlight: !!lastWeek && lastWeek.highScoreId === id,
       },
       history: null,
+      churn: null, // filled below, once every team's move counts are known
       roast: { arrival: '', mailbox: [], sign: '' },
     };
   }
@@ -694,6 +706,30 @@ export function derive(league, history, opts) {
     regime: null,
     vandalism: null,
   };
+
+  // ----- waiver wire: who churns and who sits still -----
+  // Only meaningful as a comparison, so it is worked out once the whole league is known.
+  {
+    const moved = order.map((id) => ({ id, m: byId[id].moves })).filter((x) => x.m);
+    if (moved.length >= 3) {
+      const totals = moved.map((x) => x.m.total).sort((a, b) => a - b);
+      const median = totals[Math.floor(totals.length / 2)];
+      const most = moved.reduce((a, b) => (b.m.total > a.m.total ? b : a));
+      const least = moved.reduce((a, b) => (b.m.total < a.m.total ? b : a));
+      for (const { id, m } of moved) {
+        teamModels[id].churn = {
+          adds: m.adds,
+          drops: m.drops,
+          trades: m.trades,
+          total: m.total,
+          rank: moved.filter((x) => x.m.total > m.total).length + 1, // 1 = busiest in the league
+          busiest: id === most.id && most.m.total > median,
+          quietest: id === least.id && least.m.total < median,
+          median,
+        };
+      }
+    }
+  }
 
   // ----- extras: the playoff picture and the draft graveyard -----
   try {

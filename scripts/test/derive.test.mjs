@@ -123,7 +123,7 @@ function checkCopy(model, context) {
 const TEAM_FIELDS = [
   'id', 'name', 'abbrev', 'owner', 'ownerKey', 'color', 'rank', 'prevRank', 'rankDelta', 'tier', 'prevTier', 'tierMove', 'slot',
   'record', 'pointsFor', 'pointsAgainst', 'streak', 'inPlayoffSpot', 'onCutLine', 'clinched', 'eliminated', 'trashBags',
-  'flamingos', 'ir', 'goalposts', 'lineupNotes', 'thisWeek', 'lastWeek', 'beatLastWeek', 'luck', 'luckTag', 'trophy', 'history', 'roast',
+  'flamingos', 'ir', 'goalposts', 'lineupNotes', 'thisWeek', 'lastWeek', 'beatLastWeek', 'luck', 'luckTag', 'trophy', 'history', 'churn', 'roast',
 ];
 const META_FIELDS = [
   'leagueName', 'season', 'week', 'regularSeasonWeeks', 'playoffTeamCount', 'teamCount', 'phase', 'isSample', 'historyIsSample',
