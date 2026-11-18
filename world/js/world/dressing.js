@@ -47,6 +47,21 @@ export function createDressing(w) {
     const [x, z] = gyWorld(10.5, -1.9);
     return { x, z };
   })();
+  // The new section: once the gate plot is full the overflow is buried against the substation
+  // fence, under the towers. layout.places.graveAnnex holds the row; facility.js lays the path.
+  const ANNEX = P.graveAnnex || null;
+  const ANNEX_FROM = 4; // the first four stay beside the gate, the rest move out to the fence
+  // Where headstone i stands: { x, z, yaw }.
+  function stoneSpot(i) {
+    if (ANNEX && i >= ANNEX_FROM) {
+      const k = i - ANNEX_FROM;
+      return { x: ANNEX.x + ((k % 2) - 0.5) * 0.22, z: ANNEX.z + k * ANNEX.step, yaw: ANNEX.facing + (((i * 37) % 7) - 3) * 0.03 };
+    }
+    const col = i % 4;
+    const row = Math.floor(i / 4);
+    const [x, z] = gyWorld(7.2 + col * 2.25, -0.5 - row * 2.8 + ((i * 7) % 3) * 0.12);
+    return { x, z, yaw: GY.facing + (((i * 37) % 7) - 3) * 0.035 };
+  }
 
   // Place a prop on the ground, register its colliders, remember it for animation and culling.
   function put(prop, x, z, facing = 0, o = {}) {
@@ -188,6 +203,7 @@ export function createDressing(w) {
     }
     terrain.scatterPoints.concat(yardTrees).forEach((p, i) => {
       if (Math.hypot(p.x - PLOT.x, p.z - PLOT.z) < 8.5) return; // the cemetery plot stays clear
+      if (ANNEX && Math.hypot(p.x - ANNEX.x, p.z - (ANNEX.z + ANNEX.step * 1.5)) < 7) return; // and so does the new section
       if (p.kind === 'tree') {
         const kind = kindFor[p.zone][i % 2];
         add(p.zone + ':' + kind, () => createTree(kind, { seed: 3 + (i % 2) }), p, p.scale * (kind === 'dead' ? 1 : 1.15));
@@ -464,9 +480,11 @@ export function createDressing(w) {
     list.forEach((entry, i) => {
       const col = i % 4;
       const row = Math.floor(i / 4);
-      const [x, z] = gyWorld(7.2 + col * 2.25, -0.5 - row * 2.8 + ((i * 7) % 3) * 0.12);
+      const spot = stoneSpot(i);
+      const x = spot.x;
+      const z = spot.z;
       const y = terrain.heightAt(x, z);
-      const yaw = GY.facing + (((i * 37) % 7) - 3) * 0.035;
+      const yaw = spot.yaw;
       const shade = i % 2 ? 0xa7adb5 : 0x9aa0a9;
       stones.at(x, y - 0.03, z, yaw);
       stones.box(0, 0, 0, 1.45, 0.16, 0.55, 0x7f858e);

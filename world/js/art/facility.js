@@ -9,11 +9,16 @@
 // The solid mass of a bay and of a fence is its `footprint` box, the way homes work; `colliders`
 // only carry the bits that a box would miss.
 //
-//   createSubstationBay({ w, d, scale })     -> { group, height, radius, footprint, colliders, anchors: { wireTops, top, transformer } }
-//   createSubstationWires(points, { sag })   -> { group, height, radius, colliders, spans }
-//   createPylon({ height, scale })           -> { group, height, radius, colliders, anchors: { wireTops, top } }
-//   createSubstationFence({ length, scale }) -> { group, height, radius, footprint, colliders, length }
-//   createBallMachine({ scale })             -> { group, height, radius, colliders, anchors: { muzzle, hopper }, setSpeed, update }
+//   createSubstationBay({ w, d, scale, seed })  -> { group, height, radius, footprint, colliders, anchors: { wireTops, top, transformer } }
+//   createSubstationWires(points, { sag })      -> { group, height, radius, colliders, spans }
+//   createPylon({ height, scale })              -> { group, height, radius, colliders, anchors: { wireTops, top } }
+//   createSubstationFence({ length, scale })    -> { group, height, radius, footprint, colliders, length }
+//   createBallMachine({ scale })                -> { group, height, radius, colliders, anchors: { muzzle, hopper }, setSpeed, update }
+//
+// Which way the cable runs. A bay's three wireTops are spread in DEPTH, because bays stand side
+// by side along X and the cable is strung along that row. A pylon's are spread along its arms,
+// which run across X, so a line of pylons marches along Z. Rotate the group to taste; just do not
+// mix the two up, or every phase ends up strung down the same line in space.
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, TAU, shade, mix } from './geo.js';
 import { flatMat } from './materials.js';
@@ -64,8 +69,10 @@ function latticeBeam(g, x0, x1, y, z, h, hex, o = {}) {
 // player can walk up to, three sided for the strings that only ever hang high on a pylon.
 function insulators(g, x, y, z, h, discs, o = {}) {
   const seg = o.seg || 4, r = o.r || 0.16, core = r * 0.5;
+  // a short flare out to the skirt and a long taper back in: that sawtooth is what makes a stack
+  // of two bands read as discs threaded on a shaft rather than as a string of beads
   const prof = [[core, 0]];
-  for (let i = 0; i < discs; i++) prof.push([r, (h * (i + 0.55)) / discs], [core, (h * (i + 1)) / discs]);
+  for (let i = 0; i < discs; i++) prof.push([r, (h * (i + 0.3)) / discs], [core, (h * (i + 1)) / discs]);
   return g.lathe(x, y, z, prof, o.color || K.insul, { seg, capTop: o.cap === undefined ? K.insulDk : o.cap });
 }
 
@@ -80,15 +87,18 @@ function warningPlate(g, x, y, z, s) {
 // ---- one repeatable bay of switchyard ------------------------------------------------------------
 // Origin at ground centre, the business face toward +Z. Place several in a row along X and string
 // `anchors.wireTops` together with createSubstationWires.
-export function createSubstationBay({ w = 6, d = 4, scale = 1 } = {}) {
+// `seed` only moves the loose clutter around. The gantry stays put at every seed so that the
+// wireTops of neighbouring bays still line up and the cable between them stays level.
+export function createSubstationBay({ w = 6, d = 4, scale = 1, seed = 1 } = {}) {
   const group = new THREE.Group(); group.name = 'substationBay';
-  const own = [], g = new Geo(), r = rng(Math.round(w * 131 + d * 17));
+  const own = [], g = new Geo(), r = rng(Math.round(seed * 137 + w * 13 + d * 7));
   g.scale(scale);
   const H = 7.2;                       // gantry top: tall enough to loom well over a 2.4 m windscreen
   const CX = w / 2 - 0.55;             // the two gantry legs
   const GZ = -d * 0.14;                // the gantry sits a little behind the insulator row
   const FZ = d * 0.3;                  // the row of insulator stacks, nearest the field
   const SX = [-w * 0.3, 0, w * 0.3];   // the three phases, shared by the stubs and the stacks
+  const SZ = [-0.7, 0, 0.7];           // and their depth offsets at the takeoff (see the stubs below)
 
   // crushed stone pad
   g.box(0, 0, 0, w, 0.12, d, K.pad, { top: shade(K.pad, 1.05), side: K.padDk });
@@ -97,13 +107,17 @@ export function createSubstationBay({ w = 6, d = 4, scale = 1 } = {}) {
   latticeColumn(g, -CX, GZ, 0.12, H, 0.21, 0.13, K.steel, { spans: 5 });
   latticeColumn(g, CX, GZ, 0.12, H, 0.21, 0.13, K.steel, { spans: 5 });
   latticeBeam(g, -CX, CX, H - 0.6, GZ, 0.6, K.steel, { spans: 5 });
-  g.box(0, 4.3, GZ, w - 0.7, 0.16, 0.16, K.steelDk, { bottom: true });
+  g.box(0, 4.3, GZ, CX * 2 - 0.3, 0.16, 0.16, K.steelDk, { bottom: true });
 
-  // the stubs the lines land on, one per phase
-  for (const sx of SX) {
-    g.cyl(sx, H, GZ, 0.05, 0.46, K.steelDk, { seg: 3 });
-    insulators(g, sx, H + 0.46, GZ, 0.36, 1, { seg: 3, r: 0.11 });
-  }
+  // The stubs the lines land on, one per phase. Each sits at its own DEPTH on a short takeoff arm:
+  // bays stand side by side along X and the cable runs along the row, so phases spread apart in Z
+  // or all three cables would be strung down the same line in space.
+  SX.forEach((sx, i) => {
+    const sz = GZ + SZ[i];
+    if (SZ[i]) g.box(sx, H, GZ + SZ[i] / 2, 0.13, 0.1, Math.abs(SZ[i]) + 0.2, K.steelDk, { bottom: true });
+    g.cyl(sx, H + (SZ[i] ? 0.1 : 0), sz, 0.05, 0.46, K.steelDk, { seg: 3 });
+    insulators(g, sx, H + 0.46 + (SZ[i] ? 0.1 : 0), sz, 0.36, 1, { seg: 3, r: 0.11 });
+  });
 
   // the row of three insulator stacks on a low frame, with a busbar across the top
   for (const sx of [-1, 1]) g.cyl(sx * w * 0.31, 0.12, FZ, 0.07, 1.0, K.steel, { seg: 3, top: K.steelDk });
@@ -128,7 +142,7 @@ export function createSubstationBay({ w = 6, d = 4, scale = 1 } = {}) {
   // loose verticals at odd heights. A real yard is never a tidy grid, and this ragged silhouette
   // is most of what sells "switchyard" from across the field.
   for (let i = 0; i < 3; i++) {
-    const px = range(r, -w * 0.44, w * 0.44), pz = range(r, -d * 0.42, -d * 0.02), ph = range(r, 2.8, 5.6);
+    const px = range(r, -w * 0.44, w * 0.44), pz = range(r, -d * 0.42, -d * 0.02), ph = range(r, 2.6, 6.0);
     g.cyl(px, 0.12, pz, 0.07, ph, K.steel, { seg: 3, top: K.steelDk });
     if (i === 0) g.box(px, ph + 0.12, pz, 1.1, 0.08, 0.09, K.steelDk, { bottom: true });
     // one of them carries a yard lamp, like the service poles dotted through the reference
@@ -149,7 +163,7 @@ export function createSubstationBay({ w = 6, d = 4, scale = 1 } = {}) {
       { x: TX * k, z: TZ * k, r: 0.95 * k },
     ],
     anchors: {
-      wireTops: SX.map((sx) => V3(sx * k, topY, GZ * k)),
+      wireTops: SX.map((sx, i) => V3(sx * k, topY + (SZ[i] ? 0.1 : 0) * k, (GZ + SZ[i]) * k)),
       top: V3(0, H * k, GZ * k),
       transformer: V3(TX * k, 1.71 * k, TZ * k),
     },
@@ -173,7 +187,7 @@ function runsOf(points) {
 
 // Thin dark cable hung through a list of points. `sag` is the dip at mid span as a FRACTION of the
 // span, so one value looks right over a 7 m bay gap and a 40 m pylon gap alike.
-export function createSubstationWires(points, { sag = 0.055, radius = 0.06, color = K.wire, segments = 4 } = {}) {
+export function createSubstationWires(points, { sag = 0.04, radius = 0.045, color = K.wire, segments = 4 } = {}) {
   const group = new THREE.Group(); group.name = 'substationWires';
   const own = [], g = new Geo(), runs = runsOf(points);
   const seg = Math.max(2, Math.min(6, Math.round(segments)));
@@ -206,17 +220,20 @@ export function createPylon({ height = 14, scale = 1 } = {}) {
   g.scale(scale);
   const base = H * 0.085, waist = H * 0.034, neck = H * 0.027;
   const WY = H * 0.4, BY = H * 0.76;                   // waist height and the top of the mast
-  const ARM = [[BY, H * 0.3], [H * 0.9, H * 0.2]];     // [height, half length] lower arm then upper
+  const ARM = [[BY, H * 0.25], [H * 0.9, H * 0.17]];   // [height, half length] lower arm then upper
+  const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Math.round(v)));
 
-  g.box(0, 0, 0, base * 2.5, 0.16, base * 2.5, K.pad, { top: shade(K.pad, 1.05), side: K.padDk });
+  // a footing under each leg, not a slab: a pad wide enough to catch all four legs reads as a
+  // car park from across the field and fights the tower for attention
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) g.box(sx * base, 0, sz * base, 0.36, 0.22, 0.36, K.pad, { side: K.padDk });
   // the body in two sections so it has a waist instead of being a plain pyramid
-  latticeColumn(g, 0, 0, 0.16, WY, base, waist, K.steel, { spans: 5, r: 0.06 });
-  latticeColumn(g, 0, 0, WY, H * 0.95, waist, neck, K.steel, { spans: 5, r: 0.05 });
+  latticeColumn(g, 0, 0, 0.18, WY, base, waist, K.steel, { spans: clamp(H / 2, 5, 9), r: 0.06 });
+  latticeColumn(g, 0, 0, WY, H * 0.95, waist, neck, K.steel, { spans: clamp(H / 2.4, 4, 8), r: 0.05 });
   for (const [y, s] of [[WY, waist], [BY, neck * 1.1], [H * 0.9, neck]]) g.box(0, y, 0, s * 2.1, 0.07, s * 2.1, K.steelDk, { noTop: true });
 
   const tops = [];
   for (const [y, half] of ARM) {
-    g.box(0, y, 0, half * 2, 0.18, 0.2, K.steelDk, { bottom: true });
+    g.box(0, y, 0, half * 2, 0.15, 0.16, K.steelDk, { bottom: true });
     for (const sx of [-1, 1]) {
       // a stay back to the mast, then an insulator string with the conductor on its bottom
       g.tube([[sx * half * 0.94, y, 0], [sx * neck * 0.6, y + H * 0.075, 0]], 0.04, K.steel, { seg: 3 });
@@ -299,19 +316,20 @@ export function createSubstationFence({ length = 20, scale = 1 } = {}) {
 // ---- the throwing machine ---------------------------------------------------------------------------
 // One wheel geometry, two counter rotating instances: a throwing machine drives the ball with both
 // wheel faces moving the same way, so the pair has to turn opposite ways to be believable.
+const WHEEL_R = 0.19, WHEEL_W = 0.1;
 function ballWheel(own) {
-  const g = new Geo(), R = 0.21, W = 0.11, n = 6;
+  const g = new Geo(), R = WHEEL_R, W = WHEEL_W, n = 8;
   g.at(-W / 2, 0, 0, 0, 0, -Math.PI / 2);              // lay it on its side so the axle runs along X
   g.band(R, 0, R, W, n, 0, C.tire);
-  g.band(R, W, R * 0.52, W, n, 0, K.steelLt);
-  g.band(R * 0.52, 0, R, 0, n, 0, K.steelLt);
-  g.fan(R * 0.52, W, n, 0, K.steelDk);
-  g.fan(R * 0.52, 0, n, 0, K.steelDk, true);
-  // three marks on the rim, otherwise a smooth wheel spinning looks like a wheel standing still
+  g.band(R, W, R * 0.46, W, n, 0, K.steelLt);
+  g.band(R * 0.46, 0, R, 0, n, 0, K.steelLt);
+  g.fan(R * 0.46, W, n, 0, K.steelMid);
+  g.fan(R * 0.46, 0, n, 0, K.steelMid, true);
+  // three bolt heads on each face, otherwise a smooth wheel spinning looks like a wheel standing still
   for (let i = 0; i < 3; i++) {
-    const a = (i * TAU) / 3 + 0.4, x = Math.cos(a) * R * 0.78, z = Math.sin(a) * R * 0.78, s = 0.035;
-    g.quad([x - s, W + 0.004, z + s], [x + s, W + 0.004, z + s], [x + s, W + 0.004, z - s], [x - s, W + 0.004, z - s], C.iron);
-    g.quad([x - s, -0.004, z - s], [x + s, -0.004, z - s], [x + s, -0.004, z + s], [x - s, -0.004, z + s], C.iron);
+    const a = (i * TAU) / 3 + 0.4, x = Math.cos(a) * R * 0.72, z = Math.sin(a) * R * 0.72, s = 0.022;
+    g.quad([x - s, W + 0.004, z + s], [x + s, W + 0.004, z + s], [x + s, W + 0.004, z - s], [x - s, W + 0.004, z - s], K.steelDk);
+    g.quad([x - s, -0.004, z - s], [x + s, -0.004, z - s], [x + s, -0.004, z + s], [x - s, -0.004, z + s], K.steelDk);
   }
   g.restore();
   const geo = g.build();
@@ -323,47 +341,48 @@ export function createBallMachine({ scale = 1 } = {}) {
   const group = new THREE.Group(); group.name = 'ballMachine';
   const own = [], g = new Geo();
   g.scale(scale);
-  const HUB = 0.6, WZ = 0.08, PINCH = 1.13, R = 0.21;
-  const WHEELS = [[0.92, 1], [1.34, -1]];              // [centre height, spin direction]
+  const HUB = 0.58, WZ = 0.04, PINCH = 1.17, SPINE = -0.25;
+  // centres 0.46 apart leaves 0.08 of throat at the wheel corners. Any tighter and the two eight
+  // sided rims chew through each other every time they turn past one another.
+  const WHEELS = [[PINCH - 0.23, 1], [PINCH + 0.23, -1]];   // [centre height, spin direction]
 
   // wheeled tripod
   for (let i = 0; i < 3; i++) {
-    const a = Math.PI / 2 + (i * TAU) / 3, lx = Math.cos(a) * 0.46, lz = Math.sin(a) * 0.46;
+    const a = Math.PI / 2 + (i * TAU) / 3, lx = Math.cos(a) * 0.44, lz = Math.sin(a) * 0.44;
     g.tube([[lx, 0.1, lz], [0, HUB, 0]], 0.035, K.steelDk, { seg: 3 });
     g.cyl(lx, 0.07, lz, 0.07, 0.055, C.tire, { seg: 4, rz: Math.PI / 2, bottom: true, top: K.steelLt });
   }
-  g.cyl(0, HUB - 0.02, 0, 0.065, 0.3, K.steelDk, { seg: 5, top: K.steelMid });
+  g.cyl(0, HUB - 0.02, 0, 0.065, 0.28, K.steelDk, { seg: 5, top: K.steelMid });
 
-  // head: a back plate with an arm above and below carrying the wheel axles
-  g.box(0, 0.72, -0.14, 0.5, 0.78, 0.1, K.steelMid, { bottom: true, side: K.steelDk });
-  for (const [cy] of WHEELS) {
-    g.box(0, cy - 0.05, WZ - 0.11, 0.46, 0.1, 0.24, K.steelLt, { bottom: true, side: K.steelMid });
-  }
-  // guide lips above and below the pinch, so the gap reads as a muzzle
+  // head: a narrow spine well behind the wheels, with one stub axle arm reaching out to each hub.
+  // Keeping the frame out of the wheels' plane is what stops the head reading as a lump of metal.
+  g.box(0, 0.8, SPINE, 0.19, 0.64, 0.16, K.steelMid, { bottom: true, side: K.steelDk });
+  for (const [cy] of WHEELS) g.box(0, cy - 0.045, (SPINE + WZ) / 2, 0.13, 0.09, WZ - SPINE, K.steelLt, { bottom: true, side: K.steelMid });
+
+  // muzzle: a lip above and below the throat so the gap between the wheels reads as a barrel
   for (const sy of [-1, 1]) {
-    const y = PINCH + sy * 0.145;
-    g.quad2([-0.17, y, WZ + 0.1], [0.17, y, WZ + 0.1], [0.17, y + sy * 0.03, WZ + 0.3], [-0.17, y + sy * 0.03, WZ + 0.3], K.steelDk, K.steelMid);
+    g.box(0, PINCH + sy * 0.13 - (sy > 0 ? 0 : 0.05), 0.26, 0.24, 0.05, 0.15, K.steelDk, { bottom: true, side: K.steelMid });
   }
 
-  // feed chute from the hopper down into the back of the pinch
-  g.cyl(0, 1.3, -0.34, 0.1, 0.33, K.steelLt, { seg: 5, rx: 2.17, top: false });
+  // feed chute from the hopper down into the back of the throat
+  g.cyl(0, 1.28, -0.52, 0.095, 0.37, K.steelLt, { seg: 5, rx: 1.875, top: C.iron, bottom: C.iron });
 
   // hopper: an open basket. Its inside wall is drawn mirrored so the far side is not see through.
-  const HY = 1.28, HZ = -0.36;
-  g.lathe(0, HY, HZ, [[0.16, 0], [0.3, 0.26]], K.steelLt, { seg: 6, capTop: false });
+  const HY = 1.22, HZ = -0.54;
+  g.lathe(0, HY, HZ, [[0.15, 0], [0.27, 0.34]], K.steelLt, { seg: 6, capTop: false });
   g.save(); g.scale(-1, 1, 1);
-  g.lathe(0, HY, HZ, [[0.15, 0.015], [0.288, 0.26]], K.steelMid, { seg: 6, capTop: false });
+  g.lathe(0, HY, HZ, [[0.14, 0.015], [0.258, 0.34]], shade(K.steelMid, 0.58), { seg: 6, capTop: false });
   g.restore();
-  g.fan(0.15, HY + 0.015, 6, Math.PI / 6, K.steelDk);
-  g.band(0.3, HY + 0.26, 0.288, HY + 0.24, 6, Math.PI / 6, K.steelDk);
-  for (const [bx, by, bz, br] of [[-0.1, 0.12, -0.06, 0.1], [0.1, 0.11, 0.05, 0.1], [0.0, 0.26, -0.02, 0.1]]) {
+  g.fan(0.14, HY + 0.015, 6, Math.PI / 6, shade(K.steelDk, 0.7));
+  g.band(0.27, HY + 0.34, 0.258, HY + 0.32, 6, Math.PI / 6, K.steelDk);
+  for (const [bx, by, bz, br] of [[-0.09, 0.14, -0.05, 0.1], [0.09, 0.13, 0.05, 0.1], [-0.02, 0.15, 0.11, 0.1], [0.0, 0.31, -0.01, 0.1]]) {
     g.ico(bx, HY + by, HZ + bz, br, 0x8a4a2a, { sz: 1.45, ry: bx * 7 });
   }
 
   // control box on the operator side, with its cable up to the head
-  g.box(-0.04, 0.26, -0.44, 0.28, 0.3, 0.17, K.steelLt, { bottom: true, back: K.steelMid });
-  g.quad([-0.14, 0.32, -0.524], [0.06, 0.32, -0.524], [0.06, 0.5, -0.524], [-0.14, 0.5, -0.524], C.iron);
-  g.tube([[-0.04, 0.56, -0.44], [-0.1, 0.78, -0.22], [-0.04, 0.9, -0.2]], 0.016, C.iron, { seg: 3 });
+  g.box(-0.04, 0.26, -0.42, 0.28, 0.3, 0.17, K.steelLt, { bottom: true, back: K.steelMid });
+  g.quad([-0.14, 0.32, -0.506], [0.06, 0.32, -0.506], [0.06, 0.5, -0.506], [-0.14, 0.5, -0.506], C.iron);
+  g.tube([[-0.04, 0.56, -0.42], [-0.08, 0.78, -0.3], [-0.03, 0.92, -0.27]], 0.016, C.iron, { seg: 3 });
   g.shadeY(0, 0.7 * scale, 0.88);
   addMesh(group, g, flatMat, own, 'machine');
 
@@ -388,11 +407,11 @@ export function createBallMachine({ scale = 1 } = {}) {
     wheels.instanceMatrix.needsUpdate = true;
   }, {
     setSpeed(v) { speed = Math.max(0, v || 0); },
-    height: (HY + 0.3) * scale,
-    radius: 0.55 * scale,
-    colliders: [{ x: 0, z: 0, r: 0.45 * scale }],
+    height: (HY + 0.44) * scale,
+    radius: 0.85 * scale,
+    colliders: [{ x: 0, z: -0.14 * scale, r: 0.5 * scale }],
     anchors: {
-      muzzle: V3(0, PINCH * scale, (WZ + 0.3) * scale),
+      muzzle: V3(0, PINCH * scale, (WZ + 0.34) * scale),
       hopper: V3(0, (HY + 0.26) * scale, HZ * scale),
     },
     triangles: g.tris,

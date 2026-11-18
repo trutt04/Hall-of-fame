@@ -222,13 +222,17 @@ export function createFacility(w) {
   const anchorOf = (prop, a, out = new THREE.Vector3()) => out.copy(a).applyAxisAngle(THREE.Object3D.DEFAULT_UP, prop.group.rotation.y).add(prop.group.position);
 
   // ------------------------------------------------------------------ the substation bays
-  // Four bays stand in a line along the west edge, each turned a quarter turn: local +x runs along
-  // world -z, local +z points east at the field, so the line side faces back into the yard.
-  const BAY_W = 9;
-  const BAY_D = 7;
+  // Six bays stand shoulder to shoulder along the west edge, each turned a quarter turn: a bay is
+  // built side by side along its own x, so local +x runs along world -z (the row) and local +z
+  // points east at the field. Together they are the wall.
+  const BAY_W = 8;
+  const BAY_D = 5;
+  const BAY_N = 6;
+  const BAY_STEP = 8.1;
   const bays = [];
-  for (const z of [S.z - 19.5, S.z - 8.5, S.z + 2.5, S.z + 13.5]) {
-    const prop = artProp('createSubstationBay', { w: BAY_W, d: BAY_D, scale: 1 }) || standInBay({ w: BAY_W, d: BAY_D, scale: 1 });
+  for (let i = 0; i < BAY_N; i++) {
+    const z = S.z + (i - (BAY_N - 1) / 2) * BAY_STEP;
+    const prop = artProp('createSubstationBay', { w: BAY_W, d: BAY_D, scale: 1, seed: i + 1 }) || standInBay({ w: BAY_W, d: BAY_D, scale: 1 });
     put(prop, S.bayX, z, Math.PI / 2);
     bays.push(prop);
   }
@@ -236,54 +240,49 @@ export function createFacility(w) {
   // ------------------------------------------------------------------ pylons, behind and beside
   // Two stand just inside the fence, right over the new graves. Two stand back for depth.
   const pylons = [];
-  for (const [px, pz, ph] of [[S.bayX + 6.5, A.z + A.step * 1.5, 16], [S.bayX + 6.5, S.z + 13, 14], [S.bayX - 5, S.z - 17, 19], [S.bayX - 5, S.z + 19, 17]]) {
+  for (const [px, pz, ph] of [[S.bayX + 6.5, A.z + A.step * 1.5, 15], [S.bayX + 6.5, S.z + 14, 13], [S.bayX - 5, S.z - 25, 18], [S.bayX - 5, S.z + 25, 16]]) {
     const prop = artProp('createPylon', { height: ph, scale: 1 }) || standInPylon({ height: ph, scale: 1 });
     put(prop, px, pz, pz < S.z ? 0.1 : -0.08);
     pylons.push(prop);
   }
 
-  // ------------------------------------------------------------------ wires between the bays
-  // One run per conductor, bay to bay down the whole line, plus a span from each end bay out to
-  // the pylon beside it. Without the art builder the lot is merged into a single mesh.
+  // ------------------------------------------------------------------ wires
+  // One run per phase along the whole row of bays, plus the transmission line crossing the yard
+  // between the two back pylons. The art builder takes a LIST of runs and merges the lot into one
+  // mesh, and its `sag` is a fraction of each span, so one number suits a 8 m gap and a 50 m one.
+  const SAG = 0.045;
   let wireMesh = null;
   const wireProps = [];
   {
-    const SAG = 1.2;
-    const fallback = new Geo();
-    const span = (pts, drop) => {
-      const out = [];
-      const n = pts.length - 1;
-      for (let i = 0; i < n; i++) {
-        for (let k = 0; k < 5; k++) {
-          const u = k / 5;
-          const a = pts[i];
-          const b = pts[i + 1];
-          out.push([a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u - Math.sin(u * Math.PI) * drop, a.z + (b.z - a.z) * u]);
+    const anchorsOf = (prop) => ((prop && prop.anchors && prop.anchors.wireTops) || []).map((v) => anchorOf(prop, v));
+    const tops = bays.map(anchorsOf);
+    const runs = [];
+    const lanes = tops.length ? Math.min(...tops.map((t) => t.length)) : 0;
+    for (let k = 0; k < lanes; k++) runs.push(tops.map((t) => t[k]));
+    const back = [anchorsOf(pylons[2]), anchorsOf(pylons[3])];
+    for (let k = 0; k < Math.min(back[0].length, back[1].length); k++) runs.push([back[0][k], back[1][k]]);
+    const live = runs.filter((r) => r.length > 1 && r.every(Boolean));
+    const prop = live.length ? artProp('createSubstationWires', live.map((r) => r.map((p) => p.clone())), { sag: SAG }) : null;
+    if (prop && prop.group) {
+      group.add(prop.group);
+      wireProps.push(prop);
+    } else if (live.length) {
+      // stand-in: the same parabolas, merged by hand
+      const g = new Geo();
+      for (const run of live) {
+        for (let i = 0; i < run.length - 1; i++) {
+          const a = run[i];
+          const b = run[i + 1];
+          const dip = a.distanceTo(b) * SAG;
+          const pts = [];
+          for (let k = 0; k <= 4; k++) {
+            const u = k / 4;
+            pts.push([a.x + (b.x - a.x) * u, a.y + (b.y - a.y) * u - dip * 4 * u * (1 - u), a.z + (b.z - a.z) * u]);
+          }
+          g.tube(pts, 0.045, WIRE, { seg: 3 });
         }
       }
-      out.push([pts[n].x, pts[n].y, pts[n].z]);
-      fallback.tube(out, 0.05, WIRE, { seg: 3 });
-    };
-    const run = (pts, drop) => {
-      if (pts.length < 2) return;
-      const prop = artProp('createSubstationWires', pts.map((p) => p.clone()), { sag: drop });
-      if (prop && prop.group) {
-        group.add(prop.group);
-        wireProps.push(prop);
-        return;
-      }
-      span(pts, drop);
-    };
-    const tops = bays.map((b) => ((b.anchors && b.anchors.wireTops) || []).map((v) => anchorOf(b, v)));
-    const lanes = Math.min(...tops.map((t) => t.length));
-    for (let k = 0; k < lanes; k++) run(tops.map((t) => t[k]), SAG);
-    for (const [bi, pi] of [[0, 2], [bays.length - 1, 3]]) {
-      const a = tops[bi] || [];
-      const arms = ((pylons[pi] && pylons[pi].anchors && pylons[pi].anchors.arms) || []).map((v) => anchorOf(pylons[pi], v));
-      for (let k = 0; k < Math.min(a.length, arms.length); k++) run([a[k], arms[k]], SAG * 1.5);
-    }
-    if (fallback.p.length) {
-      wireMesh = fallback.mesh(flatMat);
+      wireMesh = g.mesh(flatMat);
       wireMesh.name = 'substationWires';
       wireMesh.matrixAutoUpdate = false;
       group.add(wireMesh);
@@ -415,6 +414,7 @@ export function createFacility(w) {
   const MZ = F.machine[1];
   put(machineProp, MX, MZ, 0, { small: true, far: SMALL_FAR }); // facing 0: it fires south, down the field
   const machine = {
+    group: machineProp.group,
     x: MX,
     z: MZ,
     y: terrain.heightAt(MX, MZ),
@@ -447,7 +447,7 @@ export function createFacility(w) {
     items.push({ prop: { group: frame }, x, z, small: true, far: SMALL_FAR }, { prop: { group: face }, x, z, small: true, far: SMALL_FAR });
     return { redraw(ls) { tex.image = draw(ls); tex.needsUpdate = true; } };
   }
-  const bestSign = makeSign(['CATCHING DRILL', 'Best: none yet'], 2.5, 1.15, fx1 - 1.1, MZ + 2.2, Math.PI / 2 + 0.3, '#14553c');
+  const bestSign = makeSign(['CATCHING DRILL', 'Best: none yet'], 2.5, 1.15, fx1 + 1.0, MZ + 2.4, Math.PI / 2 + 0.35, '#14553c');
   makeSign(['DANGER  HIGH VOLTAGE', 'Draft picks rest here'], 2.3, 1.05, S.fenceX + 0.5, A.z - 2.6, Math.PI / 2, '#7a2318');
 
   // ------------------------------------------------------------------ where visitors stand

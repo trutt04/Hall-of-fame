@@ -116,7 +116,7 @@ const ITEMS = {
   substationRow: ['facility', () => {
     const group = new THREE.Group(), parts = [], tops = [];
     for (let i = 0; i < 3; i++) {
-      const bay = ART.createSubstationBay({ w: 6, d: 4 });
+      const bay = ART.createSubstationBay({ w: 6, d: 4, seed: i + 1 });
       bay.group.position.x = (i - 1) * 6.3;
       group.add(bay.group); parts.push(bay);
       tops.push(bay.anchors.wireTops.map((p) => [p.x + bay.group.position.x, p.y, p.z]));

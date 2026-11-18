@@ -690,6 +690,36 @@ export function createAudio() {
       burst(out, t, 0.05, 'highpass', 2600, 0.7, 0.03);
       return 1.5;
     },
+    // a football meeting two hands: a leather thump with a tiny squeak of the laces
+    catch(t, out) {
+      burst(out, t, 0.075, 'lowpass', 520, 0.9, 0.75, brown);
+      burst(out, t + 0.004, 0.035, 'bandpass', 1500, 1.4, 0.26);
+      const o = osc('sine', 165);
+      const g = gain(0);
+      o.frequency.setValueAtTime(190, t);
+      o.frequency.exponentialRampToValueAtTime(92, t + 0.13);
+      pluck(g.gain, t, 0.003, 0.5, 0.13);
+      chain(o, g, out);
+      o.start(t);
+      o.stop(t + 0.22);
+      burst(out, t + 0.055, 0.03, 'highpass', 3400, 0.8, 0.07);
+      return 0.35;
+    },
+    // the same ball meeting nobody: a dull bounce off the turf, then a smaller one
+    drop(t, out) {
+      for (const [at, level, freq] of [[0, 0.5, 300], [0.165, 0.2, 360], [0.27, 0.08, 420]]) {
+        burst(out, t + at, 0.06, 'lowpass', freq, 0.8, level, brown);
+        const o = osc('sine', 120);
+        const g = gain(0);
+        o.frequency.setValueAtTime(128, t + at);
+        o.frequency.exponentialRampToValueAtTime(58, t + at + 0.1);
+        pluck(g.gain, t + at, 0.003, level * 0.6, 0.1);
+        chain(o, g, out);
+        o.start(t + at);
+        o.stop(t + at + 0.18);
+      }
+      return 0.5;
+    },
     // an egg meeting siding: a wet slap, the shell cracking, one drip
     splat(t, out) {
       burst(out, t, 0.1, 'lowpass', 850, 0.8, 0.55, brown);
