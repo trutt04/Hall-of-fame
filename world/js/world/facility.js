@@ -184,7 +184,7 @@ function standInBallMachine({ scale = 1 } = {}) {
 }
 
 export function createFacility(w) {
-  const { scene, layout, terrain, colliders } = w;
+  const { scene, layout, terrain, colliders, audio } = w;
   const S = layout.places.substation;
   const F = layout.places.practiceField;
   const A = layout.places.graveAnnex;
@@ -487,6 +487,17 @@ export function createFacility(w) {
       if (p.group.visible !== near) p.group.visible = near;
       if (near && p.update) p.update(dt, t);
     }
+  }
+
+  // The yard hums. Registered once; the audio module builds the nodes when the visitor is close
+  // enough to hear it, and gives them back when they walk away or turn the sound off.
+  if (audio && typeof audio.drone === 'function') {
+    audio.drone('substation', {
+      position: { x: S.fenceX - 4, z: (S.z0 + S.z1) / 2 },
+      falloff: 16,
+      range: 55, // a transformer is loud up close and gone by the boulevard
+      volume: 0.85,
+    });
   }
 
   return {

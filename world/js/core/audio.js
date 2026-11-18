@@ -7,6 +7,8 @@
 //   audio.update(dt, zoneWeights, listener?)    call every frame; crossfades the neighborhood beds
 //   audio.sfx(name, { volume?, position? })     one-shots, see SFX below
 //   audio.clip(url, { volume?, position?, falloff?, delay? })   plays a recorded file (resolves true if it played)
+//   audio.drone(name, { position, falloff?, range?, volume? })   a continuous sound tied to a place, see DRONES
+//                                                        returns { stop(), position } or null; safe before enable()
 //   audio.on('change', fn)
 //
 // Everything fades in and out, nothing clicks, and the whole context sleeps while the tab is hidden.
@@ -135,6 +137,116 @@ export function createAudio() {
   // Each builder wires continuous sources into `out` and returns { stop(), tick(now) }.
   // tick schedules the occasional events (chimes, chirps, crackles) a little ahead of time.
   const AHEAD = 0.45;
+
+  // ---------------------------------------------------------------- place drones
+  // A bed belongs to a neighborhood, which is a band of the map. A drone belongs to one spot:
+  // it gets quieter and pans as the listener walks away. Builders wire into `out` like beds do.
+  const DRONES = {
+    // An electrical substation. Mains hum is twice the line frequency, so 120 Hz with harmonics
+    // above it, the pair detuned slightly so it beats the way a real transformer does. A thin
+    // crackle sits on top for the insulators.
+    substation(out) {
+      const live = [];
+      const partial = (freq, level, detune) => {
+        const o = osc('sine', freq);
+        o.detune.value = detune;
+        chain(o, gain(level), out);
+        live.push(o);
+      };
+      partial(120, 0.085, 0);
+      partial(120, 0.055, 7); // beats against the first
+      partial(240, 0.038, -4);
+      partial(360, 0.017, 5);
+      partial(600, 0.006, 0);
+      // the breathing of a big iron core under load
+      const body = osc('sine', 0.09);
+      const bodyG = gain(0.02);
+      const swell = gain(1);
+      chain(body, bodyG, swell.gain);
+      live.push(body);
+      // insulator crackle: a whisper of filtered white noise, never loud enough to name
+      const hiss = noise(white);
+      chain(hiss, filter('highpass', 4200, 0.4), gain(0.0045), out);
+      live.push(hiss);
+      live.forEach((n) => n.start());
+      return { stop: () => live.forEach((n) => { try { n.stop(); } catch (e) { /* already stopped */ } }) };
+    },
+  };
+
+  const drones = new Set();
+
+  /** Register a continuous sound at a place. Safe to call before the context exists. */
+  function drone(name, opts = {}) {
+    if (!DRONES[name]) return null;
+    const d = {
+      name,
+      position: opts.position || { x: 0, z: 0 },
+      falloff: opts.falloff || 18,
+      range: opts.range || 0, // metres past which it is silent; 0 means no hard limit
+      volume: opts.volume ?? 1,
+      node: null,
+      gain: null,
+      idle: 0,
+      stop() {
+        tearDownDrone(d);
+        drones.delete(d);
+      },
+    };
+    drones.add(d);
+    return d;
+  }
+
+  function tearDownDrone(d) {
+    if (!d.node) return;
+    try {
+      d.node.stop();
+      d.gain.disconnect();
+    } catch (e) { /* the context went away under us */ }
+    d.node = null;
+    d.gain = null;
+  }
+
+  function updateDrones(now) {
+    for (const d of drones) {
+      let level = 0;
+      let pan = 0;
+      const sp = spatial({ volume: d.volume, position: d.position }, d.falloff);
+      if (sp) {
+        level = sp.level;
+        pan = sp.pan;
+        // The inverse square tail never quite reaches zero, so without this a hum would still be
+        // faintly on from the other side of town. Past `range` it is silent, and the last quarter
+        // is taped off so it fades out rather than stopping dead.
+        if (d.range) {
+          const dist = Math.hypot(d.position.x - listener.x, d.position.z - listener.z);
+          if (dist >= d.range) level = 0;
+          else if (dist > d.range * 0.75) level *= 1 - (dist - d.range * 0.75) / (d.range * 0.25);
+        }
+      }
+      if (!d.node) {
+        if (level < 0.005) continue; // too far to be worth building
+        const g = gain(0);
+        const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (pn) chain(g, pn, ambBus);
+        else chain(g, ambBus);
+        d.gain = g;
+        d.pan = pn;
+        d.idle = 0;
+        d.node = DRONES[d.name](g);
+      }
+      // Always steer the gain, so walking out of earshot fades it now rather than when the
+      // nodes are eventually released.
+      d.gain.gain.setTargetAtTime(level, now, 0.4);
+      if (d.pan) d.pan.pan.setTargetAtTime(pan, now, 0.3);
+      if (level < 0.005) {
+        d.idle += 0.2;
+        if (d.idle > 4) tearDownDrone(d);
+      } else {
+        d.idle = 0;
+      }
+    }
+  }
+
   const builders = {
     // The Hill: soft wind and an occasional glassy chime.
     hill(out) {
@@ -444,6 +556,9 @@ export function createAudio() {
       } catch (err) { /* already stopped */ }
       delete beds[zone];
     }
+    // Place drones hold nodes on the same context, so they go back at the same moment.
+    // The registrations stay, so a drone rebuilds itself when sound comes back on.
+    for (const d of drones) tearDownDrone(d);
   }
 
   // ---------------------------------------------------------------- one-shots
@@ -970,6 +1085,7 @@ export function createAudio() {
     clock = 0;
     const now = ctx.currentTime;
     for (const zone of ZONES) setBed(zone, weights ? weights[zone] || 0 : 0, now);
+    updateDrones(now);
   }
 
   return {
@@ -983,6 +1099,7 @@ export function createAudio() {
     update,
     sfx,
     clip,
+    drone,
     on: events.on.bind(events),
     names: Object.keys(SFX),
     get enabled() { return enabled; },
@@ -990,6 +1107,9 @@ export function createAudio() {
     get context() { return ctx; },
     get state() { return ctx ? ctx.state : 'none'; },
     get activeBeds() { return Object.keys(beds); },
+    // tests and the console: the drones that currently hold audio nodes, so a test can see
+    // one come alive as the listener walks up and be given back as they walk away
+    get activeDrones() { return [...drones].filter((d) => d.node).map((d) => d.name); },
     get lastClipError() { return lastClipError; },
   };
 }
