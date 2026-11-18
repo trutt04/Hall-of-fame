@@ -363,18 +363,20 @@ export function createAudio() {
 
     // Playoff Heights: a fountain burbling and small birds showing off.
     heights(out) {
+      // The water is half what it was: it drowned out the street. The birds are untouched, and
+      // the wobble on each layer is halved with it so the burble keeps its shape.
       const src = noise(white);
-      const g = gain(0.05);
+      const g = gain(0.025);
       chain(src, filter('highpass', 650, 0.5), filter('bandpass', 1700, 0.6), g, out);
       const l1 = osc('sine', 5.3);
       const l2 = osc('sine', 2.1);
-      chain(l1, gain(0.014), g.gain);
-      chain(l2, gain(0.016), g.gain);
+      chain(l1, gain(0.007), g.gain);
+      chain(l2, gain(0.008), g.gain);
       const low = noise(brown);
-      const lg = gain(0.1);
+      const lg = gain(0.05);
       chain(low, filter('bandpass', 330, 1.2), lg, out);
       const l3 = osc('sine', 3.7);
-      chain(l3, gain(0.05), lg.gain);
+      chain(l3, gain(0.025), lg.gain);
       const live = [src, l1, l2, low, l3];
       live.forEach((n) => n.start());
       let next = ctx.currentTime + rand(1, 3);
