@@ -78,8 +78,9 @@ Things worth knowing:
   20 minutes behind ESPN during games.
 - **If ESPN says no or is down**, the job keeps the last good data and tries again next time.
   Nothing breaks.
-- **There are no passwords, cookies or tokens anywhere in this repo.** The job only works for a
-  league that is viewable to the public.
+- **Nothing secret is written in this repo.** If the league is viewable to the public, the job
+  needs no login at all. If it is private, the job can use your own ESPN login, stored by GitHub
+  in a locked box that is not part of the repo. See "Reading a private league" below.
 - **The timer only runs from the `main` branch.** That is a GitHub rule.
 
 ## What to do when...
@@ -91,7 +92,111 @@ Things worth knowing:
 | A new season starts | Nothing. The job works out the season from the date. |
 | ESPN moves its address again | GitHub emails you after the job has failed for a day. Add the new address as the first line of `DEFAULT_BASE_URLS` in `scripts/lib/espn-client.mjs`. Nothing else changes. |
 | You want to pause the job | On GitHub: Actions tab, "ESPN sync", the "..." menu, "Disable workflow". |
-| The league goes private again | Nothing breaks. The world keeps showing the last data it got. |
+| The league goes private again | Nothing breaks. The world keeps showing the last data it got. You can add your ESPN login so it keeps updating. See "Reading a private league". |
+| The world goes back to saying "sample data" | Your ESPN login has probably expired. See "When the login stops working". |
+
+## Reading a private league
+
+Our league is private, so ESPN will not show it to a stranger. The job can show ESPN that it is
+you by using the same two little files your browser already uses to keep you signed in. They are
+called cookies. Their names are `espn_s2` and `SWID`.
+
+**Read this part first.** Those two values together are your ESPN login. Anyone who has them can
+use ESPN as you. So:
+
+- Never type them into a file, a message, an email or a chat. Not even to yourself.
+- Only ever paste them into the GitHub box described below. GitHub keeps them locked and never
+  shows them again, not even to you.
+- The job is built so that they do not end up in the repo, in the data files, on the website or
+  in the job's own logs. It blanks them out of every line it prints or saves, as a last check.
+- If you think someone else has seen them, sign out of ESPN everywhere and sign back in. That
+  makes the old ones useless straight away. Then do step 1 and step 2 again.
+
+### Step 1: get the two values from your browser
+
+On a computer, in Chrome or Edge:
+
+1. Go to `fantasy.espn.com` and sign in, so you can see our league.
+2. Press F12. A panel opens. (On a Mac: Command, Option, I.)
+3. Click the **Application** tab at the top of that panel. If you do not see it, click the small
+   arrows to show more tabs.
+4. In the list on the left, open **Cookies**, then click `https://fantasy.espn.com`.
+5. A table appears. Find the row named `espn_s2`. Click it. Copy the whole **Value**. It is very
+   long, a couple of hundred characters, and has `%` signs in it. Copy all of it.
+6. Find the row named `SWID`. Copy its whole **Value** too. It looks like
+   `{AB12CD34-56EF-78AB-90CD-EF1234567890}`.
+
+In Safari, turn on the Develop menu first: Safari, Settings, Advanced, "Show features for web
+developers". Then Develop, Show Web Inspector, and use the Storage tab instead of Application.
+
+Keep the browser window open until you have finished step 2.
+
+### Step 2: put them in GitHub
+
+1. Go to the repo on GitHub: `https://github.com/trutt04/Hall-of-fame`.
+2. Click **Settings** (the tab along the top of the repo, not your own account settings).
+3. In the left menu, click **Secrets and variables**, then **Actions**.
+4. Click the green **New repository secret** button.
+5. In **Name** type `ESPN_S2`. In **Secret** paste the long `espn_s2` value. Click
+   **Add secret**.
+6. Click **New repository secret** again. In **Name** type `ESPN_SWID`. In **Secret** paste the
+   `SWID` value. Click **Add secret**.
+
+You should now see two secrets listed, `ESPN_S2` and `ESPN_SWID`. GitHub shows only the names.
+
+Do not worry about the curly braces, spare spaces, quote marks or a leftover `SWID=` in front of
+the value. The job tidies all of that up. Both names must be spelled exactly as above, and you
+need both. One on its own does nothing, and the job will say so in its log.
+
+### Step 3: check it worked
+
+On GitHub: the **Actions** tab, then "ESPN sync", then **Run workflow**. Wait a minute, then open
+the run. If it worked, the summary at the top says `Result: ok`. Open the world and the "sample
+data" label on the standings board is gone.
+
+If the summary says `login_expired`, ESPN would not accept the two values. ESPN does not tell us
+why, so it is one of these three:
+
+- one of the values was copied wrong, or only part of it was copied,
+- the values have already changed (see "When the login stops working" below),
+- or the ESPN account they came from is not in this league.
+
+Go back to step 1 in the same browser you are signed in to, check that you can see our league
+there, and copy both values again.
+
+If the summary still says `league_private` with both secrets set, the job did not send the login
+at all, because the address it was told to use is not an ESPN one. That only happens if someone
+has set `ESPN_BASE_URLS` in the job. Remove it and run the job again.
+
+### What this means for privacy
+
+Once this works, the job writes the league's **real** names, rosters, scores, draft and past
+seasons into this repo, and this repo is public. That means:
+
+- Anybody with the link can read our real team names, records, scores, lineups and draft.
+- Anybody can also see them in the files on GitHub, and in the repo's history, forever.
+- The job deliberately leaves out some things ESPN sends, such as member ids and the email
+  addresses and real names attached to accounts. It never saves those.
+- Your ESPN login itself is never written anywhere. Only the league data is.
+
+If any of that is not okay, do not add the secrets. The world runs happily on sample data.
+
+### When the login stops working
+
+ESPN changes these values from time to time, usually every few weeks, and always when you change
+your ESPN password or sign out. When that happens:
+
+- Nothing breaks and nothing is lost. The world keeps showing the last data it got, and starts
+  saying "sample data" again if it never had real data.
+- `world/data/status.json` says `login_expired`, and the job's log says in plain words what to do.
+- The fix is to do step 1 and step 2 again. In step 2 you click the existing secret's pencil icon
+  and paste the new value instead of making a new secret. `ESPN_S2` is usually the only one that
+  changes, but it does no harm to redo both.
+- The job keeps trying without the login as well, so if the league is ever made public it starts
+  working again by itself even with an old login sitting in GitHub.
+
+To stop using your login altogether, delete both secrets on that same GitHub page. The job goes
+straight back to asking ESPN as the public, which is how it behaved before.
 
 ## Sample data
 

@@ -9,12 +9,28 @@
  *   - every failure is classified into one of the `reason` values of Contract 3 (status.json)
  *   - nothing here ever throws for a network or HTTP problem: callers get { ok: false, ... }
  *
- * No cookies, tokens or auth headers are ever sent. This only works for a PUBLIC league.
- * A private league answers 401, which is reported as "league_private" (an expected state).
+ * A PUBLIC league needs no login and that stays the default: with no login configured this
+ * client sends no cookies at all, and a private league's 401 is reported as "league_private".
+ *
+ * A PRIVATE league needs the owner's two ESPN browser cookies. They arrive here as ONE ready
+ * made header string in the `cookie` option (built by lib/espn-login.mjs from GitHub Actions
+ * Secrets) and they are handled like the login they are:
+ *
+ *   - sent only on league-scoped requests, never on the public NFL schedule or player list,
+ *     so an expired login can never break the parts that work without one
+ *   - sent only over https to an espn.com address (loopback is allowed so the tests can use
+ *     the local mock), because ESPN_BASE_URLS is operator-supplied and redirects are followed
+ *   - never interpolated into a detail, a log line or an error: headers are not printed here,
+ *     and describeFetchError deliberately tests the fetch error message without echoing it
+ *   - when ESPN refuses a signed-in request, the same request is retried WITHOUT the login (a
+ *     league that has since been made public still works) and only then reported as
+ *     "login_expired", whose detail is a fixed sentence holding no value of any kind
  *
  * IF ESPN MOVES AGAIN: add the new address at the top of DEFAULT_BASE_URLS below, or set the
  * ESPN_BASE_URLS variable in the workflow. Nothing else should need to change.
  */
+
+import { LOGIN_EXPIRED_DETAIL } from './espn-login.mjs';
 
 export const DEFAULT_BASE_URLS = Object.freeze([
   'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl', // works as of November 2026
@@ -30,7 +46,7 @@ export const USER_AGENT = 'league-world-sync/1.0';
 export const FIRST_MODERN_SEASON = 2018;
 
 export const REASONS = Object.freeze([
-  'ok', 'league_private', 'not_found', 'endpoint_moved', 'rate_limited', 'server_error', 'network', 'bad_shape',
+  'ok', 'league_private', 'login_expired', 'not_found', 'endpoint_moved', 'rate_limited', 'server_error', 'network', 'bad_shape',
 ]);
 
 /** The `?view=` sets for each kind of request. ESPN lets several views share one call. */
@@ -96,6 +112,23 @@ function hostOf(url) {
     return new URL(url).host;
   } catch {
     return 'unknown host';
+  }
+}
+
+/**
+ * May the login be sent to this address? Only https ESPN addresses, plus loopback so the
+ * tests can point the client at scripts/testing/mock-espn.mjs. Everything else gets the
+ * ordinary public request: ESPN_BASE_URLS can be set by hand and redirects are followed, so
+ * the login must not be allowed to travel just anywhere.
+ */
+export function mayCarryLogin(url) {
+  try {
+    const { protocol, hostname } = new URL(url);
+    const loopback = hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]' || hostname === '::1';
+    if (loopback) return protocol === 'http:' || protocol === 'https:';
+    return protocol === 'https:' && (hostname === 'espn.com' || hostname.endsWith('.espn.com'));
+  } catch {
+    return false;
   }
 }
 
@@ -167,12 +200,14 @@ const defaultSleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
  * Create a client.
  *   baseUrls    ordered list of API roots (each ending in /apis/v3/games/ffl)
  *   leagueId    ESPN league id
+ *   cookie      the finished login header from lib/espn-login.mjs, or null for no login
  *   log         function(line) for the human-readable run log
  *   fetchImpl   fetch replacement (tests)
  */
 export function createClient({
   baseUrls = DEFAULT_BASE_URLS,
   leagueId = DEFAULT_LEAGUE_ID,
+  cookie = null,
   timeoutMs = 15000,
   retries = 2,
   backoffMs = 1500,
@@ -182,6 +217,7 @@ export function createClient({
   log = () => {},
 } = {}) {
   const bases = baseUrls.map((b) => String(b).replace(/\/+$/, ''));
+  const login = typeof cookie === 'string' && cookie !== '' ? cookie : null;
   const state = { base: bases[0], requests: 0, started: Date.now() };
 
   const timeLeft = () => budgetMs - (Date.now() - state.started);
@@ -198,7 +234,8 @@ export function createClient({
     try {
       const res = await fetchImpl(url, {
         method: 'GET',
-        // Deliberately no Cookie and no Authorization: public data only.
+        // No Authorization, ever. A Cookie is present only when the caller asked for the login
+        // (league-scoped requests) and only for an address allowed by mayCarryLogin().
         headers: { Accept: 'application/json', 'User-Agent': USER_AGENT, ...headers },
         redirect: 'follow',
         signal: controller.signal,
@@ -227,8 +264,14 @@ export function createClient({
   }
 
   /** GET a URL as JSON with the retry policy. Never throws. */
-  async function getJson(url, { label = '', headers = {} } = {}) {
+  async function getJson(url, { label = '', headers = {}, withLogin = false } = {}) {
     const host = hostOf(url);
+    const sendLogin = withLogin && login !== null && mayCarryLogin(url);
+    if (withLogin && login !== null && !sendLogin) {
+      log(`  ${label || 'GET'} @ ${host} -> the saved ESPN login is NOT sent to this address (only https ESPN addresses get it)`);
+    }
+    // The header object is built here and nowhere else, and it is never logged or returned.
+    const sent = sendLogin ? { ...headers, Cookie: login } : headers;
     let result = null;
     for (let i = 0; i <= retries; i++) {
       if (timeLeft() <= 0) {
@@ -237,7 +280,7 @@ export function createClient({
         break;
       }
       const t0 = Date.now();
-      result = await attempt(url, headers);
+      result = await attempt(url, sent);
       const ms = Date.now() - t0;
       const what = result.ok
         ? `OK (HTTP ${result.status}, ${result.bytes} bytes${result.redirectedTo ? `, redirected to ${result.redirectedTo}` : ''})`
@@ -247,6 +290,9 @@ export function createClient({
       const wait = Math.max(backoffMs * 2 ** i, result.retryAfterMs ?? 0);
       if (wait > 0) await sleep(wait);
     }
+    // Whether the login actually went out, so the caller can tell "the login was refused" from
+    // "there was no login on this request". Never the value, just the fact.
+    result.loginSent = sendLogin;
     return result;
   }
 
@@ -267,11 +313,11 @@ export function createClient({
   }
 
   /** Try the base that last answered first, then the others. */
-  async function cascade(path, views, params, { label, headers, tryAllBases = true }) {
+  async function cascade(path, views, params, { label, headers, tryAllBases = true, withLogin = false }) {
     const order = [state.base, ...bases.filter((b) => b !== state.base)];
     const failures = [];
     for (const base of tryAllBases ? order : order.slice(0, 1)) {
-      const result = await getJson(buildUrl(base, path, views, params), { label, headers });
+      const result = await getJson(buildUrl(base, path, views, params), { label, headers, withLogin });
       if (result.ok || result.reason === 'league_private' || result.reason === 'rate_limited') {
         state.base = base; // ESPN answered here: this address is alive
         return result;
@@ -281,9 +327,29 @@ export function createClient({
     return pickFailure(failures);
   }
 
-  /** A league-specific request for one season. */
-  function fetchLeague(season, views, params = {}, { label = `league ${season}`, tryAllBases = true } = {}) {
-    return cascade(`/seasons/${season}/segments/0/leagues/${leagueId}`, views, params, { label, tryAllBases });
+  /**
+   * A league-specific request for one season: the only kind that needs the login.
+   *
+   * If a signed-in request is refused, the same request is tried once more WITHOUT the login.
+   * That matters because ESPN answers the same 401 whether the login is dead, the league is
+   * private, or both: the second try is what tells "the login expired" (401 again) apart from
+   * "the league was made public in the meantime" (it just works).
+   */
+  async function fetchLeague(season, views, params = {}, { label = `league ${season}`, tryAllBases = true } = {}) {
+    const leaguePath = `/seasons/${season}/segments/0/leagues/${leagueId}`;
+    const signedIn = await cascade(leaguePath, views, params, { label, tryAllBases, withLogin: true });
+    // Only a login that was really sent can be the thing ESPN refused.
+    if (!signedIn.loginSent || signedIn.reason !== 'league_private') return signedIn;
+
+    log('  ESPN refused the signed-in request. Trying again without the login, in case the league is public now.');
+    const anonymous = await cascade(leaguePath, views, params, { label: `${label}, without the login`, tryAllBases, withLogin: false });
+    if (anonymous.ok) {
+      log('  it worked without the login: the league is public. The saved login is not needed but looks stale.');
+      return anonymous;
+    }
+    // A fixed detail, because this one is published: no value, no length, not even a host.
+    if (anonymous.reason === 'league_private') return { ...anonymous, reason: 'login_expired', detail: LOGIN_EXPIRED_DETAIL, retryable: false };
+    return anonymous;
   }
 
   /** A game-level request (not tied to the league), e.g. the NFL schedule. */
@@ -310,6 +376,7 @@ export function createClient({
   return {
     leagueId,
     bases,
+    hasLogin: login !== null,
     timeLeft,
     get requests() {
       return state.requests;

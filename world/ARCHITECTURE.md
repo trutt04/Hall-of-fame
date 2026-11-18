@@ -28,7 +28,13 @@ scheduled GitHub Actions job saves into this repo. Nothing in the world is edite
   everything on team `id`. In the DOM use `textContent` (never `innerHTML` with data). Canvas
   text is fine.
 - **Existing site is off limits.** Never edit `/index.html` or `/beat.mp3`.
-- **No secrets.** No cookies, tokens or passwords anywhere in the repo, the workflow or logs.
+- **No secrets in the repo.** No cookies, tokens or passwords in any file, any data file, any
+  log or anything published. The league owner's ESPN login (the `espn_s2` and `SWID` browser
+  cookies) exists only as two encrypted GitHub Actions Secrets, `ESPN_S2` and `ESPN_SWID`. It is
+  read from the environment at run time by `scripts/lib/espn-login.mjs`, sent only as a `Cookie`
+  header on league-scoped requests over https to ESPN, and every string the sync prints, commits
+  or hands to GitHub goes through that module's `scrub()` first. A value is never interpolated
+  into a message, and no message names a value, its length or a prefix.
 - Respect `prefers-reduced-motion`. Pause rendering when the tab is hidden. Wrap `localStorage`
   in try/catch.
 
@@ -50,6 +56,7 @@ world/data/history.json         past seasons, written by the sync job
 world/data/status.json          sync health, written by the sync job
 world/dev/                      developer pages (prop gallery). Not linked from the world.
 scripts/                        sync-espn.mjs, lib/, fixtures/, test/
+scripts/lib/espn-login.mjs      the two ESPN login cookies, read from the environment, plus scrub()
 .github/workflows/espn-sync.yml the scheduled job
 ```
 
@@ -167,13 +174,33 @@ People are matched across seasons by `ownerKey` (a manager can rename their team
 {
   "schema": 1,
   "ok": false,
-  "reason": "league_private",   // "ok" | "league_private" | "not_found" | "endpoint_moved" | "rate_limited" | "server_error" | "network" | "bad_shape"
+  "reason": "league_private",   // "ok" | "league_private" | "login_expired" | "not_found" | "endpoint_moved" | "rate_limited" | "server_error" | "network" | "bad_shape"
   "detail": "HTTP 401 from lm-api-reads.fantasy.espn.com",
   "lastAttempt": "2026-11-16T03:10:00Z",
   "lastSuccess": null,
   "consecutiveFailures": 3
 }
 ```
+
+The `reason` values, and what each one means for the world:
+
+| reason | what happened | the world |
+|---|---|---|
+| `ok` | ESPN answered and the data passed every check | real data |
+| `league_private` | ESPN answered 401 and no login was sent, or the login that was sent is not in this league | last good data kept |
+| `login_expired` | a signed-in request was refused AND the same request without the login was refused too, so the saved `ESPN_S2` / `ESPN_SWID` pair no longer works | last good data kept |
+| `not_found` | 404 or 410 | last good data kept |
+| `endpoint_moved` | a redirect, a web page, or a 403 with no ESPN error body | last good data kept |
+| `rate_limited` | 429 | last good data kept |
+| `server_error` | 5xx | last good data kept |
+| `network` | no answer, a dropped connection, or the run's time budget ran out | last good data kept |
+| `bad_shape` | ESPN answered but the data failed validation | last good data kept |
+
+`detail` is published on the public web like the rest of the file, so it never carries a
+credential, and for `login_expired` it is a FIXED sentence with no value, length or host in it.
+`league_private` and `login_expired` both prove ESPN itself is alive and reachable, so neither
+one starts the 24 hour "the API has probably moved" clock (only `endpoint_moved`, `not_found`
+and `bad_shape` do).
 
 ## Contract 4: the model (`world/js/model/derive.js`)
 

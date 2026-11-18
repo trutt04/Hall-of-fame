@@ -11,6 +11,7 @@ import path from 'node:path';
 
 import { nextStatus, parseArgs, statusWriteReason } from '../sync-espn.mjs';
 import { validate, validateHistory } from '../lib/normalize.mjs';
+import { REASONS } from '../lib/espn-client.mjs';
 import { startMockEspn } from '../testing/mock-espn.mjs';
 import {
   LEAGUE_ID, NOW, PAST_YEARS, SCRIPTS_DIR, later, readData, seedSample, settleStatus, snapshot, strayFiles, sync, tempDataDir,
@@ -702,4 +703,222 @@ test('command line: the 24 hour alert exits 1, an unknown option exits 2, --help
   const help = await runCli(['--help'], env);
   assert.equal(help.code, 0);
   assert.match(help.stdout, /Usage:/);
+});
+
+// ---------------------------------------------------------------------------------------
+// The owner's ESPN login: a private league that can be opened with the two cookies
+// ---------------------------------------------------------------------------------------
+
+/** Shaped like the real pair, but invented. Nothing here is a real credential. */
+const S2 = 'AEBfakefake%2Fnotreal%2Bvalue1234567890abcdefghijklmnop';
+const SWID_BARE = '1234ABCD-12AB-34CD-56EF-1234567890AB';
+const SWID = `{${SWID_BARE}}`;
+const GOOD_LOGIN = { ESPN_S2: S2, ESPN_SWID: SWID };
+/** The league is private, and this is the one login that opens it. */
+const privateButOpenable = (mock) => { mock.behavior.auth = { espn_s2: S2, swid: SWID }; };
+/** The league is private and the saved login is not the one it wants any more. */
+const rotatedLogin = (mock) => { mock.behavior.auth = { espn_s2: 'rotated-since-you-copied-it', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}' }; };
+
+/** Every string this run produced or published, for the leak checks. */
+function allText(dir, result = null) {
+  const files = fs.readdirSync(dir).map((name) => fs.readFileSync(path.join(dir, name), 'utf8'));
+  return [...files, ...(result ? [result.log.join('\n'), JSON.stringify(result)] : [])].join('\n');
+}
+
+test('login: with both secrets set, the private league is read and real data is saved', async (t) => {
+  const { mock, dir } = await setup(t);
+  privateButOpenable(mock);
+
+  // Without the login this is simply a private league, exactly as it is today.
+  const anonymous = await sync(mock, dir, { now: later(1) });
+  assert.equal(anonymous.outcome.reason, 'league_private');
+  assert.equal(readData(dir, 'league.json').source, 'placeholder');
+
+  // With it, the same code reads the real league.
+  mock.requests.length = 0;
+  const result = await sync(mock, dir, { now: later(2), env: GOOD_LOGIN });
+
+  assert.equal(result.exitCode, 0);
+  assert.deepEqual(result.outcome, { ok: true, reason: 'ok', detail: 'Synced season 2026, week 10' });
+  assert.deepEqual(result.wrote, { league: true, history: true, status: true });
+  const league = readData(dir, 'league.json');
+  assert.equal(league.source, 'espn');
+  assert.equal(league.teams.length, 12);
+  assert.equal(league.draft.length, 192);
+  assert.deepEqual(validate(league, { leagueId: LEAGUE_ID, season: 2026 }), []);
+  const history = readData(dir, 'history.json');
+  assert.deepEqual(history.seasons.map((s) => s.season), PAST_YEARS);
+  assert.deepEqual(validateHistory(history), []);
+  const status = readData(dir, 'status.json');
+  assert.deepEqual([status.ok, status.reason, status.lastSuccess], [true, 'ok', '2026-11-16T17:00:00Z']);
+
+  // The login went only to the league requests, and only as a cookie.
+  const authed = mock.requests.filter((r) => ['current', 'lineups', 'draft', 'history'].includes(r.kind));
+  const publicOnes = mock.requests.filter((r) => ['proSchedule', 'players'].includes(r.kind));
+  assert.ok(authed.length >= 9 && publicOnes.length >= 2);
+  for (const r of authed) assert.equal(r.headers.cookie, `espn_s2=${S2}; SWID=${SWID}`);
+  for (const r of publicOnes) assert.equal(r.headers.cookie, undefined);
+  assert.ok(result.log.some((l) => l.includes('ESPN login: using the two saved secrets')));
+  assert.ok(!allText(dir, result).includes(S2), 'the value is never written or logged');
+});
+
+test('login: an expired login gets its own status reason, then retries without it', async (t) => {
+  const { mock, dir } = await setup(t);
+  settleStatus(dir);
+  const before = snapshot(dir);
+  rotatedLogin(mock);
+
+  const result = await sync(mock, dir, { now: later(1), env: GOOD_LOGIN });
+
+  assert.equal(result.exitCode, 0, 'an expired login is an expected state, not a crash');
+  assert.equal(result.outcome.reason, 'login_expired');
+  assert.ok(REASONS.includes('login_expired'), 'Contract 3 must allow the new reason');
+  assert.equal(snapshot(dir)['league.json'], before['league.json'], 'byte-identical');
+  assert.equal(snapshot(dir)['history.json'], before['history.json'], 'byte-identical');
+  assert.deepEqual(strayFiles(dir), []);
+
+  const status = readData(dir, 'status.json');
+  assert.deepEqual(Object.keys(status), ['schema', 'ok', 'reason', 'detail', 'lastAttempt', 'lastSuccess', 'consecutiveFailures', 'internal']);
+  assert.equal(status.ok, false);
+  assert.equal(status.reason, 'login_expired');
+  // A fixed human sentence: no value, no length, no host, no HTTP wording to decode.
+  assert.match(status.detail, /^The ESPN login saved in the GitHub secrets no longer works/);
+  assert.match(status.detail, /update the two secrets\.$/);
+  assert.ok(status.detail.length <= 300);
+  assert.doesNotMatch(status.detail, GUID_PATTERN);
+  assert.doesNotMatch(status.detail, /127\.0\.0\.1/, 'no host, so nothing that varies with the address');
+  // ESPN clearly answered, so the "the API has moved" clock stays at zero and never alerts.
+  assert.equal(status.internal.failingSince, null);
+  for (const hours of [2, 30, 200]) {
+    assert.equal((await sync(mock, dir, { now: later(hours), env: GOOD_LOGIN })).exitCode, 0, `quiet at +${hours}h`);
+  }
+  assert.equal(result.commitMessage, 'Sync status: login_expired');
+
+  // The signed-in try was followed by one without the login: a league made public still works.
+  const current = mock.requests.filter((r) => r.kind === 'current');
+  assert.ok(current.length >= 2);
+  assert.ok(current[0].headers.cookie && !current[1].headers.cookie);
+  assert.ok(result.log.some((l) => l.includes('Trying again without the login')));
+  assert.ok(result.log.some((l) => l.includes('copy the espn_s2 and SWID cookies from your browser again')));
+
+  // And when the league is made public, the stale login stops mattering with no code change.
+  mock.behavior.auth = { espn_s2: 'rotated-since-you-copied-it', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}', allowAnonymous: true };
+  const recovered = await sync(mock, dir, { now: later(201), env: GOOD_LOGIN });
+  assert.equal(recovered.outcome.ok, true);
+  assert.equal(readData(dir, 'league.json').source, 'espn');
+});
+
+test('login: only one of the two secrets set changes nothing, and says so', async (t) => {
+  const { mock, dir } = await setup(t);
+  privateButOpenable(mock);
+  const before = snapshot(dir);
+
+  for (const half of [{ ESPN_S2: S2 }, { ESPN_SWID: SWID }]) {
+    mock.requests.length = 0;
+    const result = await sync(mock, dir, { now: later(1), env: half });
+    assert.equal(result.exitCode, 0);
+    assert.equal(result.outcome.reason, 'league_private', 'no login is sent, so it is just a private league');
+    assert.equal(snapshot(dir)['league.json'], before['league.json']);
+    for (const r of mock.requests) assert.equal(r.headers.cookie, undefined, 'half a login is never sent');
+    assert.equal(mock.count('current'), 1, 'and there is no second, cookie-free try');
+    assert.ok(result.log.some((l) => l.includes('ESPN login: INCOMPLETE, so this run has no login')));
+    assert.ok(result.log.some((l) => l.includes('Only one of the two ESPN login secrets is set')));
+    assert.ok(!allText(dir, result).includes(S2) && !allText(dir, result).includes(SWID_BARE));
+  }
+
+  // A value that cannot go in a header is refused the same way, and named the same way: never.
+  const unusable = await sync(mock, dir, { now: later(2), env: { ESPN_S2: 'AEB fake with spaces', ESPN_SWID: SWID } });
+  assert.equal(unusable.outcome.reason, 'league_private');
+  assert.ok(unusable.log.some((l) => l.includes('ESPN login: UNUSABLE, so this run has no login')));
+  assert.ok(!unusable.log.join('\n').includes('AEB fake with spaces'));
+});
+
+test('login: however the two cookies were pasted, ESPN sees the same strict form', async (t) => {
+  const { mock, dir } = await setup(t);
+  privateButOpenable(mock);
+  const pastes = [
+    { ESPN_S2: S2, ESPN_SWID: SWID },
+    { ESPN_S2: `  ${S2} `, ESPN_SWID: SWID_BARE }, // whitespace, no braces
+    { ESPN_S2: `espn_s2=${S2};`, ESPN_SWID: `SWID=${SWID};` }, // the name and a semicolon
+    { ESPN_S2: `"${S2}"`, ESPN_SWID: `'{{${SWID_BARE}}}'` }, // quotes and doubled braces
+    { ESPN_S2: `espn_s2=${S2}; SWID=${SWID}`, ESPN_SWID: `espn_s2=${S2}; SWID=${SWID}` }, // both pairs in both boxes
+  ];
+  for (const env of pastes) {
+    mock.requests.length = 0;
+    const result = await sync(mock, dir, { now: later(3), env });
+    assert.equal(result.outcome.ok, true, JSON.stringify(env));
+    assert.equal(mock.requests[0].headers.cookie, `espn_s2=${S2}; SWID=${SWID}`, JSON.stringify(env));
+  }
+});
+
+test('login: the scrubber guards every string the run prints, publishes or commits', async (t) => {
+  const { mock, dir } = await setup(t);
+  // A value that is GUARANTEED to turn up in a message: the address being fetched. It stands
+  // in for any value that ever reaches a detail, a stack trace or an annotation.
+  const host = new URL(mock.url).host;
+  const result = await sync(mock, dir, { now: later(1), env: { ESPN_S2: host, ESPN_SWID: SWID } });
+
+  assert.equal(result.outcome.ok, true, 'the run is unaffected');
+  const text = result.log.join('\n');
+  assert.ok(text.includes('[redacted]'), 'the value was found and replaced');
+  assert.ok(!text.includes(host), 'and no copy of it survived anywhere in the log');
+  assert.ok(!text.includes(encodeURIComponent(host)));
+  assert.match(text, /addresses to try: \[redacted\]/);
+  assert.ok(!allText(dir, result).includes(host), 'not in the published files either');
+  // The real data still landed, unharmed.
+  assert.equal(readData(dir, 'league.json').source, 'espn');
+  assert.equal(readData(dir, 'status.json').detail, 'Synced season 2026, week 10');
+});
+
+test('command line: an expired login leaks nothing into the Actions log, the summary or the commit', async (t) => {
+  const { mock, dir } = await setup(t);
+  rotatedLogin(mock);
+  const outputFile = path.join(dir, 'github-output.txt');
+  const summaryFile = path.join(dir, 'github-summary.md');
+  const env = {
+    ESPN_BASE_URLS: mock.url, LEAGUE_WORLD_DATA_DIR: dir, LEAGUE_WORLD_NOW: later(1).toISOString(),
+    ESPN_TIMEOUT_MS: '2000', ESPN_BACKOFF_MS: '1', GITHUB_ACTIONS: 'true', GITHUB_OUTPUT: outputFile, GITHUB_STEP_SUMMARY: summaryFile,
+    ...GOOD_LOGIN,
+  };
+  const before = snapshot(dir);
+
+  const run = await runCli([], env);
+
+  assert.equal(run.code, 0, run.stderr);
+  assert.match(run.stdout, /ESPN: login_expired/);
+  assert.match(run.stdout, /::warning title=League sync::The saved ESPN login no longer works/);
+  assert.equal(fs.readFileSync(outputFile, 'utf8'), 'commit_message=Sync status: login_expired\n');
+  const summary = fs.readFileSync(summaryFile, 'utf8');
+  assert.match(summary, /Result: \*\*login_expired\*\*/);
+  assert.equal(snapshot(dir)['league.json'], before['league.json']);
+
+  // Nothing about either value, in any form, in any sink this run can reach.
+  const forms = [S2, SWID, SWID_BARE, encodeURIComponent(S2), decodeURIComponent(S2), encodeURIComponent(SWID)];
+  const sinks = {
+    stdout: run.stdout,
+    stderr: run.stderr,
+    'status.json': fs.readFileSync(path.join(dir, 'status.json'), 'utf8'),
+    'league.json': fs.readFileSync(path.join(dir, 'league.json'), 'utf8'),
+    'history.json': fs.readFileSync(path.join(dir, 'history.json'), 'utf8'),
+    'step summary': summary,
+    'commit message': fs.readFileSync(outputFile, 'utf8'),
+  };
+  for (const [where, content] of Object.entries(sinks)) {
+    for (const form of forms) assert.ok(!content.includes(form), `${where} must not hold the login`);
+    assert.doesNotMatch(content, GUID_PATTERN, `${where} must not hold a GUID`);
+    assert.doesNotMatch(content, /espn_s2=[^\s;"]+/, `${where} must not hold an espn_s2 pair`);
+  }
+  // The owner is still told exactly what to do, in words, with no value in them.
+  assert.match(run.stdout, /copy the espn_s2 and SWID cookies from your browser again/);
+
+  // A WORKING login writes real data and still leaks nothing.
+  mock.behavior.auth = { espn_s2: S2, swid: SWID };
+  fs.rmSync(outputFile);
+  fs.rmSync(summaryFile);
+  const good = await runCli([], { ...env, LEAGUE_WORLD_NOW: later(2).toISOString() });
+  assert.equal(good.code, 0, good.stderr);
+  assert.equal(readData(dir, 'league.json').source, 'espn');
+  for (const content of [good.stdout, good.stderr, fs.readFileSync(summaryFile, 'utf8'), fs.readFileSync(path.join(dir, 'status.json'), 'utf8')]) {
+    for (const form of forms) assert.ok(!content.includes(form));
+  }
 });

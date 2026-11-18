@@ -10,8 +10,16 @@
 #
 # Good to know:
 #   - GitHub only runs schedules from the default branch (main), and often runs them late.
-#   - No secrets are used. The league must be public. While it is private the job stays
-#     green, keeps the saved data, and starts working by itself once the league is public.
+#   - A public league needs no login, and that is still the default: with the two secrets
+#     below unset the job behaves exactly as it always did. While the league is private it
+#     stays green, keeps the saved data, and starts working by itself once it is made public.
+#   - For a PRIVATE league the job uses two encrypted GitHub Actions Secrets, ESPN_S2 and
+#     ESPN_SWID, which are the owner's ESPN login copied out of a browser. They live outside
+#     the repo, are sent only to ESPN, and are scrubbed out of every line the sync prints or
+#     writes, so they never reach a log, a data file or the public site. See world/README.md
+#     ("Reading a private league") for how to set them, and never paste them into a file.
+#   - If the login expires the job stays green, keeps the saved data, and says
+#     "login_expired" in world/data/status.json with the plain-English fix in the run log.
 #   - A commit is made only when a data file really changed.
 #   - If ESPN moves its address, add the new one in scripts/lib/espn-client.mjs
 #     (DEFAULT_BASE_URLS) or set ESPN_BASE_URLS in the "Sync from ESPN" step below.
@@ -56,6 +64,12 @@ jobs:
         env:
           SCHEDULE: ${{ github.event.schedule }}
           EVENT_NAME: ${{ github.event_name }}
+          # The two ESPN login cookies, for a private league. Unset is fine and is the default:
+          # they resolve to empty, no login is sent, and the public attempt happens as before.
+          # Both are needed, or neither. Set them under Settings, Secrets and variables,
+          # Actions. Never write their values anywhere in this repo.
+          ESPN_S2: ${{ secrets.ESPN_S2 }}
+          ESPN_SWID: ${{ secrets.ESPN_SWID }}
           # ESPN_BASE_URLS: https://new-address.example/apis/v3/games/ffl
         run: |
           if [ "$SCHEDULE" = "*/10 * * * *" ]; then

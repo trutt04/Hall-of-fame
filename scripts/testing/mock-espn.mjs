@@ -62,6 +62,14 @@ export async function startMockEspn({ fixtureDir = DEFAULT_FIXTURES, leagueId = 
     missingSeasons: new Set(), // seasons that answer 404 whatever else is set
     failFirst: 0, // answer this many requests with a 500 first (to rehearse retries)
     transform: null, // function(kind, object, season) -> object, to bend a good answer
+    // A private league that CAN be opened with a login, which plain `private` cannot express:
+    //   { espn_s2, swid }                          the only cookie pair that is accepted
+    //   { espn_s2, swid, allowAnonymous: true }    ...and a request with no cookie at all also
+    //                                              works (the league was made public), while a
+    //                                              wrong cookie is still refused
+    // Only the league-scoped kinds are gated: the NFL schedule and the player list are not
+    // league-specific and answer whatever the login does, exactly as the real ESPN does.
+    auth: null,
   };
   const requests = [];
   const hanging = new Set();
@@ -93,6 +101,28 @@ export async function startMockEspn({ fixtureDir = DEFAULT_FIXTURES, leagueId = 
     return null;
   }
 
+  const LEAGUE_KINDS = new Set(['current', 'lineups', 'draft', 'history']);
+
+  /** Parse a Cookie header into pairs. Names are case-sensitive here on purpose: the real
+   * clients all send lowercase espn_s2 and uppercase SWID, so the tests hold us to that. */
+  function cookiePairs(header) {
+    const out = new Map();
+    for (const part of String(header ?? '').split(';')) {
+      const i = part.indexOf('=');
+      if (i > 0) out.set(part.slice(0, i).trim(), part.slice(i + 1).trim());
+    }
+    return out;
+  }
+
+  /** null when the request may proceed, or the 401 body to answer with. */
+  function authCheck(kind, header) {
+    const auth = behavior.auth;
+    if (!auth || !LEAGUE_KINDS.has(kind)) return null;
+    const sent = cookiePairs(header);
+    if (sent.size === 0) return auth.allowAnonymous ? null : PRIVATE_BODY;
+    return sent.get('espn_s2') === auth.espn_s2 && sent.get('SWID') === auth.swid ? null : PRIVATE_BODY;
+  }
+
   function modeFor(kind) {
     if (behavior.byKind[kind]) return behavior.byKind[kind];
     if (kind === 'current' || kind === 'lineups' || kind === 'draft') return behavior.league;
@@ -115,6 +145,9 @@ export async function startMockEspn({ fixtureDir = DEFAULT_FIXTURES, leagueId = 
       return send(res, 500, '{"messages":["Internal Server Error"]}');
     }
     if (behavior.missingSeasons.has(hit.season)) return send(res, 404, NOT_FOUND_BODY);
+    // Checked before the mode, so the /moved redirect path cannot slip past the login gate.
+    const refusal = authCheck(hit.kind, req.headers.cookie);
+    if (refusal) return send(res, 401, refusal);
 
     const mode = moved ? 'ok' : modeFor(hit.kind);
     const good = () => {
@@ -164,7 +197,7 @@ export async function startMockEspn({ fixtureDir = DEFAULT_FIXTURES, leagueId = 
     count: (kind) => requests.filter((r) => !kind || r.kind === kind).length,
     reset() {
       requests.length = 0;
-      Object.assign(behavior, { league: 'ok', history: 'ok', proSchedule: 'ok', players: 'ok', byKind: {}, failFirst: 0, transform: null });
+      Object.assign(behavior, { league: 'ok', history: 'ok', proSchedule: 'ok', players: 'ok', byKind: {}, failFirst: 0, transform: null, auth: null });
       behavior.missingSeasons.clear();
     },
     async close() {

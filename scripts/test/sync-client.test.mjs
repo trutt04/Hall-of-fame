@@ -5,9 +5,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  autoSeason, classifyResponse, createClient, parseBaseUrls, readConfig,
+  autoSeason, classifyResponse, createClient, mayCarryLogin, parseBaseUrls, readConfig,
   DEFAULT_BASE_URLS, DEFAULT_LEAGUE_ID, REASONS, USER_AGENT, VIEWS,
 } from '../lib/espn-client.mjs';
+import { readLogin } from '../lib/espn-login.mjs';
 import { startMockEspn } from '../testing/mock-espn.mjs';
 import { FAST } from '../testing/helpers.mjs';
 
@@ -297,4 +298,210 @@ test('time budget: when a run is out of time, remaining requests are skipped, no
   assert.equal(res.reason, 'network');
   assert.match(res.detail, /time budget/);
   assert.equal(mock.requests.length, 0);
+});
+
+// ---------------------------------------------------------------------------------------
+// The owner's ESPN login (scripts/lib/espn-login.mjs + the Cookie header)
+// ---------------------------------------------------------------------------------------
+
+/** Shaped like the real pair, but invented. Nothing here is a real credential. */
+const S2 = 'AEBfakefake%2Fnotreal%2Bvalue1234567890abcdefghijklmnop';
+const SWID_BARE = '1234ABCD-12AB-34CD-56EF-1234567890AB';
+const SWID = `{${SWID_BARE}}`;
+const COOKIE = `espn_s2=${S2}; SWID=${SWID}`;
+
+test('login: two secrets are read forgivingly and sent strictly', () => {
+  // Nothing set is the default path: no login, and the scrubber is a pass-through.
+  const none = readLogin({});
+  assert.deepEqual([none.state, none.cookie, none.note], ['none', null, null]);
+  assert.equal(none.scrub('nothing to hide'), 'nothing to hide');
+
+  // Every one of these is the same login, however it was pasted.
+  const pastes = [
+    [S2, SWID],
+    [`  ${S2}  `, `  ${SWID}  `],
+    [`"${S2}"`, `'${SWID}'`],
+    [S2, SWID_BARE], // braces left off
+    [S2, `{{${SWID_BARE}}}`], // braces doubled
+    [`espn_s2=${S2}`, `SWID=${SWID}`], // the name pasted with the value
+    [`espn_s2=${S2};`, `SWID=${SWID_BARE};`], // ...with the trailing semicolon
+    [`espn_s2=${S2}; SWID=${SWID}`, `espn_s2=${S2}; SWID=${SWID}`], // the whole pair in both boxes
+    [`ESPN_S2 = ${S2}`, `swid = ${SWID}`], // odd spelling and spacing
+  ];
+  for (const [s2, swid] of pastes) {
+    const login = readLogin({ ESPN_S2: s2, ESPN_SWID: swid });
+    assert.equal(login.state, 'ready', JSON.stringify([s2, swid]));
+    assert.equal(login.cookie, COOKIE, JSON.stringify([s2, swid]));
+    assert.equal(login.note, null);
+  }
+
+  // One alone is a misconfiguration: no login is sent, and the owner is told without a value.
+  for (const half of [{ ESPN_S2: S2 }, { ESPN_SWID: SWID }, { ESPN_S2: S2, ESPN_SWID: '   ' }]) {
+    const login = readLogin(half);
+    assert.equal(login.state, 'partial');
+    assert.equal(login.cookie, null);
+    assert.match(login.note, /Only one of the two ESPN login secrets is set/);
+  }
+
+  // A value that cannot go in a header is refused rather than thrown at undici (whose own
+  // error message quotes the offending value back at us).
+  for (const bad of [{ ESPN_S2: 'AEBfake value with spaces in it', ESPN_SWID: SWID }, { ESPN_S2: S2, ESPN_SWID: '{A B C}' }]) {
+    const login = readLogin(bad);
+    assert.equal(login.state, 'unusable');
+    assert.equal(login.cookie, null);
+    assert.match(login.note, /cannot be sent to ESPN/);
+  }
+
+  // A stray line break is treated as the end of the value, not as a reason to give up.
+  assert.equal(readLogin({ ESPN_S2: `${S2}\n`, ESPN_SWID: `${SWID}\n` }).cookie, COOKIE);
+
+  // A SWID that is not GUID-shaped is still used, with a gentle warning.
+  const odd = readLogin({ ESPN_S2: S2, ESPN_SWID: 'not-a-guid-at-all' });
+  assert.equal(odd.state, 'ready');
+  assert.equal(odd.cookie, `espn_s2=${S2}; SWID={not-a-guid-at-all}`);
+  assert.match(odd.note, /does not look like the usual/);
+
+  // No note or state text ever names a value, its length or a prefix.
+  for (const login of [none, readLogin({ ESPN_S2: S2 }), readLogin({ ESPN_S2: S2, ESPN_SWID: SWID }), odd]) {
+    const text = String(login.note ?? '');
+    assert.ok(!text.includes(S2) && !text.includes(SWID_BARE));
+    assert.doesNotMatch(text, new RegExp(`${S2.slice(0, 8)}|${String(S2.length)} characters`));
+  }
+});
+
+test('login: the scrubber catches a value, in plain and url-encoded form', () => {
+  const { scrub } = readLogin({ ESPN_S2: S2, ESPN_SWID: SWID });
+  assert.equal(scrub(`HTTP 401 for espn_s2=${S2}`), 'HTTP 401 for espn_s2=[redacted]');
+  assert.equal(scrub(`SWID=${SWID} refused`), 'SWID=[redacted] refused');
+  assert.equal(scrub(`bare ${SWID_BARE} too`), 'bare [redacted] too');
+  // A value that was url-encoded again on its way into a URL or a header.
+  assert.equal(scrub(`?c=${encodeURIComponent(S2)}`), '?c=[redacted]');
+  // ...or decoded on the way out (the real espn_s2 arrives percent-encoded).
+  assert.equal(scrub(`cookie: ${decodeURIComponent(S2)}`), 'cookie: [redacted]');
+  // Both at once, repeated, inside a bigger string.
+  const messy = `Headers.append: "${S2}" is invalid; SWID=${SWID}; again ${S2}`;
+  const cleaned = scrub(messy);
+  assert.ok(!cleaned.includes(S2) && !cleaned.includes(SWID_BARE));
+  assert.equal(cleaned.match(/\[redacted\]/g).length, 3);
+  // Short or empty values never turn into a wildcard that redacts innocent text.
+  assert.equal(readLogin({ ESPN_S2: 'ab', ESPN_SWID: 'cd' }).scrub('ab cd'), 'ab cd');
+  assert.equal(scrub(''), '');
+  assert.equal(scrub('a perfectly ordinary log line'), 'a perfectly ordinary log line');
+  // Regex metacharacters in a value are matched literally, not compiled.
+  assert.equal(readLogin({ ESPN_S2: 'a.*b+c(d)[e]', ESPN_SWID: SWID }).scrub('x a.*b+c(d)[e] y'), 'x [redacted] y');
+  assert.equal(readLogin({ ESPN_S2: 'a.*b+c(d)[e]', ESPN_SWID: SWID }).scrub('x aXXXbbbcd y'), 'x aXXXbbbcd y');
+});
+
+test('login: the cookie goes on league requests only, never to the public endpoints', async (t) => {
+  const mock = await withMock(t);
+  mock.behavior.auth = { espn_s2: S2, swid: SWID }; // private, but openable with this login
+  const { client } = clientFor(mock, { cookie: COOKIE });
+  assert.equal(client.hasLogin, true);
+
+  assert.equal((await client.fetchCurrentSeason({ season: 2026 })).ok, true);
+  assert.equal((await client.fetchLineups(2026, 9)).ok, true);
+  assert.equal((await client.fetchDraft(2026)).ok, true);
+  assert.equal((await client.fetchPastSeason(2025)).ok, true);
+  assert.equal((await client.fetchProSchedule(2026)).ok, true);
+  assert.equal((await client.fetchPlayers(2026)).ok, true);
+
+  const byKind = new Map(mock.requests.map((r) => [r.kind, r]));
+  for (const kind of ['current', 'lineups', 'draft', 'history']) {
+    assert.equal(byKind.get(kind).headers.cookie, COOKIE, `${kind} must carry the login`);
+  }
+  for (const kind of ['proSchedule', 'players']) {
+    assert.equal(byKind.get(kind).headers.cookie, undefined, `${kind} is public and must not carry the login`);
+  }
+  // Strict on the wire: lowercase espn_s2, uppercase SWID, braces on, one space, nothing else.
+  assert.match(byKind.get('current').headers.cookie, /^espn_s2=[^;\s]+; SWID=\{[^;\s}]+\}$/);
+  for (const r of mock.requests) {
+    assert.equal(r.headers.authorization, undefined);
+    assert.ok(!Object.keys(r.headers).some((h) => /swid|espn_s2/i.test(h)), 'the login is a cookie, not a header of its own');
+    assert.ok(!String(r.query).includes(S2) && !String(r.path).includes(SWID_BARE), 'never in the URL');
+  }
+});
+
+test('login: a refused login is reported as login_expired, after one try without it', async (t) => {
+  const mock = await withMock(t);
+  mock.behavior.auth = { espn_s2: 'a-different-and-newer-value', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}' };
+  const { client, lines } = clientFor(mock, { cookie: COOKIE });
+
+  const res = await client.fetchLeague(2026, VIEWS.current);
+
+  assert.equal(res.ok, false);
+  assert.equal(res.reason, 'login_expired');
+  assert.ok(REASONS.includes(res.reason));
+  // A fixed sentence: no value, no length, not even the host.
+  assert.match(res.detail, /^The ESPN login saved in the GitHub secrets no longer works/);
+  assert.doesNotMatch(res.detail, /127\.0\.0\.1|HTTP|401 from/);
+  assert.equal(res.retryable, false);
+  // Two requests: the signed-in one, then the same one with no login at all.
+  assert.equal(mock.count('current'), 2);
+  assert.equal(mock.requests[0].headers.cookie, COOKIE);
+  assert.equal(mock.requests[1].headers.cookie, undefined);
+  const text = lines.join('\n');
+  assert.match(text, /Trying again without the login/);
+  assert.ok(!text.includes(S2) && !text.includes(SWID_BARE));
+});
+
+test('login: a stale login does not matter once the league is public', async (t) => {
+  const mock = await withMock(t);
+  // The league has been made public: an anonymous request works, a wrong login is still refused.
+  mock.behavior.auth = { espn_s2: 'rotated-since', swid: '{0000FFFF-0000-FFFF-0000-FFFF0000FFFF}', allowAnonymous: true };
+  const { client, lines } = clientFor(mock, { cookie: COOKIE });
+
+  const res = await client.fetchLeague(2026, VIEWS.current);
+
+  assert.equal(res.ok, true);
+  assert.equal(res.data.teams.length, 12);
+  assert.equal(mock.count('current'), 2);
+  assert.match(lines.join('\n'), /it worked without the login: the league is public/);
+});
+
+test('login: with no login configured nothing about the request changes', async (t) => {
+  const mock = await withMock(t);
+  mock.behavior.league = 'private';
+  const { client } = clientFor(mock); // no cookie option
+  const res = await client.fetchLeague(2026, VIEWS.current);
+  assert.equal(res.reason, 'league_private'); // not login_expired: there was no login to blame
+  assert.equal(mock.count('current'), 1, 'no second, cookie-free try is needed');
+  assert.equal(mock.requests[0].headers.cookie, undefined);
+  assert.equal(client.hasLogin, false);
+});
+
+test('login: it is only ever sent to an https ESPN address', async () => {
+  for (const url of [
+    'https://lm-api-reads.fantasy.espn.com/apis/v3/games/ffl/seasons/2026',
+    'https://fantasy.espn.com/apis/v3/games/ffl',
+    'https://espn.com/x',
+    'http://127.0.0.1:8787/apis/v3/games/ffl', // the local mock, for the tests
+  ]) assert.equal(mayCarryLogin(url), true, url);
+  for (const url of [
+    'http://fantasy.espn.com/x', // cleartext
+    'https://espn.com.not-espn.example/x', // a lookalike host
+    'https://notespn.com/x',
+    'https://proxy.example/apis/v3/games/ffl',
+    'ftp://fantasy.espn.com/x',
+    'not a url at all',
+  ]) assert.equal(mayCarryLogin(url), false, url);
+
+  // ...and the client obeys that, whatever ESPN_BASE_URLS says.
+  const sent = [];
+  const fetchImpl = async (url, init) => {
+    sent.push(init.headers.Cookie ?? null);
+    return new Response('{"teams":[]}', { status: 200, headers: { 'content-type': 'application/json' } });
+  };
+  const lines = [];
+  const client = createClient({ baseUrls: ['https://a-proxy.example/apis/v3/games/ffl'], cookie: COOKIE, fetchImpl, ...FAST, log: (l) => lines.push(l) });
+  assert.equal((await client.fetchLeague(2026, VIEWS.current)).ok, true);
+  assert.deepEqual(sent, [null], 'the login was withheld');
+  assert.match(lines.join('\n'), /login is NOT sent to this address/);
+  assert.ok(!lines.join('\n').includes(S2));
+
+  // ...and a 401 from such an address is NOT blamed on the login, since none was sent.
+  const refuse = async () => new Response('{"details":[{"type":"AUTH_LEAGUE_NOT_VISIBLE"}]}', { status: 401, headers: { 'content-type': 'application/json' } });
+  const withheld = createClient({ baseUrls: ['https://a-proxy.example/apis/v3/games/ffl'], cookie: COOKIE, fetchImpl: refuse, ...FAST, log: () => {} });
+  const res = await withheld.fetchLeague(2026, VIEWS.current);
+  assert.equal(res.reason, 'league_private');
+  assert.equal(res.loginSent, false);
 });

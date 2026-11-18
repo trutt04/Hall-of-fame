@@ -29,12 +29,18 @@
  *     day (that daily write also keeps GitHub from switching the schedule off after 60 quiet
  *     days). Because of that, status.json's lastAttempt and consecutiveFailures describe the
  *     last RECORDED run, not every run.
- *   - No cookies, tokens or passwords. It works by itself as soon as the league is public.
+ *   - No cookies, tokens or passwords in this repo. A PUBLIC league needs no login at all,
+ *     and that is the default path. For a PRIVATE league the owner's two ESPN cookies are
+ *     read from the environment (GitHub Actions Secrets), sent only to ESPN, and scrubbed out
+ *     of every line this script prints or writes. See scripts/lib/espn-login.mjs.
  *
  * Environment variables (all optional):
  *   ESPN_BASE_URLS   comma separated API roots to try in order (a one-line fix if ESPN moves)
  *   ESPN_LEAGUE_ID   default 70578866
  *   ESPN_SEASON      default: automatic (Aug to Dec = this year, Jan to Jul = last year)
+ *   ESPN_S2          the espn_s2 browser cookie, for a PRIVATE league (a GitHub secret)
+ *   ESPN_SWID        the SWID browser cookie, for a PRIVATE league (a GitHub secret)
+ *                    Both are needed, or neither. They are never written or printed.
  * For rehearsals only (see scripts/testing/mock-espn.mjs):
  *   LEAGUE_WORLD_DATA_DIR   write somewhere other than world/data
  *   LEAGUE_WORLD_NOW        pretend it is this ISO time
@@ -49,6 +55,7 @@ import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { createClient, readConfig, FIRST_MODERN_SEASON } from './lib/espn-client.mjs';
+import { readLogin } from './lib/espn-login.mjs';
 import {
   buildHistory, isoNoMs, isSeasonComplete, lineupRequestFor, normalizeKickoffs, normalizeLeague,
   normalizeSeason, validate, validateHistory, validateSeason,
@@ -65,11 +72,21 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 /** Failures that suggest ESPN moved or changed, as opposed to a blip or a private league. */
 const MOVED_LIKE = new Set(['endpoint_moved', 'not_found', 'bad_shape']);
+/** Failures that prove ESPN itself answered sensibly, so the "it moved" clock stays at zero. */
+const ANSWERED = new Set(['league_private', 'login_expired']);
 const ALERT_AFTER_MS = DAY;
 const STATUS_HEARTBEAT_MS = DAY;
 const HISTORY_RETRY_MS = DAY; // while past seasons are still missing
 const HISTORY_REFRESH_MS = 7 * DAY; // once we have them all
 const FIRST_HISTORY_SEASON = 2019;
+
+/** What the run log says about the login. Never a value, a length or a prefix. */
+const LOGIN_STATE_TEXT = Object.freeze({
+  none: 'none set, asking ESPN as the public would (a private league answers 401)',
+  ready: 'using the two saved secrets',
+  partial: 'INCOMPLETE, so this run has no login',
+  unusable: 'UNUSABLE, so this run has no login',
+});
 
 const FLAGS = {
   '--sample': 'sample',
@@ -117,7 +134,7 @@ export function nextStatus(prevRaw, outcome, now, { historyCheckedAt = null } = 
   const prevInternal = isObj(prev?.internal) ? prev.internal : {};
   const nowIso = isoNoMs(now);
 
-  const alive = outcome.ok || outcome.reason === 'league_private'; // ESPN answered sensibly
+  const alive = outcome.ok || ANSWERED.has(outcome.reason); // ESPN answered sensibly
   const movedLike = !outcome.ok && MOVED_LIKE.has(outcome.reason);
   const failingSince = alive ? null : validIso(prevInternal.failingSince) ?? (movedLike ? nowIso : null);
   let alertSent = alive ? false : prevInternal.alertSent === true;
@@ -167,8 +184,13 @@ function makeContext(options) {
   const dataDir = options.dataDir ?? env.LEAGUE_WORLD_DATA_DIR ?? DEFAULT_DATA_DIR;
   const lines = [];
   const print = options.log ?? ((line) => console.log(line));
+  // The login is read once, here, so that ctx.scrub guards every line of the run including
+  // the ones written before the first request.
+  const login = readLogin(env);
   return {
     env,
+    login,
+    scrub: login.scrub,
     flags: { sample: false, force: false, dryRun: false, windowOnly: false, full: false, ...options.flags },
     now: options.now ?? (validIso(env.LEAGUE_WORLD_NOW) ? new Date(env.LEAGUE_WORLD_NOW) : new Date()),
     paths: {
@@ -181,8 +203,11 @@ function makeContext(options) {
     clientOptions: options.clientOptions ?? {},
     lines,
     log: (line = '') => {
-      lines.push(line);
-      print(line);
+      // Last line of defence: no secret value can reach stdout, the Actions log, the run
+      // log this function returns, or an annotation, whatever built the string.
+      const safe = login.scrub(String(line));
+      lines.push(safe);
+      print(safe);
     },
   };
 }
@@ -192,7 +217,10 @@ function save(ctx, file, value, what) {
     ctx.log(`  DRY RUN: would write ${what}`);
     return false;
   }
-  writeFileAtomic(file, prettyJson(value));
+  // Every one of these files is committed to a PUBLIC repo and served from the public site,
+  // so the bytes go through the scrubber on the way out as well. With no login configured
+  // the scrubber is the identity function and the bytes are exactly what they always were.
+  writeFileAtomic(file, ctx.scrub(prettyJson(value)));
   return true;
 }
 
@@ -213,12 +241,14 @@ function leagueSummary(league) {
 
 /** Tell the GitHub Actions run page what happened (no-ops everywhere else). */
 function reportToGitHub(ctx, { commitMessage, level, title, message, summary }) {
-  const { env } = ctx;
-  if (env.GITHUB_ACTIONS === 'true' && message) ctx.log(`::${level} title=${title}::${message.replace(/\r?\n/g, ' ')}`);
+  const { env, scrub } = ctx;
+  // GitHub masks the exact value of a secret, but not a sliced, flattened or url-encoded one,
+  // so these three sinks are scrubbed by us before GitHub ever sees them.
+  if (env.GITHUB_ACTIONS === 'true' && message) ctx.log(`::${level} title=${title}::${scrub(message).replace(/\r?\n/g, ' ')}`);
   if (ctx.flags.dryRun) return;
   try {
-    if (env.GITHUB_OUTPUT && commitMessage) fs.appendFileSync(env.GITHUB_OUTPUT, `commit_message=${commitMessage}\n`);
-    if (env.GITHUB_STEP_SUMMARY && summary) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `${summary}\n`);
+    if (env.GITHUB_OUTPUT && commitMessage) fs.appendFileSync(env.GITHUB_OUTPUT, `commit_message=${scrub(commitMessage)}\n`);
+    if (env.GITHUB_STEP_SUMMARY && summary) fs.appendFileSync(env.GITHUB_STEP_SUMMARY, `${scrub(summary)}\n`);
   } catch {
     /* the summary is a nicety, never a reason to fail */
   }
@@ -396,7 +426,7 @@ async function syncHistory(ctx, { client, main, season, existing, prevStatus, li
 // ---------------------------------------------------------------------------------------
 
 async function runLive(ctx) {
-  const { log, flags, now, paths, env } = ctx;
+  const { log, flags, now, paths, env, login } = ctx;
   const config = { ...readConfig(env, now), ...ctx.clientOptions };
   const wrote = { league: false, history: false, status: false };
 
@@ -409,6 +439,12 @@ async function runLive(ctx) {
   log(`  addresses to try: ${config.baseUrls.map((b) => new URL(b).host).join(', ')}`);
   log(`  mode: ${[flags.windowOnly && 'window-only', flags.full && 'full', flags.dryRun && 'dry-run'].filter(Boolean).join(', ') || 'normal'}`);
   log(`  saved data: ${prevLeague ? `${prevLeague.source}, season ${prevLeague.league.season}, generated ${prevLeague.generatedAt}` : 'none'}`);
+  log(`  ESPN login: ${LOGIN_STATE_TEXT[login.state]}`);
+  if (login.note) {
+    log(`  ${login.note}`);
+    // A misconfigured login is worth an annotation on the run page. The note names no value.
+    if (env.GITHUB_ACTIONS === 'true') log(`::warning title=ESPN login::${login.note}`);
+  }
 
   if (flags.windowOnly) {
     const w = inGameWindow(now, prevKickoffs);
@@ -419,7 +455,9 @@ async function runLive(ctx) {
     }
   }
 
-  const client = createClient({ ...config, fetchImpl: ctx.fetchImpl, log });
+  // The cookie is handed to the client directly, not through `config`, so it never travels
+  // with the object whose fields are logged above.
+  const client = createClient({ ...config, cookie: login.cookie, fetchImpl: ctx.fetchImpl, log });
   const light = flags.windowOnly && !flags.full; // the frequent run reuses things that rarely change
 
   log('Fetching');
@@ -509,6 +547,9 @@ async function runLive(ctx) {
   }
 
   // ---- Write what changed -------------------------------------------------------------
+  // One place where every detail string is cleaned, before it reaches the log, status.json,
+  // the commit message, the annotation or the step summary.
+  outcome = { ...outcome, detail: ctx.scrub(String(outcome.detail ?? '')) };
   log('Result');
   log(`  ESPN: ${outcome.ok ? 'OK' : outcome.reason}, ${outcome.detail}`);
   let commitMessage = null;
@@ -572,8 +613,18 @@ async function runLive(ctx) {
   if (outcome.ok) {
     message = `${outcome.detail}. ${dataWritten ? 'New data saved.' : 'No changes.'}`;
   } else if (outcome.reason === 'league_private') {
-    message = 'The league is still private (ESPN answered 401). Saved data was kept. This starts working by itself once the league is made public.';
-    log('What this means: the league is private. Nothing is broken. Ask the league manager to make it viewable to the public.');
+    // With a usable login this reason means the login was never sent, because the address in
+    // use is not an https ESPN one. A login that WAS sent and refused is login_expired below.
+    message = login.state === 'ready'
+      ? 'The league is still private (ESPN answered 401), and the saved login was not sent because the address in use is not an https ESPN address. Saved data was kept.'
+      : 'The league is still private (ESPN answered 401). Saved data was kept. This starts working by itself once the league is made public, or once the two login secrets are set.';
+    log('What this means: the league is private. Nothing is broken. Either make the league viewable to the public, or set the ESPN_S2 and ESPN_SWID secrets (see world/README.md).');
+  } else if (outcome.reason === 'login_expired') {
+    level = 'warning';
+    message = 'The saved ESPN login no longer works, and the league is not public. Saved data was kept. Fix: copy espn_s2 and SWID from your browser again and update the ESPN_S2 and ESPN_SWID secrets.';
+    log('What this means: the ESPN login stored in the GitHub secrets has expired or was replaced.');
+    log('  Nothing is broken and no data was lost. The world keeps showing the last data it got.');
+    log('  Fix: copy the espn_s2 and SWID cookies from your browser again and update the two secrets (see world/README.md, "When the login stops working").');
   } else {
     level = 'warning';
     message = `ESPN fetch failed (${outcome.reason}): ${outcome.detail}. Saved data was kept.`;
@@ -619,8 +670,11 @@ export async function runSync(options = {}) {
 
 async function main() {
   const { flags, env, unknown } = parseArgs(process.argv.slice(2));
+  // Nothing should ever pass a secret on the command line, but an echoed argv is a leak path
+  // like any other, so it is scrubbed too.
+  const scrub = readLogin(process.env).scrub;
   if (flags.help || unknown.length) {
-    if (unknown.length) console.error(`Unknown option: ${unknown.join(' ')}`);
+    if (unknown.length) console.error(`Unknown option: ${scrub(unknown.join(' '))}`);
     console.log(USAGE);
     return unknown.length ? 2 : 0;
   }
@@ -634,8 +688,10 @@ if (invokedDirectly) {
     (code) => process.exit(code),
     (err) => {
       // A genuine bug. Data files are only ever replaced atomically, so they are still intact.
+      // The stack is scrubbed: a thrown Error is the one place a raw value could show up.
+      const scrub = readLogin(process.env).scrub;
       console.error('The sync crashed (this is a bug, not an ESPN problem):');
-      console.error(err?.stack ?? err);
+      console.error(scrub(String(err?.stack ?? err)));
       process.exit(1);
     },
   );
