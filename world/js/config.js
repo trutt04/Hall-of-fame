@@ -121,6 +121,15 @@ export const REGIME = {
   voiceLine: 'Attention, citizens. Report to the Supreme Commissioner statue every thirty minutes, to pay your respects.',
 };
 
+// The league mascot from the Hall of Fame page: the Tiptoe Imp does laps outside one owner's
+// house, with that page's own track playing from the same spot. Keyed on ownerKey rather than
+// team id, because ESPN hands a departing owner's team id to whoever replaces them, so the imp
+// follows the person and moves house as their record moves them. Set to null to take him away.
+export const MASCOT = {
+  ownerKey: 'o_8e34c388',
+  owner: 'Shane', // for whoever reads this file; the key above is what actually matches
+};
+
 export const STORAGE_KEYS = {
   team: 'lw.team',
   sound: 'lw.sound',

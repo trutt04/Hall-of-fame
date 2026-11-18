@@ -34,6 +34,7 @@ import { createCatchGame } from './world/catch.js';
 import { createRegime } from './world/regime.js';
 import { createVandal } from './world/vandal.js';
 import { createChampion } from './world/champion.js';
+import { createMascot } from './world/mascot.js';
 import { startFreeRoam } from './world/freeroam.js';
 import { createAvatar, setReducedMotion } from './art/index.js';
 import { createHud } from './ui/hud.js';
@@ -185,7 +186,7 @@ async function boot() {
 
   const world = {
     THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, data,
-    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, facility: null, catch: null, regime: null, vandal: null, champion: null, hideTags: false,
+    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, facility: null, catch: null, regime: null, vandal: null, champion: null, mascot: null, hideTags: false,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
     get model() { return model; },
     get playerTeam() { return playerTeam; },
@@ -329,6 +330,8 @@ async function boot() {
   vandal.apply(model);
   const champion = (world.champion = createChampion(world));
   champion.apply(model);
+  const mascot = (world.mascot = createMascot(world));
+  if (mascot) mascot.apply(model);
   world.setPlayerTeam(null);
 
   let markers = null;
@@ -358,6 +361,7 @@ async function boot() {
   engine.addSystem(regime, 49.6);
   engine.addSystem(vandal, 49.7);
   engine.addSystem(champion, 49.8);
+  if (mascot) engine.addSystem(mascot, 49.82);
   engine.addSystem({
     update(dt) {
       terrain.zoneAt(player.position.x, player.position.z, zone);
@@ -425,6 +429,7 @@ async function boot() {
     regime.apply(model);
     vandal.apply(model);
     champion.apply(model);
+    if (mascot) mascot.apply(model);
     if (playerTeam !== null) {
       const t = model.teams[playerTeam];
       const av = player.avatar;
