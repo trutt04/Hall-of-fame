@@ -23,7 +23,7 @@ import { clamp, damp, safeStorageGet, safeStorageSet } from '../core/util.js';
 
 const BEST_KEY = 'lw.catch.best';
 const GRAVITY = 9.2;
-const BALL_R = 0.15;
+const BALL_R = 0.17;
 const DRILL_SPEED = 7.4; // how fast the avatar covers ground during the drill, m/s
 const CATCH_Y = 1.32; // the ball is caught as it falls through chest height
 const LIVES = 3;
@@ -185,6 +185,7 @@ export function createCatchGame(w) {
     G.armed = false;
     G.timer = 0;
     oResult.hidden = true;
+    if (facility.spinMachine) facility.spinMachine(9 + Math.min(9, c * 0.8));
     audio.sfx('whoosh', { volume: 0.32, position: M.muzzle });
     hudText();
   }
@@ -349,7 +350,7 @@ export function createCatchGame(w) {
     G.heading = Math.PI;
     G.anim = 'idle';
     G.speed = 0;
-    focus.set(G.px, Y + 2.4, G.pz - 6); // primed: the camera shot reads this on its first frame
+    focus.set(G.px, Y + 2.4, G.pz - 5.5); // primed: the camera shot reads this on its first frame
     player.sit(G.px, terrain.heightAt(G.px, G.pz), G.pz, G.heading, () => leave(), 'idle');
     newRound();
     root.hidden = false;
@@ -360,9 +361,11 @@ export function createCatchGame(w) {
     rig.setView({ yaw: 0, pitch: 0.3 });
     const portrait = w.camera3D.aspect < 1;
     rig.play([{
-      cut: true, dur: 1e7, ease: 'linear', fov: portrait ? 64 : 48,
+      cut: true, dur: 1e7, ease: 'linear', fov: portrait ? 66 : 50,
       pos: () => {
-        camWant.set(focus.x * 0.4 + G.px * 0.6, Y + (portrait ? 5.5 : 4.7), G.pz + (portrait ? 11.6 : 9.8));
+        // Straight south of the look point, so the camera's forward stays exactly -z and the
+        // stick keeps mapping to the world without a yaw to chase.
+        camWant.set(focus.x, Y + (portrait ? 6.0 : 5.1), G.pz + (portrait ? 12.0 : 10.4));
         if (!camReady || calm) camPos.copy(camWant);
         else camPos.lerp(camWant, 0.12);
         return camPos;
@@ -426,25 +429,29 @@ export function createCatchGame(w) {
     move(dt);
     if (G.state === 'ready') {
       G.timer += dt;
-      focus.set(G.px, Y + 2.4, G.pz - 6);
+      focus.set(G.px, Y + 2.4, G.pz - 5.5);
       if (G.timer > (G.caught === 0 && G.drops === 0 ? 1.1 : 0.55)) throwBall();
       return;
     }
     if (G.state === 'fly' || G.state === 'result') {
       G.timer += dt;
       fly(dt);
-      // Keep both readable: look between the avatar and the ball, leaning toward the ball while
-      // it is high so it never leaves the top of a phone screen.
+      // Keep all three readable on a phone: lead a little toward where the ball will come down
+      // so the marker is on screen, lift the look while the ball is high so it never leaves the
+      // top, and lean down the field toward the ball itself.
       const high = clamp((bp.y - Y) / 7, 0, 1);
-      const k = 0.42 + high * 0.2;
-      focus.set(G.px + (bp.x - G.px) * k, Y + 2.1 + high * 1.5, G.pz + (bp.z - G.pz) * k);
+      focus.set(
+        G.px + (target.x - G.px) * 0.5,
+        Y + 2.2 + high * 1.7,
+        G.pz + (bp.z - G.pz) * (0.3 + high * 0.25),
+      );
       if (marker.visible) marker.scale.setScalar(calm ? 1 : 1 + Math.sin(t * 6) * 0.07);
       if (G.state === 'fly' && G.timer > 7) finish('drop');
       else if (G.state === 'result' && G.timer > 1.7) afterResult();
       return;
     }
     // over: hold the avatar in frame
-    focus.set(G.px, Y + 2.4, G.pz - 5);
+    focus.set(G.px, Y + 2.4, G.pz - 5.5);
     if (marker.visible) marker.visible = false;
   }
 

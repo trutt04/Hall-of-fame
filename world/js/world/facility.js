@@ -12,10 +12,10 @@
 //   facility.machine    { x, y, z, facing, muzzle: Vector3, radius }
 //   facility.setBest(n) redraws the little sign beside the machine
 //
-// The art lives in art/facility.js, which is built separately. Every builder is looked up through
-// the art index at call time (the same guard regime.js uses with artProp), so this module draws
-// simple stand-in steel until that file lands and then picks up the real props with no other
-// change. Geo puts a box's or a cylinder's BASE at the y it is given.
+// The art lives in art/facility.js. Every builder is looked up through the art index at call time
+// (the same guard regime.js uses with artProp), so a builder that is missing or throws costs this
+// area its detail and nothing else: the stand-in steel further down steps in and the world still
+// has a substation. Geo puts a box's or a cylinder's BASE at the y it is given.
 
 import * as THREE from '../../lib/three.module.min.js';
 import * as ART from '../art/index.js';
@@ -49,8 +49,8 @@ function artProp(name, a, b) {
 }
 
 // ------------------------------------------------------------------ stand-in art
-// Plain boxes and tubes in the same shapes, anchors and collider contract as art/facility.js, so
-// the area looks right (and measures right) before that file exists.
+// Plain boxes and tubes in the same shapes, anchors and collider contract as art/facility.js.
+// These only ever run if a real builder is missing or throws, and they keep the wall standing.
 
 function standInBay({ w = 9, d = 7, scale = 1 } = {}) {
   const g = new Geo({ jit: 0.05 });
@@ -301,7 +301,7 @@ export function createFacility(w) {
       const prop = artProp('createSubstationFence', { length: len, scale: 1 }) || standInFence({ length: len, scale: 1 });
       put(prop, S.fenceX, z, Math.PI / 2, { solid: false });
     }
-    const backX = S.x - S.w / 2 - 2;
+    const backX = Math.min(S.x - S.w / 2, -82); // well past the world edge, so nobody rounds the back of the yard
     colliders.addBox(S.fenceX, (S.z0 + S.z1) / 2, 0.5, total, 0, 'facility');
     colliders.addBox((S.fenceX + backX) / 2, S.z0 + 1.5, S.fenceX - backX, 0.5, 0, 'facility');
     colliders.addBox((S.fenceX + backX) / 2, S.z1 - 1.5, S.fenceX - backX, 0.5, 0, 'facility');
@@ -485,6 +485,10 @@ export function createFacility(w) {
     sight,
     field,
     machine,
+    // the machine's wheels wind up before a throw
+    spinMachine(v) {
+      if (typeof machineProp.setSpeed === 'function') machineProp.setSpeed(v);
+    },
     setBest(n) {
       bestSign.redraw(['CATCHING DRILL', n > 0 ? 'Best: ' + n + (n === 1 ? ' catch' : ' catches') : 'Best: none yet']);
     },
