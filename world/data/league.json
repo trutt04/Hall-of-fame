@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-18T04:53:00Z",
+  "generatedAt": "2026-11-18T10:38:46Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -204,7 +204,7 @@
       "pointsAgainst": 1242.82,
       "streakType": "WIN",
       "streakLength": 2,
-      "moves": { "acquisitions": 14, "drops": 13, "trades": 0 },
+      "moves": { "acquisitions": 16, "drops": 15, "trades": 0 },
       "roster": {
         "ir": [{ "name": "De'Zhaun Stribling", "pos": "WR" }],
         "emptyStarters": [],
@@ -217,7 +217,7 @@
           { "name": "Parker Washington", "pos": "WR", "slot": "WR", "points": 0, "projected": 15.64 },
           { "name": "T.J. Hockenson", "pos": "TE", "slot": "TE", "points": 0, "projected": 11.77 },
           { "name": "Garrett Wilson", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 14.17 },
-          { "name": "Commanders D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 4.92 },
+          { "name": "Steelers D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 8.75 },
           { "name": "Spencer Shrader", "pos": "K", "slot": "K", "points": 0, "projected": 9.61 }
         ],
         "bench": [
@@ -226,8 +226,8 @@
           { "name": "Kyle Pitts Sr.", "pos": "TE", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Kyle Monangai", "pos": "RB", "slot": "BE", "points": 0, "projected": 9.04 },
           { "name": "Kaelon Black", "pos": "RB", "slot": "BE", "points": 0, "projected": 6.54 },
-          { "name": "Dalton Schultz", "pos": "TE", "slot": "BE", "points": 0, "projected": 8.73 },
-          { "name": "Roschon Johnson", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 }
+          { "name": "Roschon Johnson", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Chig Okonkwo", "pos": "TE", "slot": "BE", "points": 0, "projected": 10.16 }
         ]
       }
     },
@@ -378,7 +378,7 @@
       "pointsAgainst": 1106.22,
       "streakType": "WIN",
       "streakLength": 1,
-      "moves": { "acquisitions": 9, "drops": 8, "trades": 0 },
+      "moves": { "acquisitions": 10, "drops": 9, "trades": 0 },
       "roster": {
         "ir": [{ "name": "Davante Adams", "pos": "WR" }],
         "emptyStarters": [],
@@ -401,7 +401,7 @@
           { "name": "Tre Tucker", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.26 },
           { "name": "DeMario Douglas", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Michael Mayer", "pos": "TE", "slot": "BE", "points": 0, "projected": 7.05 },
-          { "name": "Mike Washington Jr.", "pos": "RB", "slot": "BE", "points": 0, "projected": 6.51 }
+          { "name": "Bears D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 6.45 }
         ]
       }
     },
@@ -420,34 +420,30 @@
       "pointsAgainst": 1208.58,
       "streakType": "WIN",
       "streakLength": 6,
-      "moves": { "acquisitions": 18, "drops": 18, "trades": 0 },
+      "moves": { "acquisitions": 19, "drops": 19, "trades": 0 },
       "roster": {
         "ir": [{ "name": "Brandon Aiyuk", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [
-          { "name": "Jaxon Smith-Njigba", "pos": "WR", "slot": "WR", "why": "BYE" },
-          { "name": "Christian Watson", "pos": "WR", "slot": "WR", "why": "BYE" },
-          { "name": "Jadarian Price", "pos": "RB", "slot": "FLEX", "why": "BYE" }
-        ],
+        "badStarters": [],
         "starters": [
           { "name": "Patrick Mahomes", "pos": "QB", "slot": "QB", "points": 0, "projected": 27.31 },
-          { "name": "Emmett Johnson", "pos": "RB", "slot": "RB", "points": 0, "projected": 9.42 },
+          { "name": "Kenneth Walker III", "pos": "RB", "slot": "RB", "points": 0, "projected": 26.36 },
           { "name": "Ollie Gordon II", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.18 },
-          { "name": "Jaxon Smith-Njigba", "pos": "WR", "slot": "WR", "points": 0, "projected": 0 },
-          { "name": "Christian Watson", "pos": "WR", "slot": "WR", "points": 0, "projected": 0 },
+          { "name": "Luther Burden III", "pos": "WR", "slot": "WR", "points": 0, "projected": 15.38 },
+          { "name": "Josh Downs", "pos": "WR", "slot": "WR", "points": 0, "projected": 9.2 },
           { "name": "Trey McBride", "pos": "TE", "slot": "TE", "points": 0, "projected": 13.03 },
-          { "name": "Jadarian Price", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 0 },
-          { "name": "Ravens D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 5.47 },
+          { "name": "D'Andre Swift", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 17.12 },
+          { "name": "Chargers D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.01 },
           { "name": "Jason Sanders", "pos": "K", "slot": "K", "points": 0, "projected": 9.73 }
         ],
         "bench": [
-          { "name": "Kenneth Walker III", "pos": "RB", "slot": "BE", "points": 0, "projected": 26.36 },
-          { "name": "D'Andre Swift", "pos": "RB", "slot": "BE", "points": 0, "projected": 17.12 },
-          { "name": "Luther Burden III", "pos": "WR", "slot": "BE", "points": 0, "projected": 15.38 },
+          { "name": "Jaxon Smith-Njigba", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Christian Watson", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Jayden Daniels", "pos": "QB", "slot": "BE", "points": 0, "projected": 23.41 },
           { "name": "Josh Jacobs", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Dalton Kincaid", "pos": "TE", "slot": "BE", "points": 0, "projected": 8.71 },
-          { "name": "Josh Downs", "pos": "WR", "slot": "BE", "points": 0, "projected": 9.2 }
+          { "name": "Emmett Johnson", "pos": "RB", "slot": "BE", "points": 0, "projected": 9.42 },
+          { "name": "Jadarian Price", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 }
         ]
       }
     },
@@ -466,7 +462,7 @@
       "pointsAgainst": 1279.52,
       "streakType": "LOSS",
       "streakLength": 2,
-      "moves": { "acquisitions": 17, "drops": 18, "trades": 1 },
+      "moves": { "acquisitions": 19, "drops": 18, "trades": 1 },
       "roster": {
         "ir": [{ "name": "Puka Nacua", "pos": "WR" }],
         "emptyStarters": [],
@@ -491,7 +487,9 @@
           { "name": "Buccaneers D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 5.13 },
           { "name": "Kendre Miller", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Elijah Mitchell", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Tutu Atwell", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 }
+          { "name": "Tutu Atwell", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Xavier Hutchinson", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.86 },
+          { "name": "Courtland Sutton", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.42 }
         ]
       }
     },
@@ -1024,7 +1022,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 9, "points": 0, "projected": 122.67 },
-      "away": { "teamId": 5, "points": 0, "projected": 133.34 },
+      "away": { "teamId": 5, "points": 0, "projected": 137.17 },
       "winner": "undecided"
     },
     {
@@ -1055,7 +1053,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 10, "points": 0, "projected": 79.14 },
+      "home": { "teamId": 10, "points": 0, "projected": 138.32 },
       "away": { "teamId": 12, "points": 0, "projected": 145.12 },
       "winner": "undecided"
     },
