@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-18T10:38:46Z",
+  "generatedAt": "2026-11-18T11:58:56Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -391,17 +391,17 @@
           { "name": "Caleb Douglas", "pos": "WR", "slot": "WR", "points": 0, "projected": 9.84 },
           { "name": "Travis Kelce", "pos": "TE", "slot": "TE", "points": 0, "projected": 11.54 },
           { "name": "Aaron Jones Sr.", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 8.52 },
-          { "name": "Vikings D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 5.08 },
+          { "name": "Bears D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.45 },
           { "name": "Matt Gay", "pos": "K", "slot": "K", "points": 0, "projected": 8.21 }
         ],
         "bench": [
           { "name": "Jeremiyah Love", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Matthew Golden", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Jared Goff", "pos": "QB", "slot": "BE", "points": 0, "projected": 18.51 },
+          { "name": "Vikings D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 5.08 },
           { "name": "Tre Tucker", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.26 },
           { "name": "DeMario Douglas", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Michael Mayer", "pos": "TE", "slot": "BE", "points": 0, "projected": 7.05 },
-          { "name": "Bears D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 6.45 }
+          { "name": "Michael Mayer", "pos": "TE", "slot": "BE", "points": 0, "projected": 7.05 }
         ]
       }
     },
@@ -462,33 +462,29 @@
       "pointsAgainst": 1279.52,
       "streakType": "LOSS",
       "streakLength": 2,
-      "moves": { "acquisitions": 19, "drops": 18, "trades": 1 },
+      "moves": { "acquisitions": 21, "drops": 20, "trades": 1 },
       "roster": {
         "ir": [{ "name": "Puka Nacua", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [
-          { "name": "Matthew Stafford", "pos": "QB", "slot": "QB", "why": "BYE" },
-          { "name": "Zach Charbonnet", "pos": "RB", "slot": "RB", "why": "BYE" },
-          { "name": "Mack Hollins", "pos": "WR", "slot": "FLEX", "why": "BYE" }
-        ],
+        "badStarters": [],
         "starters": [
-          { "name": "Matthew Stafford", "pos": "QB", "slot": "QB", "points": 0, "projected": 0 },
+          { "name": "Bo Nix", "pos": "QB", "slot": "QB", "points": 0, "projected": 25.56 },
           { "name": "Cam Skattebo", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.78 },
-          { "name": "Zach Charbonnet", "pos": "RB", "slot": "RB", "points": 0, "projected": 0 },
+          { "name": "Justice Hill", "pos": "RB", "slot": "RB", "points": 0, "projected": 8.4 },
           { "name": "Tee Higgins", "pos": "WR", "slot": "WR", "points": 0, "projected": 17.09 },
           { "name": "Carnell Tate", "pos": "WR", "slot": "WR", "points": 0, "projected": 13.42 },
           { "name": "Sam LaPorta", "pos": "TE", "slot": "TE", "points": 0, "projected": 9.6 },
-          { "name": "Mack Hollins", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 0 },
+          { "name": "Xavier Hutchinson", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 10.86 },
           { "name": "Jaguars D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 7.43 },
           { "name": "Chris Boswell", "pos": "K", "slot": "K", "points": 0, "projected": 10.41 }
         ],
         "bench": [
-          { "name": "Darius Cooper", "pos": "WR", "slot": "BE", "points": 0, "projected": 1.51 },
+          { "name": "Matthew Stafford", "pos": "QB", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Zach Charbonnet", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Buccaneers D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 5.13 },
           { "name": "Kendre Miller", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Elijah Mitchell", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Mack Hollins", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Tutu Atwell", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Xavier Hutchinson", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.86 },
           { "name": "Courtland Sutton", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.42 }
         ]
       }
@@ -1021,7 +1017,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 9, "points": 0, "projected": 122.67 },
+      "home": { "teamId": 9, "points": 0, "projected": 124.04 },
       "away": { "teamId": 5, "points": 0, "projected": 137.17 },
       "winner": "undecided"
     },
@@ -1045,7 +1041,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 11, "points": 0, "projected": 72.72 },
+      "home": { "teamId": 11, "points": 0, "projected": 117.54 },
       "away": { "teamId": 4, "points": 0, "projected": 112.72 },
       "winner": "undecided"
     },
