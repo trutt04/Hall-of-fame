@@ -175,6 +175,8 @@ const ITEMS = {
         wait -= dt;
         if (wait <= 0) { fx.burst(0, 1.0, 0); wait = 1.4; }
       },
+      burst: (x, y, z) => fx.burst(x, y, z),       // so a screenshot script can time a burst
+      get busy() { return fx.busy; },
       dispose: () => fx.dispose(),
     };
     return { o, label: i ? 'confetti (team colour)' : 'confetti', w: 5.4, d: 5.4 };
@@ -325,7 +327,8 @@ function measure(group) {
   return { calls, tris: Math.round(tris) };
 }
 const table = entries.map((e) => Object.assign({ name: e.label }, measure(e.o.group)));
-window.__gallery = { table, missing, entries: entries.length };
+// `props` is for driving a prop from a screenshot script (confetti.burst, setBedTilt and so on).
+window.__gallery = { table, missing, entries: entries.length, props: entries.map((e) => e.o) };
 
 // ---- camera ---------------------------------------------------------------------------------------
 // frame the layout footprints, not the raw bounds (beams and halos reach for the sky)

@@ -15,7 +15,7 @@
 // the shared flat material: white would vanish against the sky it stands in.
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, TAU, shade, lin } from './geo.js';
-import { flatMat, goldMat } from './materials.js';
+import { flatMat, glowMat, goldMat } from './materials.js';
 import { rng, motion, makeProp, addMesh, V3 } from './util.js';
 import { C } from './parts.js';
 
@@ -36,14 +36,15 @@ const T = {
   STEM: [                                 // foot, knop and stem, seg 8
     [0.33, 0.875], [0.38, 0.94], [0.25, 1.06], [0.115, 1.16], [0.175, 1.24], [0.105, 1.40],
   ],
-  BOWL: [                                 // the cup, seg 12. Last point is the rim.
-    [0.105, 1.40], [0.30, 1.52], [0.44, 1.72], [0.545, 1.98], [0.60, 2.13], [0.575, 2.20],
+  BOWL: [                                 // the cup, seg 12. Flares fast, then stands up. Last
+    [0.105, 1.40], [0.34, 1.53], [0.47, 1.71],   // point is the rim: a cup, not a funnel.
+    [0.545, 1.91], [0.575, 2.07], [0.605, 2.14], [0.575, 2.20],
   ],
   LIP: [0.46, 2.06],                      // inside of the rim: [radius, y] of the pool at the bottom
   HANDLE: [                               // one handle in the XY plane, mirrored across X
     [0.50, 2.07], [0.70, 2.10], [0.82, 1.99], [0.82, 1.80], [0.70, 1.68], [0.50, 1.65],
   ],
-  MEDAL: [1.81, 0.465, 0.17],             // the medallion on the front of the bowl: [y, z, radius]
+  MEDAL: [1.8, 0.125],                    // medallion on the front of the bowl: [y, radius]
 };
 
 export function createChampionTrophy({ scale = 1, color = 0xf2c93f } = {}) {
@@ -79,14 +80,14 @@ export function createChampionTrophy({ scale = 1, color = 0xf2c93f } = {}) {
 
   // the bowl. seg 12 so the rim stays round in profile, and the facet that falls dead ahead
   // gives the medallion something flat to sit on.
-  const B = T.BOWL;
+  const B = T.BOWL, TOP = B.length - 1;
   g.lathe(0, 0, 0, [
     [B[0][0], B[0][1], L], [B[1][0], B[1][1], G], [B[2][0], B[2][1], G],
-    [B[3][0], B[3][1], H], [B[4][0], B[4][1], H], [B[5][0], B[5][1], H],
+    [B[3][0], B[3][1], H], [B[4][0], B[4][1], H], [B[5][0], B[5][1], H], [B[6][0], B[6][1], H],
   ], G, { seg: 12, capTop: false });
   // the inside of the rim, drawn mirrored so it faces inward, and a flat pool at the bottom of it
   g.save(); g.scale(-1, 1, 1);
-  g.lathe(0, 0, 0, [[T.LIP[0], T.LIP[1]], [B[5][0] - 0.012, B[5][1] - 0.008]], D, { seg: 12, capTop: false });
+  g.lathe(0, 0, 0, [[T.LIP[0], T.LIP[1]], [B[TOP][0] - 0.012, B[TOP][1] - 0.008]], D, { seg: 12, capTop: false });
   g.restore();
   g.fan(T.LIP[0], T.LIP[1], 12, Math.PI / 12, shade(D, 0.8));
 
@@ -97,21 +98,33 @@ export function createChampionTrophy({ scale = 1, color = 0xf2c93f } = {}) {
   }
   g.jit = 0;
 
-  // a star medallion on the front of the bowl: gaudy, generic, and it gives the prop a front
-  const [my, mz, mr] = T.MEDAL;
-  g.disc(0, my, mz, mr, L, { seg: 8, rx: Math.PI / 2 });
-  g.disc(0, my, mz + 0.012, mr * 0.78, H, { seg: 8, rx: Math.PI / 2 });
+  // A star medallion on the front of the bowl: gaudy, generic, and it gives the prop a front.
+  // Bright star on a sunk dark disc, because gold on gold is a smudge at any distance.
+  // The bowl wall leans out as it rises, so the plate has to lean with it or its top edge
+  // disappears into the metal. Both the lean and the stand off come off the profile itself,
+  // and the plate is kept inside one facet so it never floats over the corners.
+  const [my, mr] = T.MEDAL;
+  const bi = B.findIndex((q, i) => i > 0 && q[1] >= my), b0 = B[bi - 1], b1 = B[bi];
+  const lean = Math.atan2(b1[0] - b0[0], b1[1] - b0[1]);
+  const wall = b0[0] + (b1[0] - b0[0]) * ((my - b0[1]) / (b1[1] - b0[1]));
+  g.at(0, my, wall * Math.cos(Math.PI / 12) + 0.006, 0, lean);
+  g.disc(0, 0, 0, mr, H, { seg: 8, rx: Math.PI / 2 });
+  g.disc(0, 0, 0.01, mr * 0.84, D, { seg: 8, rx: Math.PI / 2 });
   for (let i = 0; i < 5; i++) {
-    const a0 = Math.PI / 2 + (i * TAU) / 5, a1 = a0 + TAU / 5, am = a0 + TAU / 10;
-    g.tri([Math.cos(a0) * mr * 0.34, my + Math.sin(a0) * mr * 0.34, mz + 0.016],
-      [Math.cos(a1) * mr * 0.34, my + Math.sin(a1) * mr * 0.34, mz + 0.016],
-      [Math.cos(am) * mr * 0.92, my + Math.sin(am) * mr * 0.92, mz + 0.022], D);
+    // a0 is backed off by half a step so a POINT lands straight up. A star with a point down
+    // reads as a pair of horns, which is a different sport entirely.
+    const a0 = Math.PI / 2 - TAU / 10 + (i * TAU) / 5, a1 = a0 + TAU / 5, am = a0 + TAU / 10;
+    const p0 = [Math.cos(a0) * mr * 0.3, Math.sin(a0) * mr * 0.3, 0.016];
+    const p1 = [Math.cos(a1) * mr * 0.3, Math.sin(a1) * mr * 0.3, 0.016];
+    g.tri([0, 0, 0.016], p0, p1, H);                                                    // the core
+    g.tri(p1, p0, [Math.cos(am) * mr * 0.8, Math.sin(am) * mr * 0.8, 0.022], H);
   }
+  g.restore();
 
   g.shadeY(0, 1.0 * scale, 0.82);
   addMesh(group, g, goldMat, own, 'trophy');
 
-  const k = scale, top = B[5][1], half = S[0][2] / 2;
+  const k = scale, top = B[TOP][1], half = S[0][2] / 2;
   return makeProp(group, own, null, {
     height: top * k,
     // the handles reach further than the plinth corners do
@@ -208,8 +221,10 @@ export function createBannerMast({ height = 7.5, scale = 1 } = {}) {
 // Pieces are party sized, not life sized: 13 cm of paper reads from across the street, 2 cm of
 // paper is one pixel of nothing.
 const PIECE = [0.13, 0.085];
-const GRAVITY = 9.0, TERMINAL = 2.2, DRAG = 2.3, FADE = 0.45, LAND = 0.015;
-const MIXED = [0xffd23f, 0xff5964, 0x3ec3f0, 0x5ee36a, 0xff8c42, 0xf06bd0, 0xf7f4ea, 0x9b6bff];
+// Terminal velocity is the whole trick: paper that falls at 1.5 m/s reads as a celebration and
+// paper that falls at 6 reads as something blowing off a bin lorry.
+const GRAVITY = 8.0, TERMINAL = 1.5, DRAG = 2.3, FADE = 0.45, LAND = 0.015;
+const MIXED = [0xffd23f, 0xff5964, 0x49d2f7, 0x6ced76, 0xff9d4d, 0xf87ad8, 0xf7f4ea, 0xb78bff];
 
 // Bright enough to read as paper in the air. A dark team colour gets lifted rather than dropped,
 // because navy confetti against grass reads as litter.
@@ -222,8 +237,9 @@ function brighten(hex) {
 function confettiPiece(own) {
   const g = new Geo(), w = PIECE[0] / 2, d = PIECE[1] / 2;
   // flat in XZ so a landed piece lies on the ground. White: the per piece colour rides on the
-  // instance colour and multiplies this.
-  g.quad2([-w, 0, d], [w, 0, d], [w, 0, -d], [-w, 0, -d], 0xffffff, 0x9a9a9a);
+  // instance colour and multiplies this. The underside is a little darker, enough to flicker as
+  // a piece turns over.
+  g.quad2([-w, 0, d], [w, 0, d], [w, 0, -d], [-w, 0, -d], 0xffffff, 0xcfcfcf);
   const geo = g.build();
   own.push(geo);
   return { geo, tris: g.tris };
@@ -234,7 +250,10 @@ export function createConfetti({ count = 160, color = null } = {}) {
   const own = [], N = Math.max(4, Math.min(400, Math.round(count || 0) || 160));
   const { geo, tris } = confettiPiece(own);
 
-  const mesh = new THREE.InstancedMesh(geo, flatMat, N);
+  // Unlit, on purpose. Under the world's one sun a tumbling lit quad spends half its life
+  // facing the ground light, and a cloud of half dark paper reads as litter blowing about
+  // rather than as a celebration. Unlit keeps every piece the colour it was cut from.
+  const mesh = new THREE.InstancedMesh(geo, glowMat, N);
   mesh.name = 'pieces';
   mesh.frustumCulled = false;           // a burst can be thrown anywhere in local space
   mesh.visible = false;
@@ -313,22 +332,22 @@ export function createConfetti({ count = 160, color = null } = {}) {
   }
 
   const prop = makeProp(group, own, (dt) => step(dt), {
-    // the reach of one burst from the point it is thrown at, measured, for whoever has to bound
-    // it. Pieces rise about 2.5 m and spread about 2.4 m before they are gone.
-    height: 2.6, radius: 2.5,
+    // the reach of one burst from the point it is thrown at, measured over many bursts, for
+    // whoever has to bound it. A burst lasts about 4 seconds at the outside.
+    height: 3.4, radius: 3.1,
     colliders: [],
     count: N,
     triangles: tris * N,
     burst(x = 0, y = 0, z = 0) {
       const r = rng(0x5f3b + ++bursts * 7919);
       for (let i = 0; i < N; i++) {
-        const a = (i / N) * TAU + r() * 0.7, out = 0.9 + r() * r() * 3.6, up = 4.2 + r() * 2.6;
+        const a = (i / N) * TAU + r() * 0.7, out = 0.9 + r() * r() * 3.6, up = 4.8 + r() * 2.6;
         const p = i * 3, s4 = i * 4;
         pos[p] = x + Math.cos(a) * 0.09; pos[p + 1] = y; pos[p + 2] = z + Math.sin(a) * 0.09;
         vel[p] = Math.cos(a) * out; vel[p + 1] = up; vel[p + 2] = Math.sin(a) * out;
         spin[s4] = r() * TAU; spin[s4 + 1] = r() * TAU;
         spin[s4 + 2] = (r() - 0.5) * 9; spin[s4 + 3] = (r() - 0.5) * 12;
-        age[i] = -r() * 0.12; life[i] = 2.3 + r() * 1.7; down[i] = 0;
+        age[i] = -r() * 0.12; life[i] = 2.6 + r() * 1.8; down[i] = 0;
       }
       alive = N;
       mesh.visible = true;

@@ -18,6 +18,7 @@ import {
   createCrown, createThrone, createTelescope, createPeriscope, createRainCloud,
 } from '../art/index.js';
 import { makeCanvas, drawNameTag, drawYardSign, drawPlaque } from './signs.js';
+import { seasonChampion, createLawnTrophy } from './champion.js';
 
 const TAG_NEAR = 46; // name tags fade in inside this distance
 const DETAIL_FAR = 62; // small reactive props are hidden beyond this
@@ -119,9 +120,11 @@ export function createTown(w) {
   // ------------------------------------------------------------------ reactive details
   function detailSig(t) {
     const n = t.history && t.history.nemesis;
+    const champ = seasonChampion(model);
     return JSON.stringify([
       t.trashBags, t.goalposts, t.ir ? t.ir.count : 0, t.tierMove, t.onCutLine, t.trophy && t.trophy.toilet, t.trophy && t.trophy.spotlight,
       t.luckTag, t.flamingos, t.roast && t.roast.sign, n ? [n.teamName, n.wins, n.losses] : null, model.meta.historyIsSample,
+      champ && champ.teamId === t.id ? [champ.season, champ.teamName] : null,
     ]);
   }
 
@@ -175,8 +178,19 @@ export function createTown(w) {
     if (t.trashBags > 0) local(createTrashPile(t.trashBags), A.lawn);
     if (t.flamingos > 0) local(createFlamingos(t.flamingos), t.trashBags > 0 ? P(A.lawn.x + (A.lawn.x < 0 ? 2.2 : -2.2), A.lawn.y, A.lawn.z - 1.8) : A.lawn);
     if (t.goalposts) local(createGoalposts(t.goalposts), A.goalposts);
-    if (t.trophy && t.trophy.toilet) local(createGoldenToilet(), A.trophy);
-    if (t.trophy && t.trophy.spotlight) local(createSpotlight(), t.trophy.toilet ? P(A.trophy.x, A.trophy.y, A.trophy.z - 1.8) : A.trophy);
+    // The lawn's one display spot. The championship trophy, the golden toilet and the spotlight
+    // all want it, so they queue back toward the house in that order and nothing lands on top of
+    // anything else. A champion is unlikely to also hold the toilet, but the week decides that,
+    // not us.
+    let slot = 0;
+    const trophySpot = () => P(A.trophy.x, A.trophy.y, A.trophy.z - slot++ * 1.8);
+    const champ = seasonChampion(model);
+    if (champ && champ.teamId === t.id) {
+      const cup = createLawnTrophy({ teamName: champ.teamName, season: champ.season, color: t.color, sample: !!model.meta.isSample });
+      if (cup) local(cup, trophySpot());
+    }
+    if (t.trophy && t.trophy.toilet) local(createGoldenToilet(), trophySpot());
+    if (t.trophy && t.trophy.spotlight) local(createSpotlight(), trophySpot());
     if (t.luckTag === 'unluckiest') local(createBlackCat(), A.roof);
     if (t.luckTag === 'luckiest') local(createHorseshoe(), P(A.door.x, A.door.y + 2.35, A.plaque.z + 0.02));
     if (t.roast && t.roast.sign) {
