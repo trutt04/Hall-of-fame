@@ -124,7 +124,7 @@ export function createMascot(w) {
         position: { x: at.x, z: at.z },
         falloff: 15,
         range: 46, // audible across his neighbour's lawn, gone by the next street
-        volume: 0.6,
+        volume: 0.69, // 15 per cent up on the 0.6 it opened at
       });
     }
   }
