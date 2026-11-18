@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-18T11:58:56Z",
+  "generatedAt": "2026-11-18T14:54:20Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -333,31 +333,28 @@
       "pointsAgainst": 1231.24,
       "streakType": "LOSS",
       "streakLength": 4,
-      "moves": { "acquisitions": 23, "drops": 22, "trades": 0 },
+      "moves": { "acquisitions": 25, "drops": 25, "trades": 0 },
       "roster": {
-        "ir": [{ "name": "Travis Etienne Jr.", "pos": "RB" }],
+        "ir": [],
         "emptyStarters": [],
-        "badStarters": [
-          { "name": "Denzel Boston", "pos": "WR", "slot": "WR", "why": "BYE" },
-          { "name": "Tucker Kraft", "pos": "TE", "slot": "TE", "why": "BYE" }
-        ],
+        "badStarters": [],
         "starters": [
           { "name": "Aaron Rodgers", "pos": "QB", "slot": "QB", "points": 0, "projected": 19.11 },
           { "name": "James Cook III", "pos": "RB", "slot": "RB", "points": 0, "projected": 21.65 },
-          { "name": "Chris Rodriguez Jr.", "pos": "RB", "slot": "RB", "points": 0, "projected": 5.93 },
-          { "name": "Denzel Boston", "pos": "WR", "slot": "WR", "points": 0, "projected": 0 },
+          { "name": "Travis Etienne Jr.", "pos": "RB", "slot": "RB", "points": 0, "projected": 11.37 },
           { "name": "Malik Washington", "pos": "WR", "slot": "WR", "points": 0, "projected": 7.71 },
-          { "name": "Tucker Kraft", "pos": "TE", "slot": "TE", "points": 0, "projected": 0 },
-          { "name": "Omar Cooper Jr.", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 8.93 },
-          { "name": "Saints D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 4.16 },
+          { "name": "Ryan Flournoy", "pos": "WR", "slot": "WR", "points": 0, "projected": 9.73 },
+          { "name": "Mike Gesicki", "pos": "TE", "slot": "TE", "points": 0, "projected": 7.4 },
+          { "name": "Omarion Hampton", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 12.89 },
+          { "name": "Lions D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.22 },
           { "name": "Evan McPherson", "pos": "K", "slot": "K", "points": 0, "projected": 8.46 }
         ],
         "bench": [
-          { "name": "Omarion Hampton", "pos": "RB", "slot": "BE", "points": 0, "projected": 12.89 },
           { "name": "DeVonta Smith", "pos": "WR", "slot": "BE", "points": 0, "projected": 13.19 },
-          { "name": "Ryan Flournoy", "pos": "WR", "slot": "BE", "points": 0, "projected": 9.73 },
-          { "name": "Tyler Higbee", "pos": "TE", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Bam Knight", "pos": "RB", "slot": "BE", "points": 0, "projected": 7.48 },
+          { "name": "Tucker Kraft", "pos": "TE", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Chris Rodriguez Jr.", "pos": "RB", "slot": "BE", "points": 0, "projected": 5.93 },
+          { "name": "Denzel Boston", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
+          { "name": "Omar Cooper Jr.", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.93 },
           { "name": "Samaje Perine", "pos": "RB", "slot": "BE", "points": 0, "projected": 7.81 },
           { "name": "Makai Lemon", "pos": "WR", "slot": "BE", "points": 0, "projected": 5.72 }
         ]
@@ -504,7 +501,7 @@
       "pointsAgainst": 1223.3,
       "streakType": "WIN",
       "streakLength": 2,
-      "moves": { "acquisitions": 37, "drops": 35, "trades": 1 },
+      "moves": { "acquisitions": 38, "drops": 36, "trades": 1 },
       "roster": {
         "ir": [{ "name": "RJ Harvey", "pos": "RB" }],
         "emptyStarters": [],
@@ -527,7 +524,7 @@
           { "name": "KC Concepcion", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Corey Kiner", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Packers D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Kaleb Johnson", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 }
+          { "name": "Terrance Ferguson", "pos": "TE", "slot": "BE", "points": 0, "projected": 0 }
         ]
       }
     }
@@ -1033,7 +1030,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 8, "points": 0, "projected": 75.95 },
+      "home": { "teamId": 8, "points": 0, "projected": 104.55 },
       "away": { "teamId": 6, "points": 0, "projected": 106.26 },
       "winner": "undecided"
     },
