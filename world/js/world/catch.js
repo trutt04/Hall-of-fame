@@ -22,6 +22,7 @@ import { Geo, flatMat } from '../art/index.js';
 import { clamp, damp, safeStorageGet, safeStorageSet } from '../core/util.js';
 
 const BEST_KEY = 'lw.catch.best';
+const IDLE_SPIN = 7; // the ball machine's resting wheel speed, matching createBallMachine
 const GRAVITY = 9.2;
 const BALL_R = 0.17;
 const DRILL_SPEED = 7.4; // how fast the avatar covers ground during the drill, m/s
@@ -317,8 +318,21 @@ export function createCatchGame(w) {
   }
 
   // ------------------------------------------------------------------ input while the game is on
-  function onCanvasDown() {
+  // "Tap the field to go again" has to mean a tap. A joystick drag or a look swipe landed here
+  // too and wiped the score before it could be read, so the pointer has to come back up near
+  // where it went down, soon enough to be a tap.
+  let tapFrom = null;
+  function onCanvasDown(e) {
+    if (!G.active || G.state !== 'over') { tapFrom = null; return; }
+    tapFrom = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() };
+  }
+  function onCanvasUp(e) {
+    const d = tapFrom;
+    tapFrom = null;
+    if (!d || d.id !== e.pointerId) return;
     if (!G.active || G.state !== 'over') return;
+    if (Math.abs(e.clientX - d.x) > 14 || Math.abs(e.clientY - d.y) > 14) return;
+    if (performance.now() - d.t > 500) return;
     newRound();
   }
   function onKeyDown(e) {
@@ -355,14 +369,20 @@ export function createCatchGame(w) {
     newRound();
     root.hidden = false;
     canvas.addEventListener('pointerdown', onCanvasDown);
+    canvas.addEventListener('pointerup', onCanvasUp);
+    canvas.addEventListener('pointercancel', onCanvasUp);
     window.addEventListener('keydown', onKeyDown);
     if (hud.hideHint) hud.hideHint();
     audio.sfx('pop', { volume: 0.5 });
     rig.setView({ yaw: 0, pitch: 0.3 });
-    const portrait = w.camera3D.aspect < 1;
-    rig.play([{
-      cut: true, dur: 1e7, ease: 'linear', fov: portrait ? 66 : 50,
+    // Read every frame, not once: rotating the phone mid round used to leave the portrait
+    // framing in place, which put the avatar small and far away.
+    const portraitNow = () => w.camera3D.aspect < 1;
+    const shot = {
+      cut: true, dur: 1e7, ease: 'linear', fov: portraitNow() ? 66 : 50,
       pos: () => {
+        const portrait = portraitNow();
+        shot.fov = portrait ? 66 : 50;
         // Straight south of the look point, so the camera's forward stays exactly -z and the
         // stick keeps mapping to the world without a yaw to chase.
         camWant.set(focus.x, Y + (portrait ? 6.0 : 5.1), G.pz + (portrait ? 12.0 : 10.4));
@@ -377,7 +397,8 @@ export function createCatchGame(w) {
         camReady = true;
         return camLook;
       },
-    }], { skippable: false, handoff: calm ? 0.01 : 0.7 }).then(() => leave(true));
+    };
+    rig.play([shot], { skippable: false, handoff: calm ? 0.01 : 0.7 }).then(() => leave(true));
   }
 
   function leave(fromOutside) {
@@ -391,7 +412,14 @@ export function createCatchGame(w) {
     ballShadow.visible = false;
     marker.visible = false;
     canvas.removeEventListener('pointerdown', onCanvasDown);
+    canvas.removeEventListener('pointerup', onCanvasUp);
+    canvas.removeEventListener('pointercancel', onCanvasUp);
+    tapFrom = null;
     window.removeEventListener('keydown', onKeyDown);
+    // This game runs with input live, so setSuspended may not change value here and would
+    // then clear nothing. Let go explicitly, or a thumb still on the joystick (or a held key)
+    // walks the avatar away the moment the game hands control back.
+    input.release();
     input.setSuspended(hud.isModalOpen());
     const av = player.avatar;
     if (av && av.setAnim) av.setAnim('idle');
@@ -401,6 +429,7 @@ export function createCatchGame(w) {
     if (player.seated) player.stand(back.x, back.z, back.facing);
     if (fromOutside !== true && rig.isCinematic) rig.skip();
     rig.setView({ yaw: back.facing + Math.PI });
+    if (facility.spinMachine) facility.spinMachine(IDLE_SPIN); // or it idles at race speed for ever
     if (G.release) G.release();
     G.release = null;
   }

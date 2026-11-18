@@ -305,6 +305,15 @@ export function createFacility(w) {
     colliders.addBox(S.fenceX, (S.z0 + S.z1) / 2, 0.5, total, 0, 'facility');
     colliders.addBox((S.fenceX + backX) / 2, S.z0 + 1.5, S.fenceX - backX, 0.5, 0, 'facility');
     colliders.addBox((S.fenceX + backX) / 2, S.z1 - 1.5, S.fenceX - backX, 0.5, 0, 'facility');
+    // The two end colliders above reach past the world edge so the yard cannot be walked into
+    // from behind. Draw fence across the part a player can actually reach, or they stop dead
+    // in open grass with nothing to see.
+    const endTo = layout.bounds.minX + 0.5;
+    const endLen = S.fenceX - endTo;
+    for (const z of [S.z0 + 1.5, S.z1 - 1.5]) {
+      const prop = artProp('createSubstationFence', { length: endLen, scale: 1 }) || standInFence({ length: endLen, scale: 1 });
+      put(prop, (S.fenceX + endTo) / 2, z, 0, { solid: false, y: S.y });
+    }
   }
 
   // ------------------------------------------------------------------ ground: turf, lines, path
@@ -370,10 +379,12 @@ export function createFacility(w) {
       g.restore();
       colliders.addCircle(x, z, 1.25, 'facility');
     };
-    sled(fx0 + 2.8, fz1 - 4.5, 0.18);
-    sled(fx1 - 3.0, fz1 - 8.2, -0.26);
+    // Kept clear of the drill's run box (see RUN in catch.js): the receiver is driven by
+    // setSeat, which ignores colliders, so anything inside that box gets walked through.
+    sled(fx0 + 3.0, fz1 - 1.6, 0.18);
+    sled(fx1 - 3.2, fz1 - 1.5, -0.26);
     for (let k = 0; k < 4; k++) {
-      const x = fx0 + 1.6;
+      const x = fx0 + 0.55;
       const z = fz0 + 11 + k * 3.4;
       g.at(x, terrain.heightAt(x, z), z, k * 0.7);
       g.cyl(0, 0, 0, 0.42, 0.14, 0x23262e, { seg: 7 });
@@ -433,7 +444,7 @@ export function createFacility(w) {
     const y = terrain.heightAt(x, z);
     const g = new Geo();
     g.at(x, y, z, facing);
-    g.box(0, 0, 0, 0.13, 1.4 + ht / 2, 0.13, 0x18213f);
+    g.box(0, 0, -0.07, 0.13, 1.4 + ht / 2, 0.13, 0x18213f); // behind the face, or it splits the text
     g.box(0, 1.4, -0.03, wd + 0.12, ht + 0.14, 0.09, 0x18213f);
     g.restore();
     const frame = g.mesh(flatMat);
@@ -447,7 +458,7 @@ export function createFacility(w) {
     items.push({ prop: { group: frame }, x, z, small: true, far: SMALL_FAR }, { prop: { group: face }, x, z, small: true, far: SMALL_FAR });
     return { redraw(ls) { tex.image = draw(ls); tex.needsUpdate = true; } };
   }
-  const bestSign = makeSign(['CATCHING DRILL', 'Best: none yet'], 2.5, 1.15, fx1 + 1.0, MZ + 2.4, Math.PI / 2 + 0.35, '#14553c');
+  const bestSign = makeSign(['CATCHING DRILL', 'Best: none yet'], 2.5, 1.15, fx1 + 1.0, MZ + 2.4, -Math.PI / 2 + 0.3, '#14553c');
   makeSign(['DANGER  HIGH VOLTAGE', 'Draft picks rest here'], 2.3, 1.05, S.fenceX + 0.5, A.z - 2.6, Math.PI / 2, '#7a2318');
 
   // ------------------------------------------------------------------ where visitors stand

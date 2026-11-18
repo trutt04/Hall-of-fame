@@ -13,6 +13,7 @@
 //   input.consumeZoom()       -> multiplier for the camera distance since the last call
 //   input.on('tap' | 'use' | 'map' | 'escape' | 'any' | 'firstmove', fn)
 //   input.setSuspended(bool)  world input off while a card or panel is open
+//   input.release()           let go of held keys and pointers without changing suspended
 
 import { clamp, emitter } from './util.js';
 
@@ -322,6 +323,13 @@ export function createInput({ canvas, stick = null }) {
       v = !!v;
       if (v === suspended) return;
       suspended = v;
+      keys.clear();
+      resetPointers();
+    },
+    // Drop any held key, captured joystick or pinch, whatever the suspended state is.
+    // setSuspended only clears when the value actually changes, so a mini game that runs
+    // with input live (the joystick is its control) has no way to let go through it.
+    release() {
       keys.clear();
       resetPointers();
     },

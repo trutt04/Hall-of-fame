@@ -134,7 +134,8 @@ export function createKickGame(w) {
     const board = new THREE.Mesh(new THREE.BoxGeometry(wd, ht, 0.08), [side, side, side, side, face, face]);
     const post = new THREE.Mesh(new THREE.BoxGeometry(0.14, 2.2 + ht, 0.14), side);
     const y = terrain.heightAt(x, z);
-    post.position.set(x, y + (2.2 + ht) / 2 - 0.3, z);
+    // set back along the board's normal, or the post stands in front of the face and splits the text
+    post.position.set(x - Math.sin(facing) * 0.09, y + (2.2 + ht) / 2 - 0.3, z - Math.cos(facing) * 0.09);
     board.position.set(x, y + 1.9 + ht / 2, z + 0.02);
     board.rotation.y = facing;
     post.rotation.y = facing;

@@ -283,8 +283,9 @@ body{position:fixed;inset:0;background:var(--night);color:var(--chalk);font-fami
 /* narrow phones: the bar sits under the chip, clear of the button column */
 @media (max-width:379px){.lw-catch-bar{left:10px;transform:none;gap:9px;padding-left:12px;padding-right:12px;max-width:calc(100% - 76px)}}
 @media (max-height:480px){
-  /* landscape: the top row belongs to the chip and the buttons, so the scoreboard goes bottom left */
-  .lw-catch-bar{top:auto;bottom:calc(24px + var(--sab));left:max(10px,env(safe-area-inset-left));transform:none}
+  /* landscape: bottom left is the joystick zone and bottom right is the leave pill, so the
+     scoreboard stays on the top row, centred between the chip and the button column */
+  .lw-catch-bar{top:calc(10px + var(--sat));bottom:auto;max-width:calc(100% - 420px)}
   .lw-catch-result{top:calc(76px + var(--sat))}
   .lw-catch-hint{bottom:calc(74px + var(--sab))}
 }
