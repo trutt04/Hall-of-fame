@@ -8,6 +8,8 @@
 //   audio.sfx(name, { volume?, position? })     one-shots, see SFX below
 //   audio.clip(url, { volume?, position?, falloff?, delay? })   plays a recorded file (resolves true if it played)
 //   audio.drone(name, { position, falloff?, range?, volume? })   a continuous sound tied to a place, see DRONES
+//   audio.loop(url, { position, falloff?, range?, volume? })    the same, but looping a recorded file.
+//                                                               The file is only fetched once somebody walks into range.
 //                                                        returns { stop(), position } or null; safe before enable()
 //   audio.on('change', fn)
 //
@@ -196,6 +198,53 @@ export function createAudio() {
     return d;
   }
 
+  /**
+   * A looping recorded file tied to a place. Nothing is downloaded until a listener is close
+   * enough to hear it and sound is on, so a visitor who never walks over there never pays for it.
+   */
+  function loop(url, opts = {}) {
+    if (!url) return null;
+    const d = {
+      name: opts.name || 'loop',
+      url,
+      position: opts.position || { x: 0, z: 0 },
+      falloff: opts.falloff || 18,
+      range: opts.range || 0,
+      volume: opts.volume ?? 1,
+      node: null,
+      gain: null,
+      idle: 0,
+      buffer: null,
+      loading: false,
+      stop() {
+        tearDownDrone(d);
+        drones.delete(d);
+      },
+    };
+    drones.add(d);
+    return d;
+  }
+
+  // Build the looping source for a file drone, or start fetching it and come back next tick.
+  function fileNode(d, out) {
+    if (!d.buffer) {
+      if (!d.loading) {
+        d.loading = true;
+        loadClip(d.url).then((buf) => {
+          d.buffer = buf || null;
+          d.loading = false;
+        });
+      }
+      return null;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = d.buffer;
+    src.loop = true;
+    src.connect(out);
+    src.start();
+    return { stop: () => { try { src.stop(); } catch (e) { /* already stopped */ } } };
+  }
+
   function tearDownDrone(d) {
     if (!d.node) return;
     try {
@@ -229,10 +278,16 @@ export function createAudio() {
         const pn = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
         if (pn) chain(g, pn, ambBus);
         else chain(g, ambBus);
+        const node = d.url ? fileNode(d, g) : DRONES[d.name](g);
+        if (!node) {
+          // a file still downloading: drop the nodes and try again next tick
+          try { g.disconnect(); if (pn) pn.disconnect(); } catch (e) { /* nothing wired yet */ }
+          continue;
+        }
         d.gain = g;
         d.pan = pn;
         d.idle = 0;
-        d.node = DRONES[d.name](g);
+        d.node = node;
       }
       // Always steer the gain, so walking out of earshot fades it now rather than when the
       // nodes are eventually released.
@@ -1100,6 +1155,7 @@ export function createAudio() {
     sfx,
     clip,
     drone,
+    loop,
     on: events.on.bind(events),
     names: Object.keys(SFX),
     get enabled() { return enabled; },
