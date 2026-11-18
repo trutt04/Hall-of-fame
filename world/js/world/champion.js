@@ -219,56 +219,59 @@ function standInTrophy({ scale = 1 } = {}) {
     group,
     height: 2 * s,
     colliders: [{ x: 0, z: 0, r: 0.62 * s }],
-    anchors: { plate: new THREE.Vector3(0, 0.39 * s, 0.31 * s) },
-    plateSize: { w: 0.68 * s, h: 0.26 * s },
+    anchors: { plaque: new THREE.Vector3(0, 0.39 * s, 0.31 * s) },
+    plaqueSize: { w: 0.68 * s, h: 0.26 * s },
     dispose() { mesh.geometry.dispose(); },
   };
 }
 
-function standInConfetti({ count = 180, color = GOLD } = {}) {
+function standInConfetti({ count = 180, color = null } = {}) {
   const n = Math.max(8, Math.min(400, Math.round(count)));
   const calm = typeof ART.isReducedMotion === 'function' && ART.isReducedMotion();
   const pos = new Float32Array(n * 3);
   const col = new Float32Array(n * 3);
   const vel = new Float32Array(n * 3);
-  const spin = new Float32Array(n);
   const tint = new THREE.Color();
-  const mixWith = [color, GOLD, 0xf3eedd, 0xff6a3d];
+  const mixed = [color === null ? GOLD : color, GOLD, 0xf3eedd, 0xff6a3d, 0x33c6e8];
   for (let i = 0; i < n; i++) {
-    tint.set(mixWith[i % mixWith.length]);
+    tint.set(mixed[i % mixed.length]);
     col[i * 3] = tint.r;
     col[i * 3 + 1] = tint.g;
     col[i * 3 + 2] = tint.b;
-    spin[i] = 0.6 + (i % 7) * 0.23;
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
-  const mat = new THREE.PointsMaterial({ size: 0.34, vertexColors: true, sizeAttenuation: true, transparent: true, depthWrite: false, fog: true });
+  const mat = new THREE.PointsMaterial({ size: 0.26, vertexColors: true, sizeAttenuation: true, transparent: true, depthWrite: false });
   const points = new THREE.Points(geo, mat);
-  points.name = 'confetti';
+  points.name = 'pieces';
   points.frustumCulled = false;
   points.visible = false;
   const group = new THREE.Group();
+  group.name = 'confetti';
   group.add(points);
+  let alive = 0;
   let life = 0;
-  let floor = 0;
-  const SPAN = calm ? 5 : 7.5;
+  const SPAN = calm ? 3.4 : 4.4;
 
   return {
     group,
-    burst(x, y, z) {
-      floor = y - (calm ? 7 : 9);
+    height: 4,
+    radius: 3.2,
+    colliders: [],
+    // x, y, z are LOCAL, with y = 0 the ground the pieces land on (art/champion.js does the same)
+    burst(x = 0, y = 0, z = 0) {
       for (let i = 0; i < n; i++) {
         const a = (i / n) * Math.PI * 2 * 3.7;
-        const r = Math.sqrt((i + 0.5) / n) * (calm ? 5 : 9);
-        pos[i * 3] = x + Math.cos(a) * r;
-        pos[i * 3 + 1] = y + ((i * 37) % 23) * 0.12;
-        pos[i * 3 + 2] = z + Math.sin(a) * r;
-        vel[i * 3] = Math.cos(a) * (calm ? 0.25 : 1.1);
-        vel[i * 3 + 1] = calm ? 0 : 1.6 + ((i * 13) % 11) * 0.22;
-        vel[i * 3 + 2] = Math.sin(a) * (calm ? 0.25 : 1.1);
+        const k = i * 3;
+        pos[k] = x + Math.cos(a) * 0.1;
+        pos[k + 1] = y;
+        pos[k + 2] = z + Math.sin(a) * 0.1;
+        vel[k] = Math.cos(a) * (0.8 + ((i * 17) % 9) * 0.22) * (calm ? 0.5 : 1);
+        vel[k + 1] = (4.6 + ((i * 13) % 11) * 0.24) * (calm ? 0.55 : 1);
+        vel[k + 2] = Math.sin(a) * (0.8 + ((i * 29) % 9) * 0.22) * (calm ? 0.5 : 1);
       }
+      alive = n;
       life = SPAN;
       mat.opacity = 1;
       points.visible = true;
@@ -279,23 +282,28 @@ function standInConfetti({ count = 180, color = GOLD } = {}) {
       if (life <= 0) return;
       life -= dt;
       if (life <= 0) {
+        alive = 0;
         points.visible = false;
         return;
       }
-      const step = Math.min(0.05, dt);
+      const d = Math.min(0.05, Math.max(0, dt || 0));
       for (let i = 0; i < n; i++) {
         const k = i * 3;
-        if (pos[k + 1] <= floor) continue;
-        vel[k + 1] -= (calm ? 1.1 : 3.4) * step;
-        if (vel[k + 1] < -2.4) vel[k + 1] = -2.4;
-        pos[k] += (vel[k] + Math.sin(t * spin[i] * 2 + i) * (calm ? 0.1 : 0.5)) * step;
-        pos[k + 1] += vel[k + 1] * step;
-        pos[k + 2] += (vel[k + 2] + Math.cos(t * spin[i] * 1.7 + i) * (calm ? 0.1 : 0.5)) * step;
-        if (pos[k + 1] < floor) pos[k + 1] = floor;
+        if (pos[k + 1] <= 0.02) continue;
+        vel[k + 1] -= 8 * d;
+        if (vel[k + 1] < -1.5) vel[k + 1] = -1.5;
+        const sway = calm ? 0 : Math.sin(t * 3.1 + i) * 0.5;
+        pos[k] += (vel[k] + sway) * d;
+        pos[k + 1] += vel[k + 1] * d;
+        pos[k + 2] += (vel[k + 2] - sway * 0.6) * d;
+        vel[k] *= 1 - 2.3 * d;
+        vel[k + 2] *= 1 - 2.3 * d;
+        if (pos[k + 1] < 0.02) pos[k + 1] = 0.02;
       }
-      mat.opacity = Math.max(0, Math.min(1, life / (SPAN * 0.45)));
+      mat.opacity = Math.max(0, Math.min(1, life / 0.7));
       geo.attributes.position.needsUpdate = true;
     },
+    get busy() { return alive > 0 && life > 0; },
     dispose() {
       geo.dispose();
       mat.dispose();
@@ -318,8 +326,8 @@ export function createLawnTrophy({ teamName = '', season = 0, color = GOLD, samp
 
   // The plate: on the cup's own plinth when the art offers a spot, otherwise on two short legs
   // just in front of it. Local +Z is the street side, so either way it faces the visitor.
-  const size = cup.plateSize && cup.plateSize.w > 0 ? cup.plateSize : { w: 0.74, h: 0.28 };
-  const at = cup.anchors && cup.anchors.plate ? cup.anchors.plate.clone() : null;
+  const size = cup.plaqueSize && cup.plaqueSize.w > 0 ? cup.plaqueSize : { w: 0.74, h: 0.28 };
+  const at = cup.anchors && cup.anchors.plaque ? cup.anchors.plaque.clone() : null;
   const cv = makeCanvas(512, Math.max(64, Math.round((512 * size.h) / size.w)));
   {
     const g = cv.getContext('2d');
@@ -396,8 +404,18 @@ export function createChampion(w) {
   let visible = true;
   const cam = new THREE.Vector3();
 
-  const confetti = artProp('createConfetti', { count: 180, color: GOLD }) || standInConfetti({ count: 180, color: GOLD });
-  if (confetti && confetti.group) group.add(confetti.group);
+  // Three throws across the plaza, each its own prop: one burst reaches about 3 m, and a town
+  // that has waited a year for this deserves more than one puff over the statue. The group sits
+  // on the paving, so a burst is thrown in LOCAL coordinates with y = 0 the ground it lands on.
+  // Between bursts every piece is hidden and the lot costs nothing.
+  const THROWS = [[0, 0], [-7.5, 7], [8, 6.5]];
+  const confetti = THROWS.map(([ox, oz], i) => {
+    const prop = artProp('createConfetti', { count: i ? 110 : 150, color: null }) || standInConfetti({ count: i ? 110 : 150, color: null });
+    if (!prop || !prop.group) return null;
+    prop.group.position.set(PLAZA.x + ox, terrain.heightAt(PLAZA.x + ox, PLAZA.z + oz), PLAZA.z + oz);
+    group.add(prop.group);
+    return prop;
+  }).filter(Boolean);
 
   // ---------------------------------------------------------------- storage (see ui/recap.js)
   // The flow already keeps one "since you were last here" record. This adds one small line of
@@ -433,6 +451,33 @@ export function createChampion(w) {
     built = null;
   }
 
+  // Every mast baked into one geometry, or null when any of them is not a plain single-mesh
+  // prop on the shared flat material. Baking freezes a prop, so one that animates is left alone.
+  function bakeMasts(masts) {
+    const geos = [];
+    for (const m of masts) {
+      if (typeof m.prop.update === 'function') return null;
+      const meshes = [];
+      m.prop.group.traverse((o) => {
+        if (o.isMesh || o.isPoints || o.isSprite || o.isLine) meshes.push(o);
+      });
+      if (meshes.length !== 1) return null;
+      const mesh = meshes[0];
+      const at = mesh.isMesh && mesh.geometry ? mesh.geometry.attributes : null;
+      if (mesh.material !== flatMat || !at || !at.position || !at.color || at.color.itemSize !== 3 || at.uv) return null;
+      m.prop.group.updateMatrixWorld(true);
+      const geo = new THREE.BufferGeometry();
+      geo.setAttribute('position', at.position.clone());
+      geo.setAttribute('color', at.color.clone());
+      geo.applyMatrix4(mesh.matrixWorld);
+      geos.push(geo);
+    }
+    if (!geos.length) return null;
+    const out = merge(geos);
+    for (const geo of geos) geo.dispose();
+    return out;
+  }
+
   // Where mast i stands. Bearings run clockwise from north, so the newest champion takes the
   // first spot, the one the arrival walk looks straight at, and the arc sweeps back in time.
   // Every cloth is turned to face the same spot on the arrival walk, so the whole arc reads
@@ -450,6 +495,7 @@ export function createChampion(w) {
     if (!list.length) return;
     const own = [];
     const props = [];
+    const nodes = []; // what the distance cull switches off
     const sample = !!(model && model.meta && model.meta.historyIsSample);
 
     // the cloth: one cell per champion on one canvas, one quad per cell, both sides readable
@@ -465,14 +511,12 @@ export function createChampion(w) {
     for (let i = 0; i < list.length; i++) {
       const s = spotOf(i, list.length);
       const height = ARC.height - i * 0.18;
-      let prop = artProp('createBannerMast', { height, scale: ARC.scale });
-      const stand = !prop;
-      if (stand) prop = standInMast({ height, scale: ARC.scale });
+      const prop = artProp('createBannerMast', { height, scale: ARC.scale }) || standInMast({ height, scale: ARC.scale });
       if (!prop || !prop.group) continue;
       const y = terrain.heightAt(s.x, s.z);
       prop.group.position.set(s.x, y, s.z);
       prop.group.rotation.y = s.facing;
-      masts.push({ prop, x: s.x, y, z: s.z, facing: s.facing, stand });
+      masts.push({ prop, x: s.x, y, z: s.z, facing: s.facing });
       const c = Math.cos(s.facing);
       const sn = Math.sin(s.facing);
       for (const col of prop.colliders || []) {
@@ -511,27 +555,23 @@ export function createChampion(w) {
       quad(P(1, -size.h, -1), P(-1, -size.h, -1), P(-1, 0, -1), P(1, 0, -1), u0, 0, u1, 1);
       drawBannerCell(g, i * cellW, 0, cellW, cellH, list[i], sample);
       props.push(m.prop);
-      if (!m.stand) group.add(m.prop.group);
     }
 
-    // the masts: the stand-ins merge into one mesh, real art keeps its own groups
-    if (masts.length && masts[0].stand) {
-      const geos = [];
+    // The masts: every one of them is a single merged vertex-colored mesh on the shared flat
+    // material, so the lot bakes into one geometry and one draw call. A mast that does not fit
+    // that shape, or that animates, keeps its own group and pays for itself.
+    const baked = bakeMasts(masts);
+    if (baked) {
+      const mesh = new THREE.Mesh(baked, flatMat);
+      mesh.name = 'bannerMasts';
+      mesh.matrixAutoUpdate = false;
+      group.add(mesh);
+      nodes.push(mesh);
+      own.push(baked);
+    } else {
       for (const m of masts) {
-        if (!m.prop.mesh || !m.prop.mesh.geometry) continue;
-        const geo = m.prop.mesh.geometry.clone();
-        geo.rotateY(m.facing);
-        geo.translate(m.x, m.y, m.z);
-        geos.push(geo);
-      }
-      if (geos.length) {
-        const merged = merge(geos);
-        for (const geo of geos) geo.dispose();
-        const mesh = new THREE.Mesh(merged, flatMat);
-        mesh.name = 'bannerMasts';
-        mesh.matrixAutoUpdate = false;
-        group.add(mesh);
-        own.push(merged);
+        group.add(m.prop.group);
+        nodes.push(m.prop.group);
       }
     }
 
@@ -546,9 +586,10 @@ export function createChampion(w) {
     cloth.name = 'championBanners';
     cloth.matrixAutoUpdate = false;
     group.add(cloth);
+    nodes.push(cloth);
     own.push(geo, mat, tex);
 
-    built = { own, props, count: masts.length };
+    built = { own, props, nodes, count: masts.length };
   }
 
   // ---------------------------------------------------------------- the model
@@ -595,13 +636,13 @@ export function createChampion(w) {
     armed = false;
     thrown = true;
     if (champ) safeStorageSet(SEEN_KEY, String(champ.season));
-    if (!confetti || typeof confetti.burst !== 'function') return;
-    const y = terrain.heightAt(PLAZA.x, PLAZA.z) + 14;
-    try {
-      confetti.burst(PLAZA.x, y, PLAZA.z);
-    } catch (err) {
-      console.warn('[lw] the confetti did not go up', err);
-      return;
+    for (const prop of confetti) {
+      if (typeof prop.burst !== 'function') continue;
+      try {
+        prop.burst(0, 1.2, 0); // thrown from head height, so it rises and comes down over the paving
+      } catch (err) {
+        console.warn('[lw] the confetti did not go up', err);
+      }
     }
     try {
       audio.sfx('fanfare', { volume: 0.8 });
@@ -619,13 +660,10 @@ export function createChampion(w) {
     const near = dx * dx + dz * dz < FAR * FAR;
     if (near !== visible) {
       visible = near;
-      if (built) for (const p of built.props) if (p.group) p.group.visible = near;
-      for (const child of group.children) {
-        if (child.name === 'bannerMasts' || child.name === 'championBanners') child.visible = near;
-      }
+      if (built) for (const node of built.nodes) node.visible = near;
     }
     if (near && built) for (const p of built.props) if (p.update) p.update(dt, t);
-    if (confetti && confetti.update) confetti.update(dt, t);
+    for (const prop of confetti) if (prop.update) prop.update(dt, t);
     if (!armed) return;
     // Wait for the visitor to be standing in the plaza with nothing in the way: no ride, no
     // picker, no card. Otherwise it goes up behind the loading veil and nobody ever sees it.
@@ -644,6 +682,8 @@ export function createChampion(w) {
     arrived,
     get champion() { return champ; },
     get armed() { return armed; },
+    get thrown() { return thrown; },
+    get busy() { return confetti.some((p) => p.busy); },
     get banners() { return built ? built.count : 0; },
     // tests and the console
     _fire() {
@@ -652,7 +692,7 @@ export function createChampion(w) {
     },
     dispose() {
       clear();
-      if (confetti && confetti.dispose) confetti.dispose();
+      for (const prop of confetti) if (prop.dispose) prop.dispose();
       scene.remove(group);
     },
   };

@@ -12,7 +12,8 @@
 //
 // The trophy is drawn with `goldMat`, the same material as the Supreme Commissioner, so a
 // winner's lawn and the monument are made of the same metal. The mast is grey anodized pole on
-// the shared flat material: white would vanish against the sky it stands in.
+// the shared flat material: white would vanish against the sky it stands in. The confetti is on
+// the shared unlit material, for the reason given down there.
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, TAU, shade, lin } from './geo.js';
 import { flatMat, glowMat, goldMat } from './materials.js';
@@ -247,6 +248,7 @@ function confettiPiece(own) {
 
 export function createConfetti({ count = 160, color = null } = {}) {
   const group = new THREE.Group(); group.name = 'confetti';
+  // capped at 400: past that it stops reading as confetti and starts reading as weather
   const own = [], N = Math.max(4, Math.min(400, Math.round(count || 0) || 160));
   const { geo, tris } = confettiPiece(own);
 
@@ -262,12 +264,12 @@ export function createConfetti({ count = 160, color = null } = {}) {
 
   // one colour per piece, fixed for the life of the prop. If a champion colour is given it takes
   // a bit over half the pieces, in three values, so their colour dominates without being alone.
-  const pick = rng(0x9e37 + N), tint = color === null ? 0 : brighten(color);
+  const rnd = rng(0x9e37 + N), tint = color === null ? 0 : brighten(color);
   const biased = color === null ? null : [tint, shade(tint, 1.3), shade(tint, 0.82)];
   mesh.setColorAt(0, new THREE.Color(0xffffff));
   const ca = mesh.instanceColor.array;
   for (let i = 0; i < N; i++) {
-    const hex = biased && pick() < 0.56 ? biased[i % 3] : MIXED[(i * 3 + (i % 5)) % MIXED.length];
+    const hex = biased && rnd() < 0.56 ? biased[i % 3] : MIXED[Math.floor(rnd() * MIXED.length) % MIXED.length];
     const c = lin(hex);
     ca[i * 3] = c[0]; ca[i * 3 + 1] = c[1]; ca[i * 3 + 2] = c[2];
   }
@@ -279,7 +281,14 @@ export function createConfetti({ count = 160, color = null } = {}) {
   const im = mesh.instanceMatrix.array;
   let alive = 0, bursts = 0;
 
-  const hide = (i) => { const o = i * 16; im[o] = 0; im[o + 5] = 0; im[o + 10] = 0; };
+  // the whole 3x3 goes to zero, not just the diagonal: a dead piece that kept its rotation
+  // terms would still draw as a sliver wherever it happened to die
+  const hide = (i) => {
+    const o = i * 16;
+    im[o] = 0; im[o + 1] = 0; im[o + 2] = 0;
+    im[o + 4] = 0; im[o + 5] = 0; im[o + 6] = 0;
+    im[o + 8] = 0; im[o + 9] = 0; im[o + 10] = 0;
+  };
   for (let i = 0; i < N; i++) { hide(i); im[i * 16 + 15] = 1; }
 
   function place(i, s) {

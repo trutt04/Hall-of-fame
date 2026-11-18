@@ -494,9 +494,9 @@ export function makeLayout(counts = {}) {
     // where the arrival walk looks straight at it and the arc sweeps back in time to the east.
     // Every cloth is turned toward `aim`, the spot on the walk where a visitor lands.
     championArc: {
-      x: plaza.x, z: plaza.z, y: plaza.y, r: 8.6,
-      from: -6 * DEG, span: 64 * DEG, maxStep: 17 * DEG,
-      height: 8, scale: 1,
+      x: plaza.x, z: plaza.z, y: plaza.y, r: 11.2,
+      from: 9 * DEG, span: 60 * DEG, maxStep: 15 * DEG,
+      height: 7.6, scale: 1,
       aim: SPAWN.slice(),
     },
     fountain: P(fountain.x, fountain.z, 0, { r: fountain.r, basinR: fountain.basinR }),
