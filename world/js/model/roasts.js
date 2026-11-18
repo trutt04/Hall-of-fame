@@ -217,6 +217,26 @@ function teamCtx(model, F, id) {
     lineupLive: meta.phase !== 'preseason' && meta.phase !== 'complete' && meta.weekStatus !== 'final',
   };
 
+  // The waiver wire. Null until at least three teams have move counts, so it is always a comparison.
+  f.churn = null;
+  if (t.churn && t.churn.total > 0) {
+    const ch = t.churn;
+    f.churn = {
+      adds: ch.adds,
+      drops: ch.drops,
+      trades: ch.trades,
+      total: ch.total,
+      rank: ch.rank,
+      ord: ordinal(ch.rank),
+      busiest: !!ch.busiest,
+      quietest: !!ch.quietest,
+      median: ch.median,
+      noTrades: ch.trades === 0,
+      tradeN: plural(ch.trades, 'trade'),
+      perWeek: f.L > 0 ? (ch.total / f.L).toFixed(1) : '',
+    };
+  }
+
   f.pfRank = 1 + model.order.filter((tid) => model.teams[tid].pointsFor > t.pointsFor).length;
   f.pfOrd = ordinal(f.pfRank);
 
@@ -346,6 +366,23 @@ function teamCtx(model, F, id) {
       allTime: h.allTime.text,
       allTimeWinning: h.allTime.wins > h.allTime.losses,
     };
+    // Where this season sits against every season this owner has finished. finishes only holds
+    // seasons with a final rank, so a first season has none and nothing below fires.
+    const bf = h.bestFinish;
+    const fin = arr(h.finishes);
+    if (bf && bf.rank > 0 && fin.length > 0) {
+      f.hist.bestRank = bf.rank;
+      f.hist.bestOrd = ordinal(bf.rank);
+      f.hist.bestYear = bf.season;
+      f.hist.bestOnce = fin.length === 1;
+      // A career high only counts once there is a record to beat and a season to compare.
+      f.hist.careerHigh = f.gp > 0 && t.rank < bf.rank;
+      f.hist.worstRank = h.worstFinish && h.worstFinish.rank > 0 ? h.worstFinish.rank : 0;
+      f.hist.worstOrd = f.hist.worstRank ? ordinal(f.hist.worstRank) : '';
+      f.hist.worstYear = h.worstFinish && h.worstFinish.season ? h.worstFinish.season : 0;
+      f.hist.careerLow = f.gp > 0 && !!f.hist.worstRank && t.rank > f.hist.worstRank;
+      f.hist.held = f.gp > 0 && t.rank === bf.rank && !f.hist.bestOnce;
+    }
     const rival = (r) => (r.teamId != null ? label(r.teamId) : r.owner || r.teamName);
     if (h.nemesis && rival(h.nemesis)) {
       f.nem = { w: h.nemesis.wins, l: h.nemesis.losses, teamId: h.nemesis.teamId, lopsided: h.nemesis.wins * 2 <= h.nemesis.losses };
@@ -1028,6 +1065,10 @@ const SIGN_SPECIALS = [
   { kind: 'empty', when: (c) => (c.lineupLive && c.emptySlot ? 9 : 0), lines: [(c) => `Now Hiring: ${c.emptySlot}`, (c) => `Help Wanted: ${c.emptySlot}`] },
   { kind: 'toilet', when: (c) => (lastWeekCounts(c) && c.toilet ? 8 : 0), lines: [() => `Home Of The Golden Toilet`, (c) => `${c.last.pts}. Do Not Look.`] },
   { kind: 'spotlight', when: (c) => (lastWeekCounts(c) && c.spotlight ? 7 : 0), lines: [(c) => `${c.last.pts}. You Saw It.`, (c) => `Week ${c.L} High Score`] },
+  { kind: 'career-high', when: (c) => (inSeason(c) && c.hist && c.hist.careerHigh && !c.hist.bestOnce && c.gp >= 3 ? 7.2 : 0), lines: [() => `Best Season Yet`, (c) => `${c.ord}. A Career High.`, () => `Never Been This High`] },
+  { kind: 'career-low', when: (c) => (inSeason(c) && c.hist && c.hist.careerLow && !c.hist.bestOnce && c.gp >= 3 ? 6.8 : 0), lines: [() => `New Personal Worst`, () => `Uncharted Territory`] },
+  { kind: 'waiver-busy', when: (c) => (inSeason(c) && c.churn && c.churn.busiest ? 6.9 : 0), lines: [(c) => `${c.churn.total} Moves And Counting`, () => `Always On The Wire`, () => `Roster Under Construction`] },
+  { kind: 'waiver-quiet', when: (c) => (inSeason(c) && c.churn && c.churn.quietest ? 6.7 : 0), lines: [(c) => `${c.churn.total} Moves. All Season.`, () => `Set It And Forget It`, () => `No Waiver Claims Here`] },
   { kind: 'win-streak', when: (c) => (inSeason(c) && c.winStreak >= 3 ? 7.5 : 0), lines: [(c) => `${c.winStreak} Straight. Honk.`, (c) => `Won ${c.winStreak} In A Row`] },
   { kind: 'loss-streak', when: (c) => (inSeason(c) && c.lossStreak >= 3 ? 7.5 : 0), lines: [(c) => `${c.lossStreak} Straight. Shh.`, (c) => `Lost ${c.lossStreak} In A Row. Shh.`] },
   { kind: 'clinched', when: (c) => (inSeason(c) && c.clinched ? 7 : 0), lines: [() => `Clinched. Relax.`, () => `Playoffs: Booked`] },
@@ -1114,6 +1155,64 @@ const MAIL_CRIME = [
 ];
 
 const MAIL_EXTRAS = [
+  {
+    // Where this season sits against every season this owner has finished. The seasons are real
+    // final ranks from history.json, and they follow the owner, not the team slot, because ESPN
+    // hands the same team id to a new owner when somebody leaves.
+    kind: 'career-high',
+    group: 'career',
+    when: (c) => (c.hist && c.hist.careerHigh && !c.hist.bestOnce && c.gp >= 3 ? 8.2 : 0),
+    lines: [
+      (c) => `Best season of their career finished ${c.hist.bestOrd} (${c.hist.bestYear}). Sitting ${c.ord} now.`,
+      (c) => `${c.hist.seasons} seasons in this league and never better than ${c.hist.bestOrd}. Currently ${c.ord}.`,
+      (c) => c.mode === 'complete' && `Finished ${c.ord}. Their best before this was ${c.hist.bestOrd} in ${c.hist.bestYear}.`,
+    ],
+  },
+  {
+    kind: 'career-low',
+    group: 'career',
+    when: (c) => (c.hist && c.hist.careerLow && !c.hist.bestOnce && c.gp >= 3 ? 7.8 : 0),
+    lines: [
+      (c) => `Worst they have ever finished is ${c.hist.worstOrd} (${c.hist.worstYear}). This is worse.`,
+      (c) => `${c.ord} of ${c.N}. In ${c.hist.seasons} seasons here they have never finished below ${c.hist.worstOrd}.`,
+    ],
+  },
+  {
+    kind: 'career-holding',
+    group: 'career',
+    when: (c) => (c.hist && c.hist.held && c.gp >= 3 ? 6.6 : 0),
+    lines: [
+      (c) => `${c.ord}, exactly where they finished in ${c.hist.bestYear}. Their ceiling is holding.`,
+    ],
+  },
+  {
+    // Roster moves straight from ESPN: adds, drops and trades. Only ever stated as a comparison.
+    kind: 'waiver-busy',
+    group: 'waiver',
+    when: (c) => (inSeason(c) && c.churn && c.churn.busiest ? 7.8 : 0),
+    lines: [
+      (c) => `Busiest hands in the league: ${c.churn.adds} in, ${c.churn.drops} out.`,
+      (c) => `${c.churn.total} roster moves, more than anyone else. The league median is ${c.churn.median}.`,
+      (c) => c.churn.perWeek && `${c.churn.perWeek} roster moves a week. Nobody touches the wire more.`,
+    ],
+  },
+  {
+    kind: 'waiver-quiet',
+    group: 'waiver',
+    when: (c) => (inSeason(c) && c.churn && c.churn.quietest ? 7.6 : 0),
+    lines: [
+      (c) => `${c.churn.total} roster moves all season. The league median is ${c.churn.median}.`,
+      (c) => `Quietest wire in the league: ${c.churn.adds} in, ${c.churn.drops} out. Drafted it and left it alone.`,
+    ],
+  },
+  {
+    kind: 'waiver-rank',
+    group: 'waiver',
+    when: (c) => (inSeason(c) && c.churn && !c.churn.busiest && !c.churn.quietest && c.churn.total >= 8 ? 4.4 : 0),
+    lines: [
+      (c) => `Waiver wire: ${c.churn.adds} in, ${c.churn.drops} out, ${c.churn.ord} busiest in the league.`,
+    ],
+  },
   {
     kind: 'last-week',
     group: 'last-game',
