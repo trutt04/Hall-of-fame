@@ -28,6 +28,9 @@ export { createBuilding, createBoardFrame, createBlimp, createFloodlight } from 
 export { createLeaderStatue, createLeaderBust, createLoudspeaker } from './regime.js';
 export { createSubstationBay, createSubstationWires, createPylon, createSubstationFence, createBallMachine } from './facility.js';
 
+// The champion's lawn
+export { createChampionTrophy, createBannerMast, createConfetti } from './champion.js';
+
 // Characters
 export { createAvatar, AVATAR_HEIGHT, AVATAR_ANIMS } from './avatar.js';
 export { createCritters } from './critters.js';
