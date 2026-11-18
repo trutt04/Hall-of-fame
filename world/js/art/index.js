@@ -26,6 +26,7 @@ export {
 } from './setpieces.js';
 export { createBuilding, createBoardFrame, createBlimp, createFloodlight } from './buildings.js';
 export { createLeaderStatue, createLeaderBust, createLoudspeaker } from './regime.js';
+export { createSubstationBay, createSubstationWires, createPylon, createSubstationFence, createBallMachine } from './facility.js';
 
 // Characters
 export { createAvatar, AVATAR_HEIGHT, AVATAR_ANIMS } from './avatar.js';

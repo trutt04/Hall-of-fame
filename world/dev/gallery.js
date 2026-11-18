@@ -1,5 +1,5 @@
 // Prop gallery: every art export on a ground plane under the world's lighting.
-//   ?show=homes | reactive | setpieces | characters | regime | all | <singleName>   (default homes)
+//   ?show=homes | reactive | setpieces | characters | regime | facility | all | <singleName>   (default homes)
 //   ?night=1        dim the lights, glow the windows, turn porch lights on
 //   ?az=&el=&dist=&cx=&cy=&cz=   camera (degrees / meters), ?t= fixed time, ?labels=0, ?table=0, ?ref=0 (no scale avatars),
 //   ?rm=1 reduced motion, ?light=2 light multiplier, ?porch=win|lose|neutral, ?on=1 lamps on by day, ?anchors=1 show home anchors and colliders,
@@ -106,6 +106,37 @@ const ITEMS = {
   velvetRope: ['setpieces', () => [{ o: ART.createVelvetRope(4), label: 'velvet rope', w: 5 }]],
   lawnChair: ['setpieces', () => [{ o: ART.createLawnChair(), label: 'lawn chair' }]],
   grill: ['setpieces', () => [{ o: ART.createGrill(), label: 'grill' }]],
+  // the practice facility: substation, fence and drill kit
+  substationBay: ['facility', () => [{ o: ART.createSubstationBay(), label: 'substation bay', w: 8, d: 7, ref: true }]],
+  substationWires: ['facility', () => {
+    // three phases over two spans, hung off nothing, so the sag is easy to judge on its own
+    const runs = [0, 1, 2].map((k) => [-1, 0, 1].map((i) => [i * 7, 7.5, (k - 1) * 1.8]));
+    return [{ o: ART.createSubstationWires(runs, { sag: 0.07 }), label: 'wires', w: 16, d: 6 }];
+  }],
+  substationRow: ['facility', () => {
+    const group = new THREE.Group(), parts = [], tops = [];
+    for (let i = 0; i < 3; i++) {
+      const bay = ART.createSubstationBay({ w: 6, d: 4 });
+      bay.group.position.x = (i - 1) * 6.3;
+      group.add(bay.group); parts.push(bay);
+      tops.push(bay.anchors.wireTops.map((p) => [p.x + bay.group.position.x, p.y, p.z]));
+    }
+    // one cable run per phase, strung across all three bays, all on one mesh
+    const wires = ART.createSubstationWires([0, 1, 2].map((k) => tops.map((t) => t[k])), { sag: 0.07 });
+    group.add(wires.group); parts.push(wires);
+    const fence = ART.createSubstationFence({ length: 20 });
+    fence.group.position.z = 3.6;
+    group.add(fence.group); parts.push(fence);
+    const o = {
+      group,
+      update: (dt, t) => { for (const p of parts) if (p.update) p.update(dt, t); },
+      dispose: () => { for (const p of parts) p.dispose(); },
+    };
+    return [{ o, label: 'row + wires + fence', w: 24, d: 12, ref: true }];
+  }],
+  pylon: ['facility', () => [10, 16].map((h) => ({ o: ART.createPylon({ height: h }), label: 'pylon ' + h, w: 8, d: 6 }))],
+  substationFence: ['facility', () => [{ o: ART.createSubstationFence({ length: 16 }), label: 'fence', w: 18, d: 3, ref: true }]],
+  ballMachine: ['facility', () => [{ o: ART.createBallMachine(), label: 'ball machine', w: 2.6, d: 2.6, ref: true }]],
   // the Supreme Commissioner
   leaderStatue: ['regime', () => [{ o: ART.createLeaderStatue(), label: 'leader statue', w: 12, d: 7, ref: true }]],
   leaderBust: ['regime', () => [false, true].map((w) => ({ o: ART.createLeaderBust({ weathered: w }), label: w ? 'bust (weathered)' : 'leader bust', w: 2.8, d: 2.8 }))],
@@ -157,12 +188,13 @@ const ITEMS = {
 const NEEDS = {
   hill: 'createHome', heights: 'createHome', bubble: 'createHome', park: 'createHome', dump: 'createHome',
   avatarBack: 'createAvatar', seated: 'createAvatar', raccoon: 'createCritters', dog: 'createCritters', pigeon: 'createCritters', seagull: 'createCritters', fly: 'createCritters',
+  substationRow: 'createSubstationBay',
 };
 const fnOf = (name) => NEEDS[name] || 'create' + name[0].toUpperCase() + name.slice(1);
 
 let names;
 if (show === 'all') names = Object.keys(ITEMS);
-else if (['homes', 'reactive', 'setpieces', 'characters', 'regime'].includes(show)) names = Object.keys(ITEMS).filter((n) => ITEMS[n][0] === show);
+else if (['homes', 'reactive', 'setpieces', 'characters', 'regime', 'facility'].includes(show)) names = Object.keys(ITEMS).filter((n) => ITEMS[n][0] === show);
 else names = show.split(',').filter((n) => ITEMS[n]);
 if (q.get('only')) names = names.filter((n) => q.get('only').split(',').includes(n));
 
@@ -180,7 +212,7 @@ for (const name of names) {
 
 // ---- layout: rows along X, wrapping toward -Z ----------------------------------------------------
 const box = new THREE.Box3(), size = new THREE.Vector3();
-const maxRow = parseFloat(q.get('row') || ({ homes: 95, reactive: 30, setpieces: 60, characters: 24, all: 110 }[show] || 46));
+const maxRow = parseFloat(q.get('row') || ({ homes: 95, reactive: 30, setpieces: 60, characters: 24, facility: 60, all: 110 }[show] || 46));
 let cx = 0, cz = 0, rowDepth = 0;
 const rows = [[]];
 for (const e of entries) {
@@ -311,7 +343,7 @@ const link = (label, params, alt) => {
   a.href = '?' + p.toString(); a.textContent = label; if (alt) a.className = 'alt';
   nav.appendChild(a);
 };
-for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'regime', 'all']) link(s, { show: s });
+for (const s of ['homes', 'reactive', 'setpieces', 'characters', 'regime', 'facility', 'all']) link(s, { show: s });
 link(night ? 'day' : 'night', { night: night ? null : '1' }, true);
 const tableEl = document.getElementById('table');
 tableEl.textContent = (table.length > 34 || q.get('table') === '0') ? '' : table.map((r) => `${r.name.padEnd(22)} ${String(r.calls).padStart(2)} calls ${String(r.tris).padStart(6)} tris`).join('\n');

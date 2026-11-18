@@ -29,6 +29,8 @@ import { createDressing } from './world/dressing.js';
 import { createTraffic } from './world/traffic.js';
 import { createLandmarks } from './world/landmarks.js';
 import { createKickGame } from './world/kick.js';
+import { createFacility } from './world/facility.js';
+import { createCatchGame } from './world/catch.js';
 import { createRegime } from './world/regime.js';
 import { createVandal } from './world/vandal.js';
 import { startFreeRoam } from './world/freeroam.js';
@@ -182,7 +184,7 @@ async function boot() {
 
   const world = {
     THREE, engine, scene, camera: rig, rig, camera3D: camera, store, hud, input, audio, net, layout, terrain, sky, colliders, player, interact, data,
-    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, regime: null, vandal: null, hideTags: false,
+    town: null, residents: null, dressing: null, traffic: null, landmarks: null, kick: null, facility: null, catch: null, regime: null, vandal: null, hideTags: false,
     addSystem: engine.addSystem, removeSystem: engine.removeSystem,
     get model() { return model; },
     get playerTeam() { return playerTeam; },
@@ -206,6 +208,12 @@ async function boot() {
       if (world.kick && world.kick.place) {
         const kp = world.kick.place;
         out.push({ id: 'kick', kind: 'game', name: 'Field goal kicks', blurb: 'Swipe up to kick. Three misses and you are done.', x: kp.x, z: kp.z, facing: kp.facing });
+      }
+      if (world.facility && world.facility.place) {
+        const fp = world.facility.place;
+        out.push({ id: 'drills', kind: 'game', name: 'Catching drill', blurb: 'Run under the ball. Three drops and the round is over.', x: fp.x, z: fp.z, facing: fp.facing });
+        const sp = world.facility.sight;
+        out.push({ id: 'substation', kind: 'sight', name: 'The Substation', blurb: 'A wall of high voltage, and the new graves under it.', x: sp.x, z: sp.z, facing: sp.facing });
       }
       if (world.dressing && world.dressing.plot) {
         const gp = world.dressing.plot;
@@ -312,6 +320,8 @@ async function boot() {
   traffic.apply(model);
   const landmarks = (world.landmarks = createLandmarks(world));
   const kick = (world.kick = createKickGame(world));
+  const facility = (world.facility = createFacility(world));
+  const catchGame = (world.catch = createCatchGame(world));
   const regime = (world.regime = createRegime(world));
   regime.apply(model);
   const vandal = (world.vandal = createVandal(world));
@@ -340,6 +350,8 @@ async function boot() {
   engine.addSystem(traffic, 48);
   engine.addSystem(landmarks, 49);
   engine.addSystem(kick, 49.5);
+  engine.addSystem(facility, 49.52);
+  engine.addSystem(catchGame, 49.55);
   engine.addSystem(regime, 49.6);
   engine.addSystem(vandal, 49.7);
   engine.addSystem({

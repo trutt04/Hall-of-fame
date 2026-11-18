@@ -425,6 +425,13 @@ export function makeLayout(counts = {}) {
     graveyard: { x: -27, z: 21.5, y: plaza.y, facing: faceToward(-27, 21.5, -4, 2), w: 15, d: 13 },
     // the practice field behind the League Office: kicks go north, toward the Hill
     kickField: { x: 50.5, z: nB >= 5 ? -12 : -3, y: plaza.y, facing: 0, w: 13, d: 44 },
+    // The practice facility on the empty west flat: a wall of substation steel with the catching
+    // field in front of it. Both pads are axis aligned (`facing: 0`), because a pad rect measures
+    // `w` along its own local x: at facing PI/2 the 18 and the 54 would swap, putting the
+    // substation's long side across the valley, out past minX and into the Memorial Gardens.
+    // The bays themselves are turned a quarter turn to face the field (see world/facility.js).
+    substation: { x: -63, z: 24, y: plaza.y, facing: 0, w: 18, d: 54 },
+    practiceField: { x: -45.5, z: 27, y: plaza.y, facing: 0, w: 13, d: 40 },
   };
 
   // ---------------------------------------------------------------- zones
@@ -466,6 +473,20 @@ export function makeLayout(counts = {}) {
     leagueOffice: P(buildings.leagueOffice.x, buildings.leagueOffice.z, buildings.leagueOffice.facing, { w: 14, d: 11 }),
     graveyard: P(buildings.graveyard.x, buildings.graveyard.z, buildings.graveyard.facing, { w: 15, d: 13 }),
     kickField: P(buildings.kickField.x, buildings.kickField.z, 0, { w: buildings.kickField.w, d: buildings.kickField.d, y: plaza.y }),
+    // The substation: bays stand in a row along `bayX`, the chain link fence runs north to south
+    // along `fenceX`, and everything east of the fence is walkable ground.
+    substation: P(buildings.substation.x, buildings.substation.z, -Math.PI / 2, {
+      w: buildings.substation.w, d: buildings.substation.d, y: plaza.y,
+      bayX: -65, fenceX: -56.5, z0: -3, z1: 51,
+    }),
+    // The catching drill's field. The ball machine stands at its north end and fires south.
+    practiceField: P(buildings.practiceField.x, buildings.practiceField.z, Math.PI, {
+      w: buildings.practiceField.w, d: buildings.practiceField.d, y: plaza.y,
+      machine: [-45.5, 10.5],
+    }),
+    // The new section of the Memorial Gardens: a row of headstones against the substation fence,
+    // under the towers. dressing.js fills it, facility.js lays the path to it.
+    graveAnnex: P(-55.3, 10, Math.PI / 2, { step: 2.55, count: 4 }),
     fountain: P(fountain.x, fountain.z, 0, { r: fountain.r, basinR: fountain.basinR }),
     hillGate: P(hill.x, hill.z + LOT_SIZE.hill.d / 2, 0),
     overlook: P(hill.x, hill.z + LOT_SIZE.hill.d / 2 - 3, 0),
