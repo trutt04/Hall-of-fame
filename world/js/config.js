@@ -107,6 +107,8 @@ export const PATHS = {
   leaderPortrait: 'img/leader-portrait.jpg', // the official portrait, in colour
   leaderPoster: 'img/leader-poster.png', // red and gold poster art for banners and posters
   loudspeakerVoice: 'audio/loudspeaker.mp3', // the recorded loudspeaker announcement
+  impFace: 'img/imp-face.png', // the league mascot's portrait, the same one the old page uses
+  beatTrack: '../beat.mp3', // the Hall of Fame page's background track, 1.1 MB, only fetched on approach
 };
 
 // The league's running joke: the commissioner as Supreme Leader, with statues, portraits and

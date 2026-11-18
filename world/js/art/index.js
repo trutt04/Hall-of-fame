@@ -30,6 +30,7 @@ export { createSubstationBay, createSubstationWires, createPylon, createSubstati
 
 // The champion's lawn
 export { createChampionTrophy, createBannerMast, createConfetti } from './champion.js';
+export { createImp } from './imp.js';
 
 // Characters
 export { createAvatar, AVATAR_HEIGHT, AVATAR_ANIMS } from './avatar.js';
