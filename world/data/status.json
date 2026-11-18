@@ -1,10 +1,10 @@
 {
   "schema": 1,
-  "ok": false,
-  "reason": "league_private",
-  "detail": "HTTP 401 from lm-api-reads.fantasy.espn.com (AUTH_LEAGUE_NOT_VISIBLE)",
-  "lastAttempt": "2026-11-17T21:52:58Z",
-  "lastSuccess": null,
-  "consecutiveFailures": 4,
-  "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": null }
+  "ok": true,
+  "reason": "ok",
+  "detail": "Synced season 2026, week 11",
+  "lastAttempt": "2026-11-18T04:53:00Z",
+  "lastSuccess": "2026-11-18T04:53:00Z",
+  "consecutiveFailures": 0,
+  "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": "2026-11-18T04:53:00Z" }
 }
