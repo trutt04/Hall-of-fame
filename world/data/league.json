@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-19T15:58:20Z",
+  "generatedAt": "2026-11-19T17:04:48Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -295,10 +295,10 @@
       "roster": {
         "ir": [],
         "emptyStarters": [],
-        "badStarters": [{ "name": "Kyren Williams", "pos": "RB", "slot": "RB", "why": "BYE" }],
+        "badStarters": [],
         "starters": [
           { "name": "Kirk Cousins", "pos": "QB", "slot": "QB", "points": 0, "projected": 18.53 },
-          { "name": "Kyren Williams", "pos": "RB", "slot": "RB", "points": 0, "projected": 0 },
+          { "name": "Rico Dowdle", "pos": "RB", "slot": "RB", "points": 0, "projected": 9.28 },
           { "name": "Rachaad White", "pos": "RB", "slot": "RB", "points": 0, "projected": 7.79 },
           { "name": "Amon-Ra St. Brown", "pos": "WR", "slot": "WR", "points": 0, "projected": 18.09 },
           { "name": "Jakobi Meyers", "pos": "WR", "slot": "WR", "points": 0, "projected": 11.02 },
@@ -308,8 +308,8 @@
           { "name": "Ka'imi Fairbairn", "pos": "K", "slot": "K", "points": 0, "projected": 10.86 }
         ],
         "bench": [
+          { "name": "Kyren Williams", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Ladd McConkey", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.91 },
-          { "name": "Rico Dowdle", "pos": "RB", "slot": "BE", "points": 0, "projected": 9.28 },
           { "name": "Blake Corum", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Xavier Worthy", "pos": "WR", "slot": "BE", "points": 0, "projected": 7.76 },
           { "name": "Juwan Johnson", "pos": "TE", "slot": "BE", "points": 0, "projected": 6.14 },
@@ -1054,7 +1054,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 7, "points": 0, "projected": 96.21 },
+      "home": { "teamId": 7, "points": 0, "projected": 105.49 },
       "away": { "teamId": 3, "points": 0, "projected": 114.08 },
       "winner": "undecided"
     },
