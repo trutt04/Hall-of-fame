@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-18T18:54:54Z",
+  "generatedAt": "2026-11-19T03:57:19Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -120,10 +120,10 @@
       "pointsAgainst": 1241.62,
       "streakType": "LOSS",
       "streakLength": 3,
-      "moves": { "acquisitions": 13, "drops": 13, "trades": 0 },
+      "moves": { "acquisitions": 14, "drops": 14, "trades": 0 },
       "roster": {
         "ir": [],
-        "emptyStarters": ["D/ST"],
+        "emptyStarters": [],
         "badStarters": [],
         "starters": [
           { "name": "Bryce Young", "pos": "QB", "slot": "QB", "points": 0, "projected": 21.82 },
@@ -131,19 +131,19 @@
           { "name": "Derrick Henry", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.88 },
           { "name": "Tetairoa McMillan", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.12 },
           { "name": "Zay Flowers", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.4 },
-          { "name": "Brenton Strange", "pos": "TE", "slot": "TE", "points": 0, "projected": 8.08 },
+          { "name": "Dallas Goedert", "pos": "TE", "slot": "TE", "points": 0, "projected": 8.16 },
           { "name": "Tank Dell", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 10.56 },
+          { "name": "Jets D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.74 },
           { "name": "Tyler Bass", "pos": "K", "slot": "K", "points": 0, "projected": 11.18 }
         ],
         "bench": [
           { "name": "Drake Maye", "pos": "QB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Marvin Harrison Jr.", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Dallas Goedert", "pos": "TE", "slot": "BE", "points": 0, "projected": 8.16 },
           { "name": "Jason Myers", "pos": "K", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Pat Freiermuth", "pos": "TE", "slot": "BE", "points": 0, "projected": 7.62 },
           { "name": "Rams D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Germie Bernard", "pos": "WR", "slot": "BE", "points": 0, "projected": 3.2 },
-          { "name": "Devin Singletary", "pos": "RB", "slot": "BE", "points": 0, "projected": 3.72 }
+          { "name": "Brenton Strange", "pos": "TE", "slot": "BE", "points": 0, "projected": 8.08 },
+          { "name": "Germie Bernard", "pos": "WR", "slot": "BE", "points": 0, "projected": 3.2 }
         ]
       }
     },
@@ -1055,7 +1055,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 7, "points": 0, "projected": 96.27 },
-      "away": { "teamId": 3, "points": 0, "projected": 107.26 },
+      "away": { "teamId": 3, "points": 0, "projected": 114.08 },
       "winner": "undecided"
     },
     {
