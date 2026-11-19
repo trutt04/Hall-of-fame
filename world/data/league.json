@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-19T17:04:48Z",
+  "generatedAt": "2026-11-19T20:53:54Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -126,7 +126,7 @@
         "emptyStarters": [],
         "badStarters": [],
         "starters": [
-          { "name": "Bryce Young", "pos": "QB", "slot": "QB", "points": 0, "projected": 21.82 },
+          { "name": "Bryce Young", "pos": "QB", "slot": "QB", "points": 0, "projected": 21.85 },
           { "name": "Saquon Barkley", "pos": "RB", "slot": "RB", "points": 0, "projected": 12.21 },
           { "name": "Derrick Henry", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.88 },
           { "name": "Tetairoa McMillan", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.12 },
@@ -1022,7 +1022,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 1, "points": 0, "projected": 132.74 },
+      "home": { "teamId": 1, "points": 0, "projected": 132.73 },
       "away": { "teamId": 2, "points": 0, "projected": 77.57 },
       "winner": "undecided"
     },
@@ -1055,7 +1055,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 7, "points": 0, "projected": 105.49 },
-      "away": { "teamId": 3, "points": 0, "projected": 114.08 },
+      "away": { "teamId": 3, "points": 0, "projected": 114.11 },
       "winner": "undecided"
     },
     {
