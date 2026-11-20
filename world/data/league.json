@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-19T20:53:54Z",
+  "generatedAt": "2026-11-20T00:47:26Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -79,10 +79,7 @@
       "roster": {
         "ir": [{ "name": "Alec Pierce", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [
-          { "name": "Bijan Robinson", "pos": "RB", "slot": "RB", "why": "BYE" },
-          { "name": "Drake London", "pos": "WR", "slot": "WR", "why": "BYE" }
-        ],
+        "badStarters": [],
         "starters": [
           { "name": "Joe Burrow", "pos": "QB", "slot": "QB", "points": 0, "projected": 29.38 },
           { "name": "Bijan Robinson", "pos": "RB", "slot": "RB", "points": 0, "projected": 0 },
@@ -250,10 +247,7 @@
       "roster": {
         "ir": [{ "name": "Lamar Jackson", "pos": "QB" }],
         "emptyStarters": [],
-        "badStarters": [
-          { "name": "Jordan Love", "pos": "QB", "slot": "QB", "why": "BYE" },
-          { "name": "Quinshon Judkins", "pos": "RB", "slot": "FLEX", "why": "BYE" }
-        ],
+        "badStarters": [],
         "starters": [
           { "name": "Jordan Love", "pos": "QB", "slot": "QB", "points": 0, "projected": 0 },
           { "name": "Javonte Williams", "pos": "RB", "slot": "RB", "points": 0, "projected": 20.04 },
