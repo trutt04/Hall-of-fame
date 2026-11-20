@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-20T04:59:39Z",
+  "generatedAt": "2026-11-20T05:42:47Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -79,10 +79,7 @@
       "roster": {
         "ir": [{ "name": "Alec Pierce", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [
-          { "name": "Bijan Robinson", "pos": "RB", "slot": "RB", "why": "BYE" },
-          { "name": "Drake London", "pos": "WR", "slot": "WR", "why": "BYE" }
-        ],
+        "badStarters": [],
         "starters": [
           { "name": "Joe Burrow", "pos": "QB", "slot": "QB", "points": 0, "projected": 29.38 },
           { "name": "Bijan Robinson", "pos": "RB", "slot": "RB", "points": 0, "projected": 0 },
