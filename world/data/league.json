@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-20T21:48:31Z",
+  "generatedAt": "2026-11-21T13:57:58Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -40,7 +40,7 @@
         "badStarters": [],
         "starters": [
           { "name": "C.J. Stroud", "pos": "QB", "slot": "QB", "points": 27.46, "projected": 27.97 },
-          { "name": "Jahmyr Gibbs", "pos": "RB", "slot": "RB", "points": 0, "projected": 22.49 },
+          { "name": "Jahmyr Gibbs", "pos": "RB", "slot": "RB", "points": 0, "projected": 22.5 },
           { "name": "Breece Hall", "pos": "RB", "slot": "RB", "points": 0, "projected": 13.34 },
           { "name": "Chris Olave", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.45 },
           { "name": "DJ Moore", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.02 },
@@ -133,7 +133,7 @@
           { "name": "Zay Flowers", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.41 },
           { "name": "Dallas Goedert", "pos": "TE", "slot": "TE", "points": 0, "projected": 8.24 },
           { "name": "Tank Dell", "pos": "WR", "slot": "FLEX", "points": 5.7, "projected": 10.56 },
-          { "name": "Jets D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.69 },
+          { "name": "Jets D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.74 },
           { "name": "Tyler Bass", "pos": "K", "slot": "K", "points": 0, "projected": 11.18 }
         ],
         "bench": [
@@ -342,7 +342,7 @@
           { "name": "DeVonta Smith", "pos": "WR", "slot": "WR", "points": 0, "projected": 13.47 },
           { "name": "Ryan Flournoy", "pos": "WR", "slot": "WR", "points": 0, "projected": 9.73 },
           { "name": "Mike Gesicki", "pos": "TE", "slot": "TE", "points": 0, "projected": 7.4 },
-          { "name": "Omarion Hampton", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 13.81 },
+          { "name": "Omarion Hampton", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 13.8 },
           { "name": "Lions D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.14 },
           { "name": "Evan McPherson", "pos": "K", "slot": "K", "points": 0, "projected": 8.46 }
         ],
@@ -391,7 +391,7 @@
         "bench": [
           { "name": "Jeremiyah Love", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Matthew Golden", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Jared Goff", "pos": "QB", "slot": "BE", "points": 0, "projected": 18.51 },
+          { "name": "Jared Goff", "pos": "QB", "slot": "BE", "points": 0, "projected": 18.52 },
           { "name": "Vikings D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 5.08 },
           { "name": "Tre Tucker", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.26 },
           { "name": "DeMario Douglas", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
@@ -427,8 +427,8 @@
           { "name": "Josh Downs", "pos": "WR", "slot": "WR", "points": 0, "projected": 9.23 },
           { "name": "Trey McBride", "pos": "TE", "slot": "TE", "points": 0, "projected": 13.26 },
           { "name": "D'Andre Swift", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 17.12 },
-          { "name": "Chargers D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.01 },
-          { "name": "Jason Sanders", "pos": "K", "slot": "K", "points": 0, "projected": 9.72 }
+          { "name": "Chargers D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 5.95 },
+          { "name": "Jason Sanders", "pos": "K", "slot": "K", "points": 0, "projected": 9.73 }
         ],
         "bench": [
           { "name": "Jaxon Smith-Njigba", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
@@ -467,7 +467,7 @@
           { "name": "Justice Hill", "pos": "RB", "slot": "RB", "points": 0, "projected": 8.41 },
           { "name": "Tee Higgins", "pos": "WR", "slot": "WR", "points": 0, "projected": 17.09 },
           { "name": "Carnell Tate", "pos": "WR", "slot": "WR", "points": 0, "projected": 13.34 },
-          { "name": "Sam LaPorta", "pos": "TE", "slot": "TE", "points": 0, "projected": 9.6 },
+          { "name": "Sam LaPorta", "pos": "TE", "slot": "TE", "points": 0, "projected": 9.61 },
           { "name": "Xavier Hutchinson", "pos": "WR", "slot": "FLEX", "points": 3.3, "projected": 10.85 },
           { "name": "Jaguars D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 7.43 },
           { "name": "Chris Boswell", "pos": "K", "slot": "K", "points": 0, "projected": 10.41 }
@@ -475,11 +475,11 @@
         "bench": [
           { "name": "Matthew Stafford", "pos": "QB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Zach Charbonnet", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Buccaneers D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 5.13 },
+          { "name": "Buccaneers D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 5.04 },
           { "name": "Kendre Miller", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Mack Hollins", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Tutu Atwell", "pos": "WR", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Courtland Sutton", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.42 }
+          { "name": "Courtland Sutton", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.43 }
         ]
       }
     },
@@ -1011,7 +1011,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 9, "points": 6.7, "projected": 113.92 },
+      "home": { "teamId": 9, "points": 6.7, "projected": 113.91 },
       "away": { "teamId": 5, "points": 3, "projected": 132.35 },
       "winner": "undecided"
     },
@@ -1019,7 +1019,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 1, "points": 27.46, "projected": 131.35 },
+      "home": { "teamId": 1, "points": 27.46, "projected": 131.36 },
       "away": { "teamId": 2, "points": 0, "projected": 77.55 },
       "winner": "undecided"
     },
@@ -1028,7 +1028,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 8, "points": 0, "projected": 111.21 },
-      "away": { "teamId": 6, "points": 30.8, "projected": 144.59 },
+      "away": { "teamId": 6, "points": 30.8, "projected": 144.6 },
       "winner": "undecided"
     },
     {
@@ -1043,7 +1043,7 @@
       "week": 11,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 10, "points": 0, "projected": 133.14 },
+      "home": { "teamId": 10, "points": 0, "projected": 133.08 },
       "away": { "teamId": 12, "points": 16.4, "projected": 147.55 },
       "winner": "undecided"
     },
@@ -1052,7 +1052,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 7, "points": 6, "projected": 100.66 },
-      "away": { "teamId": 3, "points": 5.7, "projected": 109.34 },
+      "away": { "teamId": 3, "points": 5.7, "projected": 109.39 },
       "winner": "undecided"
     },
     {

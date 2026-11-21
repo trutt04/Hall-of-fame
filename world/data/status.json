@@ -3,8 +3,8 @@
   "ok": true,
   "reason": "ok",
   "detail": "Synced season 2026, week 11",
-  "lastAttempt": "2026-11-20T21:48:31Z",
-  "lastSuccess": "2026-11-20T21:48:31Z",
+  "lastAttempt": "2026-11-21T13:57:58Z",
+  "lastSuccess": "2026-11-21T13:57:58Z",
   "consecutiveFailures": 0,
-  "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": "2026-11-20T13:07:55Z" }
+  "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": "2026-11-21T13:57:58Z" }
 }
