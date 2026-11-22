@@ -282,6 +282,10 @@ button{font-family:inherit;color:inherit}
   .c9-card{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 20px - var(--sal) - var(--sar)));max-height:calc(100% - 20px - var(--sat) - var(--sab))}
   .c9-card.c9-in{animation:none}
   .c9-steps li{font-size:16px;margin-bottom:6px}
+  /* a phone on its side is too short for most cards: the buttons ("Let's go!", "Snap!", "Done")
+     stay in view at the bottom, and the steps, frames or picture scroll under them */
+  .c9-card .c9-actions{position:sticky;bottom:-20px;z-index:1;margin:10px -18px -20px;padding:10px 18px 14px;background:var(--white);
+    border-top:2.5px solid var(--pink-pale)}
 }
 
 /* ---------- full-screen panel (the in-world menu, the game picker) ---------- */
