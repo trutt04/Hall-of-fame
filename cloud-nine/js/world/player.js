@@ -114,7 +114,7 @@ export function createPlayer({ scene, groundAt, platforms = [], slides = [], col
   let jumpBuffer = 0;
   let airPeak = 0;
   let skyTime = 0;
-  let lastSafe = { x: 0, z: 0 };
+  const lastSafe = { x: 0, z: 0 };
   let locoAnim = 'idle';
   let landTimer = 0;
   let sliding = null; // the slide we are whooshing down, or null
@@ -476,7 +476,8 @@ export function createPlayer({ scene, groundAt, platforms = [], slides = [], col
         position.y = g > position.y ? damp(position.y, g, 30, dt) : g;
         if (g - position.y < 0.02) position.y = g;
         velocity.y = 0;
-        lastSafe = { x: position.x, z: position.z };
+        lastSafe.x = position.x;
+        lastSafe.z = position.z;
       }
     }
     if (!grounded) {
@@ -576,14 +577,21 @@ export function createPlayer({ scene, groundAt, platforms = [], slides = [], col
     return false;
   }
 
-  function getState() {
-    return {
-      x: Math.round(position.x * 100) / 100,
-      y: Math.round(position.y * 100) / 100,
-      z: Math.round(position.z * 100) / 100,
-      h: Math.round(((heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) * 1000) / 1000,
-      anim: wantedAnim(),
-    };
+  // What friends see: the avatar's own anim when it reports one, so a pose another part set on the
+  // body directly (the toss's tricks, 'base' while basing) goes over the network too.
+  function shownName() {
+    const a = avatar && typeof avatar.anim === 'string' && avatar.anim ? avatar.anim : null;
+    return a || wantedAnim();
+  }
+
+  function getState(out) {
+    const o = out && typeof out === 'object' ? out : {};
+    o.x = Math.round(position.x * 100) / 100;
+    o.y = Math.round(position.y * 100) / 100;
+    o.z = Math.round(position.z * 100) / 100;
+    o.h = Math.round(((heading % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2) * 1000) / 1000;
+    o.anim = shownName();
+    return o;
   }
 
   function halt() {
@@ -604,7 +612,10 @@ export function createPlayer({ scene, groundAt, platforms = [], slides = [], col
     airPeak = position.y;
     skyTime = 0;
     sliding = null;
-    if (grounded) lastSafe = { x, z };
+    if (grounded) {
+      lastSafe.x = x;
+      lastSafe.z = z;
+    }
     followTarget.heading = heading;
     if (rig) rig.snapBehind(heading);
   }
@@ -815,6 +826,7 @@ export function createPeers({ scene, net, makeCharacter, labels = null, camera =
   }
 
   const camPos = new THREE.Vector3();
+  const stateBuf = { x: 0, y: 0, z: 0, h: 0, anim: 'idle' }; // reused every frame: no garbage per friend
   function update(dt, t) {
     if (!net) return;
     const now = net.now ? net.now() : Date.now();
@@ -823,7 +835,7 @@ export function createPeers({ scene, net, makeCharacter, labels = null, camera =
     for (const e of peers.values()) {
       let s = null;
       try {
-        s = net.stateOf(e.id, now);
+        s = net.stateOf(e.id, now, stateBuf);
       } catch (err) {
         s = null;
       }
@@ -833,16 +845,19 @@ export function createPeers({ scene, net, makeCharacter, labels = null, camera =
         continue;
       }
       const g = e.group;
+      if (!e.lastPos) e.lastPos = { x: s.x, z: s.z };
       if (!g.visible) {
         g.visible = true;
         g.position.set(s.x, s.y, s.z);
-        e.lastPos = { x: s.x, z: s.z };
+        e.lastPos.x = s.x;
+        e.lastPos.z = s.z;
       }
       g.position.set(s.x, s.y, s.z);
       const h = Number.isFinite(s.h) ? s.h : 0;
       g.rotation.y += angleDelta(g.rotation.y, h) * Math.min(1, dt * 14);
-      const moved = e.lastPos ? Math.hypot(s.x - e.lastPos.x, s.z - e.lastPos.z) : 0;
-      e.lastPos = { x: s.x, z: s.z };
+      const moved = Math.hypot(s.x - e.lastPos.x, s.z - e.lastPos.z);
+      e.lastPos.x = s.x;
+      e.lastPos.z = s.z;
       e.speed = damp(e.speed, dt > 0 ? Math.min(20, moved / dt) : 0, 8, dt);
       const ch = e.character;
       if (ch) {
