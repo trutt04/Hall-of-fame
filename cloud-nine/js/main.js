@@ -516,6 +516,7 @@ async function boot() {
         // while she flies, the toss's own overlay has the screen
         toss.on('start', () => {
           hud.closeWheel();
+          hud.hideHint(); // the walking hint has done its job once she is flying
           hud.setBusy(true);
         });
         toss.on('end', () => hud.setBusy(false));
