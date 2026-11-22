@@ -17,6 +17,8 @@
 //   toss.pads               [{ id, x, y, z, heading, target }] read only
 //   toss.state              a snapshot for tests and dev pages
 //   toss._start(i) / toss._gesture(g) / toss._friendsAt(i)   test hooks
+//   SPOT_SETTLE, settleOnSpot(t, onSpot, dt)   (pure) passing over a base spot is not basing: the
+//                           "Basket toss!" button stays put until she has stood on a spot a moment
 //
 // From the world (Contracts 1 and 2): scene, rig, input, player (position, heading, velocity, avatar,
 // takeControl), groundAt, platforms, places.tossPads, interact (or hud.prompt), hud.toast, audio,
@@ -54,6 +56,14 @@ const NEAR_PAD = 6; // the sparkle arc shows from this close
 const STEER_SPEED = 2.4; // m/s of landing-point drift at full stick
 const SPARKLES = [PALETTE.rhinestonePink, PALETTE.rhinestonePurple, PALETTE.rhinestoneSilver, PALETTE.gold, PALETTE.white];
 const COUNT_PITCH = [1, 1.06, 1.12, 1.26];
+
+// Walking onto the mat across a base spot must not blink "Basket toss!" off and on again: she only
+// counts as one of the bases once she has stood on a spot this long (seconds; at a walk a spot takes
+// about 0.4 s to cross).
+export const SPOT_SETTLE = 0.6;
+export function settleOnSpot(t, onSpot, dt) {
+  return onSpot ? t + dt : 0;
+}
 
 const hashId = (s) => {
   let h = 2166136261;
@@ -221,7 +231,7 @@ export function createToss(world) {
     }
     const pad = {
       id, index, x, y, z, heading, fx: fx0, fz: fz0, lx, lz, spots, plat, land, best: bests[id] || 0,
-      taken: spots.map(() => null), friendCount: 0, friendIds: [], meSpot: -1, dist: Infinity, wasNear: false,
+      taken: spots.map(() => null), friendCount: 0, friendIds: [], meSpot: -1, spotT: 0, dist: Infinity, wasNear: false,
       entry: null, remote: null, art: null, crew: null,
     };
     pad.art = createPadArt({ x, y, z, heading, spots: SPOTS, title: signLines(pad), quality });
@@ -324,8 +334,10 @@ export function createToss(world) {
   function onMat(pad, p = player && player.position) {
     return !!p && Math.hypot(p.x - pad.x, p.z - pad.z) <= TOSS.padRadius && Math.abs(p.y - pad.y) <= 1.2;
   }
+  // she is one of this pad's bases (standing on a spot, not just passing over one)
+  const basingOn = (pad) => pad.meSpot >= 0 && pad.spotT >= SPOT_SETTLE;
   function canOffer(pad) {
-    return !S.active && !disposed && S.cool <= 0 && !!player && !player.frozen && onMat(pad) && pad.meSpot < 0 && !(rig && rig.isCinematic);
+    return !S.active && !disposed && S.cool <= 0 && !!player && !player.frozen && onMat(pad) && !basingOn(pad) && !(rig && rig.isCinematic);
   }
 
   // ------------------------------------------------------------------ the camera
@@ -961,9 +973,10 @@ export function createToss(world) {
       pad.crew.setVisible(show);
       if (pad.dist < 30 || mine) squad.scan(pad);
       else squad.clear(pad);
+      pad.spotT = settleOnSpot(pad.spotT, pad.meSpot >= 0, dt);
       if (pad.dist < 70 || mine) pad.art.update(dt, t);
       if (pad.remote && !mine) squad.stepRemote(pad, dt);
-      else if (!mine) pad.crew.cue(onMat(pad) && pad.meSpot < 0 && !S.active && !(player && player.frozen) ? 'ready' : 'idle');
+      else if (!mine) pad.crew.cue(onMat(pad) && !basingOn(pad) && !S.active && !(player && player.frozen) ? 'ready' : 'idle');
       const near = pad.dist < 9;
       if (near && !pad.wasNear && !S.active && pad.crew.ready) pad.crew.wave(pp.x, pp.z);
       pad.wasNear = near;
