@@ -1327,6 +1327,7 @@ async function boot() {
   function roomLost() {
     if (mode === 'lobby' || mode === 'menu') {
       leaveSession();
+      setMode('menu'); // a menu screen now, not the lobby (a late 'roam' start must not pull her in)
       menu.message({
         title: 'Lost the room',
         lines: ['The connection to your friends dropped.', 'You can play by yourself, or make a new room.'],
@@ -1344,6 +1345,7 @@ async function boot() {
     const lines = ['The host closed the room for now.', 'You can make your own room, or keep exploring by yourself!'];
     if (mode === 'lobby' || mode === 'menu') {
       leaveSession();
+      setMode('menu');
       menu.message({
         title: 'Time for your own adventure!',
         lines,
