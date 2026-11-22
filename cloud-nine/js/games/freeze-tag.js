@@ -464,7 +464,7 @@ function itBot(g, id, pos, dt, m) {
   if (m.target && g.P(m.target) && g.P(m.target).frozen) {
     // got them! a quick cheer before the next chase, which gives everyone a moment to scatter
     m.target = null;
-    m.cheer = 1.2 + g.rng() * 0.8;
+    m.cheer = 2 + g.rng() * 0.8;
   }
   if (m.cheer > 0) {
     m.cheer -= dt;
