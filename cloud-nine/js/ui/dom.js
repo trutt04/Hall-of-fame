@@ -129,6 +129,7 @@ export function bowSvg({ className = 'c9-bow', sparkle = true } = {}) {
 let ghostUntil = 0;
 let ghostX = 0;
 let ghostY = 0;
+let ghostNode = null;
 if (typeof document !== 'undefined') {
   document.addEventListener('click', (e) => {
     if (e.detail !== 0 && performance.now() < ghostUntil && Math.hypot(e.clientX - ghostX, e.clientY - ghostY) < 44) {
@@ -160,10 +161,14 @@ export function onTap(node, fn) {
     id = null;
     if (Math.hypot(e.clientX - sx, e.clientY - sy) > 18) return;
     if (node.disabled || node.getAttribute('aria-disabled') === 'true') return;
+    // a double tap's second half, on a button the first half just put under the finger (the next
+    // screen: "Play!" then "Make a room"), is not a tap on that button
+    if (node !== ghostNode && performance.now() < ghostUntil - 250 && Math.hypot(e.clientX - ghostX, e.clientY - ghostY) < 24) return;
     last = performance.now();
     ghostUntil = last + 650;
     ghostX = e.clientX;
     ghostY = e.clientY;
+    ghostNode = node;
     fn(e);
   });
   node.addEventListener('pointercancel', (e) => {
