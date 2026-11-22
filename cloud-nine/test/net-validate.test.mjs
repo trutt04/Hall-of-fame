@@ -112,7 +112,8 @@ test('validate: payloads must be small plain JSON', () => {
   for (let i = 0; i < 10; i++) deep = { d: deep };
   assert.equal(V.encodeData(deep, L), null, 'too deep');
   assert.equal(V.encodeData({ 'bad key': 1 }, L), null);
-  assert.equal(V.encodeData({ a: 1e12 }, L), null, 'numbers are capped');
+  assert.equal(V.encodeData({ a: 1e16 }, L), null, 'numbers are capped');
+  assert.equal(V.encodeData({ at: 1763800000000 }, L), '{"at":1763800000000}', 'shared clock times fit');
   const cyclic = {};
   cyclic.self = cyclic;
   assert.equal(V.encodeData(cyclic, L), null);

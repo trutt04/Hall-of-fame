@@ -239,9 +239,13 @@ export function decodeLook(json, cleanLook) {
 
 // ---- small JSON payloads (event data, game state) ----------------------------------------------
 
+// Numbers stay below 1e15: the shared clock (net.now(), milliseconds since 1970, about 1.8e12)
+// has to fit, since game states carry times like phaseEnds and starts carry `at`.
+export const DATA_NUMBER_MAX = 1e15;
+
 export function cleanData(v, lim, depth = 0) {
   if (v === null || typeof v === 'boolean') return v;
-  if (typeof v === 'number') return Number.isFinite(v) && Math.abs(v) <= 1e9 ? v : INVALID;
+  if (typeof v === 'number') return Number.isFinite(v) && Math.abs(v) <= DATA_NUMBER_MAX ? v : INVALID;
   if (typeof v === 'string') return v.length <= lim.maxStr ? v : INVALID;
   if (depth >= lim.maxDepth) return INVALID;
   if (Array.isArray(v)) {
