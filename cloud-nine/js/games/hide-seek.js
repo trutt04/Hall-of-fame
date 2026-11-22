@@ -558,8 +558,10 @@ function seekerBot(g, id, pos, dt, m) {
       let look = m.looked.get(h);
       if (!look || now - look.at > 6000) {
         const hinted = !!(m.goal && m.goal.hint && dist(m.goal, hp) < 4);
-        const helper = me.role === 'found' ? 0.7 : 1; // found helpers look less carefully
-        const chance = (hinted ? 0.6 + 0.2 * L.see : (0.25 + 0.25 * L.see) * helper) * SHOWS[tucked.kind];
+        // found helpers look less carefully (on easy, much less: the seeker does most of the finding)
+        const helper = me.role === 'found' ? (L.see < 1 ? 0.4 : 0.7) : 1;
+        const easy = L.see < 1; // easy seekers: slow, visible, and they miss a lot, even near a sparkle
+        const chance = (hinted ? (easy ? 0.42 : 0.6 + 0.2 * L.see) : (0.25 + 0.25 * L.see) * helper) * SHOWS[tucked.kind];
         look = { at: now, seen: g.rng() < chance };
         m.looked.set(h, look);
       }
@@ -592,7 +594,7 @@ function seekerBot(g, id, pos, dt, m) {
             pick = q;
           }
         }
-        if (pick && g.rng() < 0.4 + 0.4 * L.see) {
+        if (pick && g.rng() < (L.see < 1 ? 0.5 : 0.4 + 0.4 * L.see)) {
           const err = 1 + (1 - L.see * 0.6) * 3; // the sparkle is only roughly remembered
           const q = clampArea(A.area, pick.x + (g.rng() * 2 - 1) * err, pick.z + (g.rng() * 2 - 1) * err, 0.5);
           m.goal = { x: q.x, z: q.z, i: -1, hint: true };
