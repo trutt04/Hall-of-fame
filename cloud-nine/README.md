@@ -56,7 +56,12 @@ after the welcome, so each cousin can make her own look before playing.
   one collects it, and each unlocks something new for her cheerleader (a heart bow, space buns,
   rainbow socks...). The menu's "Spirit sticks" row shows how many are found and gives a hint for
   the next one. Locked choices in the creator show a padlock and the same hint.
-- **My cheerleader.** Hair, bow, outfit, shoes, sparkle and skin tone, plus her cheer name. Her
+- **The cloud puppy.** The last stick, Rainbow's End at the island's edge, brings a fluffy cloud
+  puppy with a hot-pink bow collar. It poofs in beside her, follows her everywhere, sits when she
+  stops, spins when she cheers, waits at the mat while she flies, and hides during squad games so
+  it never gives a hider away. Friends in a room see it too. "Pet" in My cheerleader turns it on
+  or off.
+- **My cheerleader.** Hair, bow, outfit, shoes, sparkle, skin tone and pet, plus her cheer name. Her
   first look is a hot-pink and black cheer outfit: high pony, the big hot-pink bow with black stars, the black
   rhinestone crop top and hot-pink shorts.
 - **Rooms.** "Make a room" shows a 4-letter code. Friends tap "Join a room" and type it. Rooms
