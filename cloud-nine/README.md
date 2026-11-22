@@ -42,6 +42,11 @@ The first tap turns the sound on. The speaker button turns it off and on, and th
   end. "Hit zero" means nothing was missed.
 - **Squad games.** "Pick a game" (the star button) has hide and seek, freeze tag, dodgeball and
   Capture the Bow. In a room the host picks and everyone plays; alone, bot friends fill in.
+- **Photo booth.** The pink booth beside the plaza takes pictures. Walk up to it and tap "Photo
+  booth!", pick a frame and a pose, and tap "Snap!": the camera swings round, counts 3, 2, 1, and
+  friends standing near the booth strike a pose too. The picture has a frame, the date and no
+  names on it. "Save" puts it on the device (on a phone, "Share" opens the share sheet, where
+  "Save Image" puts it in Photos). Nothing is ever uploaded.
 - **Spirit sticks.** Twelve are hidden around the island, a few of them on the clouds. Touching
   one collects it, and each unlocks something new for her cheerleader (a heart bow, space buns,
   rainbow socks...). The menu's "Spirit sticks" row shows how many are found and gives a hint for
