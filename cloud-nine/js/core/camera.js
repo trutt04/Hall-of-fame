@@ -1,4 +1,6 @@
-// Third-person follow camera plus a small cinematic sequencer.
+// Third-person follow camera plus a small cinematic sequencer. Copied from League World unchanged
+// apart from log prefixes. In Cloud Nine `terrain` is { heightAt(x, z) } built from world.groundAt
+// with open sky clamped to a floor, so the camera never sees -Infinity.
 //
 //   const rig = createCameraRig({ camera, engine, terrain, input })
 //   rig.setFollow({ position: Vector3, heading: number, speed: number })
@@ -128,7 +130,7 @@ export function createCameraRig({ camera, engine, terrain, input }) {
       try {
         shot.onStart(cine.i);
       } catch (err) {
-        console.error('[lw] shot onStart failed', err);
+        console.error('[c9] shot onStart failed', err);
       }
     }
   }
@@ -296,7 +298,7 @@ export function createCameraRig({ camera, engine, terrain, input }) {
           try {
             opts.onProgress(d / total, d, a);
           } catch (err) {
-            console.error('[lw] flyAlong onProgress failed', err);
+            console.error('[c9] flyAlong onProgress failed', err);
           }
         }
         return a;
