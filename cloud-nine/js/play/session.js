@@ -1147,10 +1147,9 @@ export function createSession(world, opts) {
       } catch (err) { /* fine */ }
       if (lastMusic) {
         try {
-          // the island loop first: the birthday song is a one-shot that goes back to the last
-          // looping track asked for, which would otherwise be the game music
+          // back to the island loop. (On her birthday the song plays when she arrives; playing all
+          // 40 s of it again after every game was too much.)
           audio.music('island');
-          if (world.birthday && world.birthday.isBirthday) audio.music('birthday');
         } catch (err) { /* fine */ }
       }
     },
