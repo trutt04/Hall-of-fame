@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-21T13:57:58Z",
+  "generatedAt": "2026-11-22T02:07:58Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -443,7 +443,7 @@
     },
     {
       "id": 11,
-      "name": "🔥Stafford_Pukas_Lounge🔥",
+      "name": "My team is qucked",
       "abbrev": "CCT",
       "owner": "Chuck",
       "ownerKey": "o_f08c9454",
@@ -456,9 +456,9 @@
       "pointsAgainst": 1279.52,
       "streakType": "LOSS",
       "streakLength": 2,
-      "moves": { "acquisitions": 21, "drops": 20, "trades": 1 },
+      "moves": { "acquisitions": 21, "drops": 21, "trades": 1 },
       "roster": {
-        "ir": [{ "name": "Puka Nacua", "pos": "WR" }],
+        "ir": [],
         "emptyStarters": [],
         "badStarters": [],
         "starters": [
