@@ -88,7 +88,7 @@
 .c9-hz-lvl b{font-size:19px;font-weight:900;line-height:1.1}
 .c9-hz-lvl-tag{font-size:16px;font-weight:800;color:var(--hz-purple)}
 .c9-hz-lvl small{display:none}
-.c9-hz-lvl-best{font-style:normal;font-size:15px;font-weight:800;color:var(--hz-muted);white-space:nowrap}
+.c9-hz-lvl-best{font-style:normal;font-size:16px;font-weight:800;color:var(--hz-muted);white-space:nowrap}
 .c9-hz-lvl-best:empty{display:none}
 .c9-hz-lvl.c9-on{background:var(--hz-pink);color:#fff;transform:translateY(-3px);box-shadow:0 7px 0 var(--hz-ink)}
 .c9-hz-lvl.c9-on .c9-hz-lvl-tag,.c9-hz-lvl.c9-on .c9-hz-lvl-best{color:var(--hz-pale)}

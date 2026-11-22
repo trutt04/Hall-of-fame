@@ -7,6 +7,7 @@
   --pink:#ff2e93;
   --pink-soft:#ff8cc6;
   --pink-pale:#ffd6ea;
+  --pink-ink:#c2156f; /* hot pink deep enough for small words on white (5.5:1) */
   --black:#17121c;
   --ink:#2b2233;
   --white:#fff8fc;
@@ -65,9 +66,9 @@ button{font-family:inherit;color:inherit}
 .c9-left{display:flex;flex-direction:column;align-items:flex-start;gap:8px;min-width:0;flex:1 1 auto}
 
 .c9-room{display:inline-flex;align-items:center;gap:7px;padding:5px 7px 5px 12px;background:var(--white);border:var(--line);border-radius:999px;box-shadow:0 3px 0 var(--black)}
-.c9-room-label{font-weight:800;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
+.c9-room-label{font-weight:800;font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
 .c9-room-code{display:inline-flex;gap:3px}
-.c9-room-tile{display:inline-grid;place-items:center;width:25px;height:30px;font-weight:900;font-size:19px;color:var(--white);background:var(--black);border-radius:7px}
+.c9-room-tile{display:inline-grid;place-items:center;width:26px;height:31px;font-weight:900;font-size:20px;color:var(--white);background:var(--black);border-radius:7px}
 
 .c9-people{display:flex;flex-direction:column;align-items:flex-start;gap:6px;max-width:min(62vw,280px)}
 .c9-people-btn{display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:6px 14px 6px 10px;font-weight:900;font-size:18px;color:var(--ink);
@@ -78,10 +79,10 @@ button{font-family:inherit;color:inherit}
 .c9-person{display:flex;align-items:center;gap:7px;min-height:30px;padding:2px 8px;font-weight:800;font-size:16px;white-space:nowrap}
 .c9-person-dot{width:14px;height:14px;border-radius:50%;background:var(--pink);border:2px solid var(--black);flex:0 0 auto}
 .c9-person-name{overflow:hidden;text-overflow:ellipsis;min-width:0}
-.c9-person-tag{font-size:12px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;padding:1px 7px;border-radius:999px;background:var(--pink-pale);color:var(--ink)}
+.c9-person-tag{font-size:16px;font-weight:800;letter-spacing:.02em;padding:0 8px;border-radius:999px;background:var(--pink-pale);color:var(--ink)}
 .c9-person-tag.c9-bot{background:var(--lilac)}
 .c9-person-icon{width:18px;height:18px;color:#c8902a}
-.c9-person.c9-me .c9-person-name{color:var(--pink)}
+.c9-person.c9-me .c9-person-name{color:var(--pink-ink)}
 
 .c9-debug{margin:0;font:12px/1.25 ui-monospace,Menlo,Consolas,monospace;color:#fff;background:rgba(23,18,28,.72);padding:6px 8px;border-radius:8px;white-space:pre;max-width:94vw;overflow:hidden}
 
@@ -110,7 +111,7 @@ button{font-family:inherit;color:inherit}
 .c9-jump{grid-column:2;grid-row:2;position:relative;width:92px;height:92px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:0;
   color:var(--white);background:radial-gradient(circle at 35% 30%,#ff6fb8,var(--pink) 55%,#e0137c);border:var(--line);border-radius:50%;box-shadow:0 6px 0 var(--black)}
 .c9-jump .c9-icon{width:38px;height:38px;stroke-width:3}
-.c9-jump-label{font-weight:900;font-size:13px;letter-spacing:.14em;text-transform:uppercase;margin-top:-2px}
+.c9-jump-label{font-weight:900;font-size:16px;letter-spacing:.08em;text-transform:uppercase;margin-top:-2px}
 .c9-jump.c9-down{transform:translateY(5px);box-shadow:0 1px 0 var(--black)}
 
 /* ---------- joystick (visual only: input lives on the canvas) ---------- */
@@ -197,32 +198,39 @@ button{font-family:inherit;color:inherit}
 .c9-big.c9-in .c9-big-star4{animation-delay:.12s}.c9-big.c9-in .c9-big-star5{animation-delay:.2s}
 .c9-big.c9-out{opacity:0;transform:scale(1.06);transition:opacity .25s,transform .25s}
 
-/* ---------- the emote wheel ---------- */
-.c9-wheel{position:absolute;inset:0;z-index:25;display:grid;place-items:center;background:radial-gradient(circle at 50% 50%,rgba(255,214,234,.5),rgba(43,34,51,.35) 70%)}
-.c9-wheel-disc{--rx:min(150px,34vw);--ry:min(172px,22vh);position:relative;width:calc(var(--rx) * 2 + 36px);height:calc(var(--ry) * 2 + 36px);border-radius:50%;
-  background:radial-gradient(ellipse,rgba(255,248,252,.94) 0 34%,rgba(255,214,234,.88) 35% 100%);border:var(--line);box-shadow:0 8px 0 var(--black),var(--soft-shadow)}
-.c9-wheel-close{position:absolute;left:50%;top:50%;width:62px;height:62px;margin:-31px 0 0 -31px;display:grid;place-items:center;padding:0;color:var(--white);
+/* ---------- the emote wheel: a sticker sheet on phones, a ring of chips on tablets and laptops ---------- */
+.c9-wheel{position:absolute;inset:0;z-index:25;display:grid;place-items:center;
+  padding:calc(30px + var(--sat)) calc(14px + var(--sar)) calc(14px + var(--sab)) calc(14px + var(--sal));
+  background:radial-gradient(circle at 50% 50%,rgba(255,214,234,.5),rgba(43,34,51,.35) 70%)}
+/* phones: three across standing up, six across on their side; every word at full size */
+.c9-wheel-disc{position:relative;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:min(100%,420px);padding:18px 12px 16px;
+  background:rgba(255,248,252,.96);border:var(--line);border-radius:30px;box-shadow:0 8px 0 var(--black),var(--soft-shadow)}
+@media (orientation:landscape){.c9-wheel-disc{grid-template-columns:repeat(6,minmax(0,1fr));width:min(100%,780px)}}
+.c9-wheel-close{position:absolute;right:-12px;top:-24px;z-index:1;width:56px;height:56px;display:grid;place-items:center;padding:0;color:var(--white);
   background:var(--black);border:3px solid var(--white);border-radius:50%;box-shadow:0 0 0 3px var(--black)}
-.c9-wheel-item{position:absolute;left:calc(50% + var(--x) * var(--rx));top:calc(50% + var(--y) * var(--ry));transform:translate(-50%,-50%);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;width:max-content;min-width:78px;max-width:94px;min-height:58px;padding:5px 9px;
+.c9-wheel-item{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-width:0;min-height:70px;padding:6px 4px;
   color:var(--ink);background:var(--white);border:var(--line);border-radius:20px;box-shadow:0 4px 0 var(--black)}
-.c9-wheel-item:active{box-shadow:0 1px 0 var(--black);margin-top:3px}
-.c9-wheel.c9-in .c9-wheel-item{animation:c9-wheel-pop .3s var(--d) cubic-bezier(.2,1.5,.4,1) both}
+.c9-wheel-item:active{transform:translateY(3px);box-shadow:0 1px 0 var(--black)}
+.c9-wheel.c9-in .c9-wheel-item{animation:c9-wheel-in .28s var(--d) cubic-bezier(.2,1.5,.4,1) both}
+@keyframes c9-wheel-in{from{transform:scale(.6);opacity:0}to{transform:none;opacity:1}}
 @keyframes c9-wheel-pop{from{transform:translate(-50%,-50%) scale(.5);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
-.c9-wheel-many .c9-wheel-disc{--rx:min(160px,39vw);--ry:min(212px,26vh)}
-.c9-wheel-many .c9-wheel-item{min-width:70px;max-width:82px;min-height:54px;padding:4px 7px;border-radius:18px}
-.c9-wheel-many .c9-wheel-text{font-size:13.5px}
-.c9-wheel-icon{font-size:24px;line-height:1}
-.c9-wheel-icon.c9-icon{width:24px;height:24px;color:var(--pink)}
-.c9-wheel-text{font-weight:900;font-size:14.5px;line-height:1.05;text-align:center}
-.c9-wheel-key{position:absolute;top:-9px;right:-7px;width:22px;height:22px;display:grid;place-items:center;font-weight:900;font-size:12px;color:var(--white);
+.c9-wheel-icon{font-size:26px;line-height:1}
+.c9-wheel-icon.c9-icon{width:26px;height:26px;color:var(--pink)}
+.c9-wheel-text{font-weight:900;font-size:16px;line-height:1.08;text-align:center;overflow-wrap:break-word;max-width:100%}
+.c9-wheel-key{position:absolute;top:-10px;right:-8px;width:26px;height:26px;display:grid;place-items:center;font-weight:900;font-size:16px;color:var(--white);
   background:var(--pink);border:2px solid var(--black);border-radius:50%}
 @media (pointer:coarse){.c9-wheel-key{display:none}}
-/* tablets and laptops: a wider wheel with bigger chips and full-size words */
+/* tablets and laptops: the chips around an ellipse, the close button in the middle */
 @media (min-width:700px) and (min-height:560px){
+  .c9-wheel{padding:0}
+  .c9-wheel-disc{--rx:min(210px,30vw);--ry:min(200px,26vh);display:block;width:calc(var(--rx) * 2 + 36px);height:calc(var(--ry) * 2 + 36px);padding:0;border-radius:50%;
+    background:radial-gradient(ellipse,rgba(255,248,252,.94) 0 34%,rgba(255,214,234,.88) 35% 100%)}
   .c9-wheel-many .c9-wheel-disc{--rx:min(290px,33vw);--ry:min(240px,31vh)}
-  .c9-wheel-many .c9-wheel-item{min-width:96px;max-width:118px;min-height:66px;padding:6px 10px;border-radius:20px}
-  .c9-wheel-many .c9-wheel-text{font-size:16px}
+  .c9-wheel-close{left:50%;top:50%;right:auto;width:62px;height:62px;margin:-31px 0 0 -31px}
+  .c9-wheel-item{position:absolute;left:calc(50% + var(--x) * var(--rx));top:calc(50% + var(--y) * var(--ry));transform:translate(-50%,-50%);
+    width:max-content;min-width:96px;max-width:118px;min-height:66px;padding:6px 10px}
+  .c9-wheel-item:active{transform:translate(-50%,calc(-50% + 3px))}
+  .c9-wheel.c9-in .c9-wheel-item{animation-name:c9-wheel-pop}
   .c9-wheel-many .c9-wheel-icon{font-size:28px}
 }
 
@@ -235,7 +243,7 @@ button{font-family:inherit;color:inherit}
 .c9-card-art{width:64px;height:64px;display:grid;place-items:center;margin:0 0 6px;border-radius:20px;background:var(--pink-pale);border:var(--line);color:var(--pink)}
 .c9-card-art .c9-icon{width:38px;height:38px}
 .c9-x{position:absolute;top:10px;right:10px;width:48px;height:48px;display:grid;place-items:center;padding:0;color:var(--ink);background:var(--white);border:var(--line);border-radius:50%;box-shadow:0 3px 0 var(--black)}
-.c9-kicker{margin:0 56px 2px 0;font-weight:900;font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--pink)}
+.c9-kicker{margin:0 56px 2px 0;font-weight:900;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--pink-ink)}
 .c9-title{margin:0 56px 10px 0;font-weight:900;font-size:clamp(26px,7vw,34px);line-height:1.05;color:var(--black)}
 .c9-steps{margin:0 0 8px;padding:0;list-style:none;counter-reset:step}
 .c9-steps li{position:relative;counter-increment:step;margin:0 0 10px;padding:4px 0 0 46px;min-height:36px;font-weight:700;font-size:18px;line-height:1.3}
@@ -276,8 +284,9 @@ button{font-family:inherit;color:inherit}
 .c9-row-icon{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:var(--pink-pale);border:2.5px solid var(--black);color:var(--pink);flex:0 0 auto}
 .c9-row-main{display:flex;flex-direction:column;min-width:0;flex:1 1 auto;line-height:1.15}
 .c9-row-title{font-weight:900;font-size:19px}
-.c9-row-sub{font-weight:600;font-size:15px;opacity:.75}
-.c9-row-tag{font-weight:900;font-size:13px;letter-spacing:.1em;padding:3px 10px;border-radius:999px;background:var(--black);color:var(--white)}
+.c9-row-sub{font-weight:700;font-size:16px;opacity:.8}
+.c9-row-primary .c9-row-sub{opacity:1}
+.c9-row-tag{font-weight:900;font-size:16px;letter-spacing:.04em;padding:2px 10px;border-radius:999px;background:var(--black);color:var(--white)}
 .c9-h3{margin:6px auto 10px;font-weight:900;font-size:20px;color:var(--black)}
 .c9-note{margin:0 auto 12px;font-weight:700;font-size:16px;opacity:.8}
 .c9-places{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
@@ -286,7 +295,7 @@ button{font-family:inherit;color:inherit}
 .c9-place .c9-icon{color:var(--pink)}
 .c9-place:active{transform:translateY(3px);box-shadow:0 1px 0 var(--black)}
 .c9-menu-room{display:flex;align-items:center;justify-content:center;gap:12px;margin:0 auto 14px;padding:10px;background:var(--white);border:var(--line);border-radius:22px}
-.c9-menu-room-label{font-weight:900;font-size:14px;letter-spacing:.14em;text-transform:uppercase}
+.c9-menu-room-label{font-weight:900;font-size:16px;letter-spacing:.1em;text-transform:uppercase}
 
 /* game picker tiles */
 .c9-games{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,290px),1fr));gap:12px}
@@ -296,7 +305,7 @@ button{font-family:inherit;color:inherit}
 .c9-game-art{grid-row:1 / span 2;width:58px;height:58px;display:grid;place-items:center;border-radius:18px;background:var(--tile);border:var(--line)}
 .c9-game-art .c9-icon{width:32px;height:32px;color:var(--black)}
 .c9-game-name{font-weight:900;font-size:21px;line-height:1.05}
-.c9-game-blurb{font-weight:600;font-size:15px;line-height:1.2;opacity:.8}
+.c9-game-blurb{font-weight:700;font-size:16px;line-height:1.2;opacity:.8}
 
 /* spirit sticks: the menu row and the card's twelve-dot meter */
 .c9-row-sticks .c9-row-icon{background:var(--lemon)}
@@ -310,7 +319,7 @@ button{font-family:inherit;color:inherit}
 .c9-notes{display:flex;flex-direction:column;gap:10px;margin:2px 0 4px}
 .c9-note-card{margin:0;padding:12px 14px;background:#fff;border:2.5px solid var(--black);border-radius:18px;box-shadow:0 3px 0 var(--black)}
 .c9-note-text{margin:0;font-weight:700;font-size:18px;line-height:1.3;color:var(--ink)}
-.c9-note-from{margin-top:6px;font-weight:900;font-size:16px;color:var(--pink)}
+.c9-note-from{margin-top:6px;font-weight:900;font-size:16px;color:var(--pink-ink)}
 
 /* overlays other parts mount into (Hit Zero) */
 .c9-overlay{position:fixed;inset:0;z-index:40}

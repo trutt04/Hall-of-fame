@@ -11,7 +11,7 @@
   padding:22px 20px 22px;background:var(--white);border:var(--line);border-radius:32px;box-shadow:0 8px 0 var(--black),var(--soft-shadow)}
 .c9m-title{margin:0 0 6px;font-weight:900;font-size:clamp(30px,8.4vw,40px);line-height:1.02;color:var(--black)}
 .c9m-sub{margin:0 0 14px;font-weight:700;font-size:18px;line-height:1.3;color:var(--ink);opacity:.85}
-.c9m-kicker{margin:0 0 8px;font-weight:900;font-size:14px;letter-spacing:.18em;text-transform:uppercase;color:var(--pink);text-align:center}
+.c9m-kicker{margin:0 0 8px;font-weight:900;font-size:16px;letter-spacing:.12em;text-transform:uppercase;color:var(--pink-ink);text-align:center}
 .c9m-msg{min-height:1.3em;margin:0 0 10px;font-weight:800;font-size:17px;color:#c2156f;text-align:center}
 .c9m-list{display:flex;flex-direction:column;gap:14px}
 .c9m-row{display:flex;align-items:stretch;gap:12px;margin-top:6px}
@@ -67,7 +67,7 @@
 .c9m-main-card,.c9m-closet-card{max-width:460px}
 .c9m-hi{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
 .c9m-hi-text{display:flex;flex-direction:column;min-width:0}
-.c9m-hi-small{font-weight:800;font-size:16px;letter-spacing:.06em;color:var(--pink);text-transform:uppercase}
+.c9m-hi-small{font-weight:800;font-size:16px;letter-spacing:.06em;color:var(--pink-ink);text-transform:uppercase}
 .c9m-hi-nick{font-weight:900;font-size:clamp(28px,8vw,36px);line-height:1;color:var(--black);overflow-wrap:anywhere}
 .c9m-hi-nick.c9m-pop{animation:c9-pop .3s cubic-bezier(.2,1.6,.4,1) both}
 .c9m-dice{width:60px;height:60px;display:grid;place-items:center;padding:0;color:var(--black);background:var(--lemon);border:var(--line);border-radius:18px;
@@ -114,7 +114,7 @@
 @media (max-height:620px){
   .c9m-join-card{padding:12px 14px}
   .c9m-join-card .c9m-title{font-size:24px;margin-bottom:2px}
-  .c9m-join-card .c9m-sub{font-size:15px;margin-bottom:6px}
+  .c9m-join-card .c9m-sub{font-size:16px;margin-bottom:6px}
   .c9m-slot{width:48px;height:54px;font-size:30px}
   .c9m-pad{grid-template-columns:repeat(10,1fr);gap:6px;margin-bottom:8px}
   .c9m-key{min-height:46px;font-size:22px}
@@ -129,7 +129,7 @@
   .c9m-join-card .c9m-sub{display:none}
   .c9m-slots{margin-bottom:4px}
   .c9m-slot{width:44px;height:48px;font-size:26px;border-radius:12px}
-  .c9m-msg{min-height:0;margin-bottom:6px;font-size:15px}
+  .c9m-msg{min-height:0;margin-bottom:6px;font-size:16px}
   .c9m-msg:empty{display:none}
   .c9m-key{min-height:40px;font-size:20px;border-radius:12px}
   .c9m-row{margin-top:2px}
@@ -150,7 +150,7 @@
 @keyframes c9m-breathe{50%{opacity:.35}}
 .c9m-who-dot{width:16px;height:16px;border-radius:50%;background:var(--pink);border:2.5px solid var(--black)}
 .c9m-who-crown{width:20px;height:20px;color:#c8902a}
-.c9m-who-you{font-size:12px;font-weight:900;letter-spacing:.1em;text-transform:uppercase;padding:1px 7px;border-radius:999px;background:var(--black);color:var(--white)}
+.c9m-who-you{font-size:16px;font-weight:900;letter-spacing:.02em;padding:0 8px;border-radius:999px;background:var(--black);color:var(--white)}
 .c9m-lobby-card .c9m-row{flex-wrap:wrap}
 
 /* ---------- messages, busy ---------- */
