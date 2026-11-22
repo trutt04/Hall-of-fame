@@ -124,20 +124,24 @@ export function createSource({ audio = null, practiceBeat = !audio, rate = 1, an
     anchored = false;
     lastK = -1;
     smoother = createSmoother();
+    lastHeard = null;
+    musicGone = false;
     const ab = audio && audio.beat;
     const canAudio = !!(ab && typeof ab.time === 'function' && audio.enabled !== false);
     if (canAudio) {
       try {
         if (typeof audio.unlock === 'function') quiet(audio.unlock());
       } catch (err) { /* the app unlocks too */ }
-      bpm = Number(ab.bpm) >= 60 && Number(ab.bpm) <= 220 ? Number(ab.bpm) : DEFAULT_BPM;
-      clock = createBeatClock({ bpm, latencyMs });
       beat = ab;
       kind = 'audio';
-      subscribe(ab);
+      // start the track first: until it plays, the clock reports whatever played before (the
+      // island's tempo, or a default), and a clock at the wrong tempo puts every note off the beat
       try {
         quiet(audio.music(track, { fade: 0.3 }));
       } catch (err) { /* no music: the wait below falls back */ }
+      bpm = Number(ab.bpm) >= 60 && Number(ab.bpm) <= 220 ? Number(ab.bpm) : DEFAULT_BPM;
+      clock = createBeatClock({ bpm, latencyMs });
+      subscribe(ab);
       if (await waitForAnchor(anchorWaitMs)) {
         structure = ab.structure || null;
         return info();
@@ -165,9 +169,21 @@ export function createSource({ audio = null, practiceBeat = !audio, rate = 1, an
     return { kind, bpm, structure };
   }
 
+  // When the routine's last note has rung out the audio module stops the track and its clock goes
+  // back to 0 (and so does turning the sound off mid-routine). The routine still has its finale and
+  // the judges to get to: from then on, keep counting on from where the music was.
+  let lastHeard = null;
+  let musicGone = false;
   function sample() {
+    if (musicGone) return;
     const t = safeTime();
-    if (t !== null) smoother.sample(now(), t);
+    if (t === null) return;
+    if (kind === 'audio' && lastHeard !== null && t < lastHeard - 0.25 && !(beat && beat.playing)) {
+      musicGone = true;
+      return;
+    }
+    lastHeard = t;
+    smoother.sample(now(), t);
   }
 
   function musicAt(perfMs) {

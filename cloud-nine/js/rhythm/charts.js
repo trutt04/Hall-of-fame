@@ -207,6 +207,11 @@ function lengthOf(s) {
 function startOf(s) {
   const se = num(s.startEight) ?? num(s.eight) ?? num(s.fromEight);
   if (se !== null) return se;
+  // the audio module's beat.structure counts eights from 1 (firstEight) and gives start and end in
+  // seconds: never read those seconds as eights (that inserted long breaks and shifted every note)
+  const fe = num(s.firstEight);
+  if (fe !== null) return fe - 1;
+  if (num(s.end) !== null && num(s.eights) !== null) return null;
   const sb = num(s.startBeat) ?? num(s.beat) ?? num(s.fromBeat);
   if (sb !== null) return sb / 8;
   const st = num(s.start) ?? num(s.at) ?? num(s.from);
