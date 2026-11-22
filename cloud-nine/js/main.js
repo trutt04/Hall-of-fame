@@ -438,6 +438,19 @@ async function boot() {
   }
   world.games = gamesMod || null;
 
+  // ---------------------------------------------------------------- the game layers (phase 2)
+  // js/play/index.js exports installPlay(world): it sets world.onGameStart(kind, data) (see onGameStart
+  // below) and calls world.endGame() when a game is over, so the app clears its game state.
+  world.endGame = (data) => onGameEnd(data || {});
+  const playMod = await optional('./play/index.js');
+  if (playMod && typeof playMod.installPlay === 'function') {
+    try {
+      playMod.installPlay(world);
+    } catch (err) {
+      console.warn('[c9] the game layers failed to start', err);
+    }
+  }
+
   // ---------------------------------------------------------------- state of the app
   let mode = 'boot'; // 'title' | 'menu' | 'closet' | 'lobby' | 'play' | 'overlay'
   let session = null; // { kind: 'solo' | 'room', code }
