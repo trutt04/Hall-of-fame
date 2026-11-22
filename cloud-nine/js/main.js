@@ -39,6 +39,7 @@ import { createSilentAudio, createStandinNet, STANDIN_CONTENT } from './ui/stand
 import { GAME_CHOICES, gameTitle, normalizeHowto } from './ui/gameui.js';
 import { loadCss, el, reducedMotion, coarsePointer } from './ui/dom.js';
 import { cleanCode } from './ui/codepad.js';
+import { createSilentTip } from './ui/silent-tip.js';
 
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 const HINT_KEY = 'c9.hinted.v1';
@@ -676,6 +677,8 @@ async function boot() {
       audio.music('birthday');
     }
   }
+  // iPhone and iPad: the silent switch mutes the game; the first time sound starts, say so once
+  const silentTip = createSilentTip({ hud, store, isOn: () => !!audioReal && audio.enabled, inPlay: () => mode === 'play' });
   function toggleSound() {
     const on = !audio.enabled;
     audio.unlock();
@@ -684,6 +687,7 @@ async function boot() {
     if (on) {
       islandMusic();
       sfx('pop');
+      silentTip.soundStarted();
     }
     syncSound();
     hud.toast(on ? 'Sound on' : 'Sound off', { icon: on ? 'sound' : 'mute', ms: 1200 });
@@ -694,7 +698,10 @@ async function boot() {
     if (unlocked) return;
     unlocked = true;
     audio.unlock();
-    if (audio.enabled) islandMusic();
+    if (audio.enabled) {
+      islandMusic();
+      silentTip.soundStarted();
+    }
     syncSound();
   };
   window.addEventListener('pointerdown', unlockOnce, true);
