@@ -5,7 +5,10 @@
 // Tests pass `sdk` ({ app, auth, database } module namespaces, e.g. tools/fake-firebase.mjs).
 //
 // Data under rooms/{code}/ (shapes in validate.js; firebase/database.rules.json enforces them):
-//   meta, players/{id}, state/{id}, events/{pushId}, game
+//   meta, players/{id}, state/{id}, events/{pushId}, game, allow/{id}
+// - A locked room (meta.locked) can only be joined, and its players, state, events and game only
+//   read, by the ids on its allow list. Anyone else reads just its meta: the probe says locked, and
+//   a player taken off the list loses the room (the listeners are cancelled: sink.removed()).
 // - Anonymous sign-in gives this page its own id (the player id). Sign-in is kept in memory only,
 //   so a reloaded page is a new player: a stale disconnect from the old page can never remove it.
 // - onDisconnect().remove() takes my player entry, my state and my bots away when I vanish, and
@@ -186,6 +189,15 @@ export function createFirebaseTransport({ config, sdk = null, clock = () => Date
     return room;
   }
 
+  // The list goes in with the lock, in one update, so nobody on it ever sees the room locked
+  // without being on the list. Unlocking clears the list.
+  function lockRoom(r, locked, allowIds) {
+    const D = fb.D;
+    const allow = {};
+    if (locked === true) for (const id of allowIds || []) if (isId(id)) allow[id] = true;
+    return D.update(D.ref(fb.db, r.base), { allow: locked === true ? allow : null, 'meta/locked': locked === true, 'meta/beat': D.serverTimestamp() });
+  }
+
   return {
     kind: 'firebase',
     get id() {
@@ -211,10 +223,16 @@ export function createFirebaseTransport({ config, sdk = null, clock = () => Date
     async probe(code) {
       const base = 'rooms/' + code;
       const D = fb.D;
-      const [m, p] = await withTimeout(Promise.all([D.get(R(base + '/meta')), D.get(R(base + '/players'))]), T.readTimeoutMs, 'reading the room');
-      const meta = m.val();
+      const read = (rel) => withTimeout(D.get(R(base + rel)), T.readTimeoutMs, 'reading the room');
+      const meta = (await read('/meta')).val();
       if (!meta) return null;
-      return { meta, players: p.val() || {} };
+      if (meta.locked === true && !(await read('/allow/' + uid)).exists()) return { meta, locked: true };
+      try {
+        return { meta, players: (await read('/players')).val() || {} };
+      } catch (err) {
+        if (isDenied(err)) return { meta, locked: true }; // it locked a moment ago
+        throw err;
+      }
     },
 
     // Rules let a device write meta only when the code is free (new, 12 hours stale, or nobody in
@@ -222,7 +240,14 @@ export function createFirebaseTransport({ config, sdk = null, clock = () => Date
     async create(code) {
       const D = fb.D;
       const base = 'rooms/' + code;
-      const [m, p] = await withTimeout(Promise.all([D.get(R(base + '/meta')), D.get(R(base + '/players'))]), T.readTimeoutMs, 'reading the room');
+      const m = await withTimeout(D.get(R(base + '/meta')), T.readTimeoutMs, 'reading the room');
+      let p;
+      try {
+        p = await withTimeout(D.get(R(base + '/players')), T.readTimeoutMs, 'reading the room');
+      } catch (err) {
+        if (isDenied(err)) return 'taken'; // a locked room someone else is using
+        throw err;
+      }
       const cur = m.val();
       if (cur && typeof cur.beat === 'number' && cur.beat >= now() - STALE_MS && p.exists()) return 'taken';
       try {
@@ -236,6 +261,7 @@ export function createFirebaseTransport({ config, sdk = null, clock = () => Date
         throw err;
       }
       D.remove(R(base + '/game')).catch(noop);
+      D.remove(R(base + '/allow')).catch(noop); // an old room's list
       return 'ok';
     },
 
@@ -247,8 +273,13 @@ export function createFirebaseTransport({ config, sdk = null, clock = () => Date
         if (room === r) safe(() => fn(snap, prev));
       };
       const lost = (what) => (err) => {
+        if (room !== r) return;
+        if (isDenied(err) && sink.removed) {
+          safe(() => sink.removed()); // the room locked without me on its list
+          return;
+        }
         console.warn('[c9 net] lost the room (' + what + '):', (err && err.message) || err);
-        if (room === r) safe(() => sink.meta(null));
+        safe(() => sink.meta(null));
       };
       const u = r.unsubs;
       u.push(D.onValue(roomRef(r, 'meta'), call((s) => sink.meta(s.val())), lost('meta')));
@@ -352,6 +383,13 @@ export function createFirebaseTransport({ config, sdk = null, clock = () => Date
           throw err;
         },
       );
+    },
+    lock: (locked, allowIds) => lockRoom(needRoom(), locked, allowIds),
+    async sendHome(pid, allowIds) {
+      const r = needRoom();
+      await lockRoom(r, true, allowIds);
+      await fb.D.remove(roomRef(r, 'players/' + pid));
+      await fb.D.remove(roomRef(r, 'state/' + pid));
     },
     async trimEvents(before) {
       const r = needRoom();

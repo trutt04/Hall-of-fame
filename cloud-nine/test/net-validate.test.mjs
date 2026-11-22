@@ -125,8 +125,10 @@ test('validate: payloads must be small plain JSON', () => {
 });
 
 test('validate: room records', () => {
-  assert.deepEqual(V.cleanMeta({ hostId: 'abc', createdAt: 5, beat: 9, v: 1, extra: 'x' }), { hostId: 'abc', createdAt: 5, beat: 9 });
-  assert.deepEqual(V.cleanMeta({ hostId: 'abc', createdAt: 5 }), { hostId: 'abc', createdAt: 5, beat: 5 });
+  assert.deepEqual(V.cleanMeta({ hostId: 'abc', createdAt: 5, beat: 9, v: 1, extra: 'x' }), { hostId: 'abc', createdAt: 5, beat: 9, locked: false });
+  assert.deepEqual(V.cleanMeta({ hostId: 'abc', createdAt: 5 }), { hostId: 'abc', createdAt: 5, beat: 5, locked: false });
+  assert.equal(V.cleanMeta({ hostId: 'abc', createdAt: 5, locked: true }).locked, true);
+  assert.equal(V.cleanMeta({ hostId: 'abc', createdAt: 5, locked: 'yes' }).locked, false, 'only true locks');
   for (const bad of [null, { hostId: 'a b', createdAt: 1 }, { hostId: 'abc' }, { hostId: 'abc', createdAt: -1 }, []]) assert.equal(V.cleanMeta(bad), null);
 
   const p = V.cleanPlayerEntry('p1', { nick: 'Bea', look: '{"bow":"pink"}', bot: false, joinedAt: 10 });

@@ -6,14 +6,18 @@
 //   store.exec(by, op) -> { ok, err?, value?, changes }   by = the asking player id (null = system)
 //   store.apply(changes)                                   replicas apply the leader's changes
 //   store.snapshot() / store.load(snapshot)                to hand the whole thing to a new leader
-//   store.room(code) -> { meta, players: Map, state: Map, game } | null   read only
+//   store.room(code) -> { meta, players: Map, state: Map, game, allow: Set } | null   read only
+//   store.canRead(by, code) -> boolean    false for someone not on the list of a locked room
 //   store.tabs() -> Set of every live device id (players and bot owners), for liveness watching
 //
 // ops: { op: 'probe' | 'create', code }, { op: 'putPlayer', code, id, entry }, { op: 'patchPlayer',
 // code, id, patch }, { op: 'dropPlayer' | 'dropState', code, id }, { op: 'putState', code, id, s },
 // { op: 'event', code, ev: { type, data } }, { op: 'setGame', code, json }, { op: 'meta', code,
-// patch: { hostId } }, { op: 'claim', code }, { op: 'trim', code, before }, { op: 'gone', id }.
-// changes: { c: code, k: 'room' | 'meta' | 'player' | 'state' | 'event' | 'trim' | 'game', id?, v?, before? }
+// patch: { hostId } }, { op: 'claim', code }, { op: 'trim', code, before }, { op: 'gone', id },
+// { op: 'lock', code, locked, allow: [ids] } (host only: who may be in the room while it is locked).
+// changes: { c: code, k: 'room' | 'meta' | 'player' | 'state' | 'event' | 'trim' | 'game' | 'allow', id?, v?, before? }
+// While a room is locked, only the ids on its allow list may join it or read it (the probe of anyone
+// else says { meta, locked: true }), and the host may send home a player who is not on the list.
 
 import { isRoomCode } from './codes.js';
 import { isId, isWireNick, cleanTime, EVENT_TYPES, HOST_ONLY_EVENTS, LIMITS, ANIM_RE, isPlainObject } from './validate.js';
@@ -35,9 +39,11 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
   let rooms = new Map();
   let evSeq = 0;
 
-  const blank = () => ({ meta: null, players: new Map(), state: new Map(), events: [], game: null });
+  const blank = () => ({ meta: null, players: new Map(), state: new Map(), events: [], game: null, allow: new Set() });
   const isStale = (r, t) => !r || !r.meta || r.meta.beat < t - staleMs;
   const isHost = (r, by) => !!(r && r.meta && by && r.meta.hostId === by);
+  const isLocked = (r) => !!(r && r.meta && r.meta.locked === true);
+  const mayBeIn = (r, by) => !isLocked(r) || r.allow.has(by);
   const nextEventId = () => 'e' + (++evSeq).toString(36).padStart(9, '0');
 
   function exec(by, op) {
@@ -49,6 +55,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
     const r = rooms.get(code) || null;
     switch (op.op) {
       case 'probe':
+        if (r && r.meta && !mayBeIn(r, by)) return { ok: true, value: { meta: r.meta, locked: true }, changes: [] };
         return { ok: true, value: r && r.meta ? publicRoom(r) : null, changes: [] };
       case 'create': {
         // free when new, 12 hours quiet, or empty (nobody left in it): the same as the rules
@@ -67,7 +74,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
         const e = op.entry;
         if (!isId(id) || !isPlainObject(e) || isStale(r, t)) return fail(isStale(r, t) ? 'not-found' : 'bad');
         if (id === by) {
-          if (e.bot !== false || e.owner !== undefined) return fail('denied');
+          if (e.bot !== false || e.owner !== undefined || !mayBeIn(r, by)) return fail('denied');
         } else if (!(isHost(r, by) && e.bot === true && e.owner === by && id.startsWith(by + '-b'))) {
           return fail('denied');
         }
@@ -82,7 +89,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
         const old = r.players.get(op.id);
         const p = op.patch;
         if (!old || !isPlainObject(p)) return fail('bad');
-        if (!(op.id === by || old.owner === by)) return fail('denied');
+        if (!(op.id === by || old.owner === by) || (op.id === by && !mayBeIn(r, by))) return fail('denied');
         if (p.nick !== undefined && !isWireNick(p.nick)) return fail('bad');
         if (p.look !== undefined && (typeof p.look !== 'string' || p.look.length > LIMITS.lookJson)) return fail('bad');
         const v = { ...old };
@@ -94,7 +101,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
       case 'dropPlayer': {
         const old = r.players.get(op.id);
         if (!old) return { ok: true, changes: [] };
-        const ok = op.id === by || old.owner === by || (isHost(r, by) && (old.bot || old.joinedAt < r.meta.createdAt));
+        const ok = op.id === by || old.owner === by || (isHost(r, by) && (old.bot || old.joinedAt < r.meta.createdAt || !mayBeIn(r, op.id)));
         if (!ok) return fail('denied');
         r.players.delete(op.id);
         return { ok: true, changes: [{ c: code, k: 'player', id: op.id, v: null }] };
@@ -153,6 +160,16 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
         const v = { ...r.meta, hostId: by, beat: t };
         r.meta = v;
         return { ok: true, value: true, changes: [{ c: code, k: 'meta', v }] };
+      }
+      case 'lock': {
+        if (!isHost(r, by) || isStale(r, t)) return fail('denied');
+        const ids = Array.isArray(op.allow) ? op.allow.filter(isId).slice(0, 64) : [];
+        const locked = op.locked === true;
+        r.allow = new Set(locked ? ids : []);
+        const v = { ...r.meta, locked, beat: t };
+        r.meta = v;
+        // the list first, so nobody on it ever sees the room locked without being on the list
+        return { ok: true, changes: [{ c: code, k: 'allow', v: [...r.allow] }, { c: code, k: 'meta', v }] };
       }
       case 'trim': {
         if (!isHost(r, by)) return fail('denied');
@@ -218,6 +235,9 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
         case 'game':
           r.game = ch.v || null;
           break;
+        case 'allow':
+          r.allow = new Set(Array.isArray(ch.v) ? ch.v.filter(isId) : []);
+          break;
       }
     }
   }
@@ -229,7 +249,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
   function snapshot() {
     const out = [];
     for (const [code, r] of rooms) {
-      out.push([code, { meta: r.meta, players: [...r.players], state: [...r.state], events: r.events.slice(), game: r.game }]);
+      out.push([code, { meta: r.meta, players: [...r.players], state: [...r.state], events: r.events.slice(), game: r.game, allow: [...r.allow] }]);
     }
     return { v: 1, evSeq, rooms: out };
   }
@@ -246,6 +266,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
       if (Array.isArray(s.state)) for (const [id, v] of s.state) if (isId(id) && isPlainObject(v)) r.state.set(id, v);
       if (Array.isArray(s.events)) r.events = s.events.filter((e) => e && typeof e.id === 'string' && isPlainObject(e.v)).slice(-maxEvents);
       r.game = isPlainObject(s.game) ? s.game : null;
+      if (Array.isArray(s.allow)) r.allow = new Set(s.allow.filter(isId));
       next.set(item[0], r);
     }
     rooms = next;
@@ -268,6 +289,7 @@ export function createRoomStore({ now = () => Date.now(), staleMs = STALE_MS, ho
     load,
     tabs,
     room: (code) => rooms.get(code) || null,
+    canRead: (by, code) => mayBeIn(rooms.get(code) || null, by),
     get size() {
       return rooms.size;
     },

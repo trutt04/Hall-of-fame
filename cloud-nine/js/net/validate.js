@@ -17,7 +17,8 @@
 //   createLimiter({ capacity, perSecond, now })   token buckets per sender: allow(key) -> boolean
 //
 // Wire shapes (Firebase paths under rooms/{code}/, the same in the local transport):
-//   meta            { hostId, createdAt, beat, v: 1 }       createdAt and beat are server times (ms)
+//   meta            { hostId, createdAt, beat, v: 1, locked? }   createdAt and beat are server times (ms)
+//   allow/{id}      true    who may be in the room while it is locked (written by the host)
 //   players/{id}    { nick, look /* JSON text */, bot, joinedAt /* server time */, owner? /* bots */ }
 //   state/{id}      { x, y, z, h, a /* anim */, t /* sender's shared clock */ }
 //   events/{key}    { from, type, data /* JSON text <= 1 KB */, t /* server time */ }
@@ -323,7 +324,7 @@ export function cleanMeta(raw) {
   const createdAt = cleanTime(raw.createdAt);
   if (createdAt === null) return null;
   const beat = cleanTime(raw.beat);
-  return { hostId: raw.hostId, createdAt, beat: beat === null ? createdAt : beat };
+  return { hostId: raw.hostId, createdAt, beat: beat === null ? createdAt : beat, locked: raw.locked === true };
 }
 
 // helpers: { cleanNick, randomNick, cleanLook } from the content and character modules (any may be missing).

@@ -51,7 +51,8 @@ test('rules: the file is plain JSON that parses cleanly, with only the paths of 
   assert.equal(json.rules['.write'], false);
   assert.deepEqual(Object.keys(json.rules), ['.read', '.write', 'rooms']);
   const room = json.rules.rooms.$code;
-  assert.deepEqual(Object.keys(room).filter((k) => !k.startsWith('.')), ['meta', 'players', 'state', 'events', 'game', '$other']);
+  assert.deepEqual(Object.keys(room).filter((k) => !k.startsWith('.')), ['meta', 'allow', 'players', 'state', 'events', 'game', '$other']);
+  assert.equal(room['.read'], undefined, 'each part of a room says who may read it');
   assert.equal(room.$other['.validate'], false, 'nothing else can be stored in a room');
   const text = fs.readFileSync(path.join(C9, 'firebase', 'database.rules.json'), 'utf8');
   assert.ok(!/ \? /.test(text), 'no ternaries (kept to the simplest expression syntax)');
@@ -62,10 +63,12 @@ test('rules: rooms can be read by code but never listed', () => {
   const root = baseRoot();
   assert.equal(rules.canRead('rooms', { auth: A, root, now: NOW }).ok, false, 'no room list');
   assert.equal(rules.canRead('', { auth: A, root, now: NOW }).ok, false);
-  assert.equal(rules.canRead(R, { auth: C, root, now: NOW }).ok, true, 'anyone signed in who knows the code');
-  assert.equal(rules.canRead(R + '/players', { auth: C, root, now: NOW }).ok, true);
-  assert.equal(rules.canRead(R, { auth: null, root, now: NOW }).ok, false, 'not without signing in');
-  assert.equal(rules.canRead('rooms/k7qz', { auth: A, root, now: NOW }).ok, false, 'only real room codes');
+  for (const part of ['meta', 'players', 'state', 'events', 'game']) {
+    assert.equal(rules.canRead(R + '/' + part, { auth: C, root, now: NOW }).ok, true, part + ': anyone signed in who knows the code');
+    assert.equal(rules.canRead(R + '/' + part, { auth: null, root, now: NOW }).ok, false, part + ': not without signing in');
+    assert.equal(rules.canRead('rooms/k7qz/' + part, { auth: A, root, now: NOW }).ok, false, part + ': only real room codes');
+  }
+  assert.equal(rules.canRead(R, { auth: A, root, now: NOW }).ok, false, 'a room is read part by part');
   assert.equal(rules.canRead('somewhere/else', { auth: A, root, now: NOW }).ok, false);
   assert.equal(write(A, 'somewhere/else', 1), false);
 });
