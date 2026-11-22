@@ -310,7 +310,14 @@ export function createMenu(root) {
     c.appendChild(who);
     let locked = false;
     const lockNote = el('p', 'c9m-sub c9m-lock-note', '');
-    const lockBtn = bigButton('Lock the room', 'key', 'white', () => onLock && onLock(!locked));
+    // a double tap is one tap: the room answers fast, so its second half would unlock it again
+    let lockTapAt = -1e9;
+    const lockBtn = bigButton('Lock the room', 'key', 'white', () => {
+      const now = performance.now();
+      if (now - lockTapAt < 900) return;
+      lockTapAt = now;
+      if (onLock) onLock(!locked);
+    });
     lockBtn.classList.add('c9m-lock');
     c.append(lockNote, lockBtn);
     const status = el('p', 'c9m-msg', '');
@@ -360,18 +367,22 @@ export function createMenu(root) {
     };
   }
 
-  // "Send home" on a friend's name: the first tap asks, the second (within 3 s) sends.
+  // "Send home" on a friend's name: the first tap asks, the second (within 3 s) sends. The second
+  // half of a double tap is not the "Tap again": it has to be a tap of its own.
   function homeButton(p, onSendHome) {
     let sure = false;
     let timer = null;
+    let askedAt = 0;
     const b = button('c9m-home', 'Send home', () => {
       if (sure) {
+        if (performance.now() - askedAt < 450) return;
         clearTimeout(timer);
         b.disabled = true;
         onSendHome(p.id, p.nick);
         return;
       }
       sure = true;
+      askedAt = performance.now();
       b.classList.add('c9m-sure');
       b.querySelector('.c9-btn-label').textContent = 'Tap again';
       timer = setTimeout(() => {
