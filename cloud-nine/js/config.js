@@ -70,6 +70,8 @@ export const STORAGE_KEYS = {
   progress: 'c9.progress.v1',
   quality: 'c9.quality.v1',
   rhythmLatency: 'c9.rhythm.latency.v1',
+  rhythmBest: 'c9.rhythm.best.v1', // Hit Zero personal bests
+  tossBest: 'c9.toss.best.v1', // basket toss best scores, per pad
 };
 
 export const FEATURES = {
