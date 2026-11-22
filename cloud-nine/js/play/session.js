@@ -29,7 +29,7 @@
 // numbers over 1e9 when this was written, and small numbers keep the state compact anyway. The
 // epoch itself travels next to the state as a string ({ ...state, epoch }).
 
-import { createGame } from '../games/index.js';
+import { createGame, ballPos } from '../games/index.js';
 import { driveBot } from '../games/sim.js';
 import { toLocal, toWorld } from '../games/common.js';
 import { PALETTE, TEAMS } from '../config.js';
@@ -46,6 +46,13 @@ const UI_MS = 100;
 const ROLE_MS = 120;
 const HEAL_DIST = 6; // further than this from where the game wants me: fly me there
 const COUNT_PITCH = [1, 1.06, 1.12, 1.26];
+const SIDELINE = 1.4; // m outside the arena: where a friend who isn't playing watches from
+const NUDGE_SPEED = 9; // m/s: a little quicker than running, so the field stays clear
+const SPLASH_GAP_MS = 1700; // a toast about me waits for my own splash ("Found you!", "Bonk!") to go
+const WIN_TOAST_MS = 4200; // the win or "so close" line comes once the big results splash has gone
+const AWARDS_AFTER_MS = 3600; // the awards card follows the results splash
+const DODGE_NEAR = 1.5; // m: a ball passing this close (but missing) is a dodge
+const ACTIVE = new Set(['countdown', 'hide', 'play']);
 const TOAST_ICON = { hideSeek: 'eyes', freezeTag: 'snow', dodgeball: 'ball', captureBow: 'bow' };
 const LOCO = new Set(['idle', 'walk', 'run']);
 const POSITIONAL = new Set(['bounce', 'throw', 'tap', 'pop', 'catch', 'hit', 'freeze', 'unfreeze', 'found', 'bowGrab']);
@@ -114,6 +121,9 @@ export function createSession(world, opts) {
   let pausedAt = 0; // solo: game time stands still while the tab is hidden
   let wasHidden = false;
   let pendingFx = []; // clients: fx that arrived before the state did
+  let phaseSeenAt = 0; // when the HUD saw this phase begin (the awards card waits for the splash)
+  let nudged = false; // a friend watching was walked to the sideline (told once per game)
+  const dodged = new Set(); // ball throws I already dodged (dodgeball)
   const optedOut = new Set(); // host: players who stepped out of this game
   const bodies = new Map(); // host: bot id -> body
   const cache = new Map(); // id -> { x, z } this frame
@@ -128,6 +138,8 @@ export function createSession(world, opts) {
   const view = {
     pos: (id) => cache.get(id) || null,
     ids: () => (game ? game.state.order : []),
+    // hedges, walls, tents and open sky: bots walk round them instead of bumping along them
+    solid: (x, z) => (colliders ? colliders.hits(x, z, BOT_R + 0.05) : false) || !Number.isFinite(groundAt(x, z)),
   };
 
   // ---------------------------------------------------------------- small helpers
@@ -375,11 +387,13 @@ export function createSession(world, opts) {
     const p = P(me);
     if (!p) {
       releaseMe();
+      sideline(dt);
       return;
     }
     const pp = player.position;
     const w = game.who(me, pp);
     myW = w;
+    if (kind === 'dodgeball') dodgeFrame(now);
     const st = game.state;
     if (teleporting && nowMs() > teleportSafety) teleporting = false;
     const pk = st.round + '|' + st.phase;
@@ -435,6 +449,66 @@ export function createSession(world, opts) {
     // touch claims: found, tag, unfreeze, pickup, hit or catch, grab, score
     const claim = game.autoClaim(me, view, now);
     if (claim) sendClaim(claim);
+  }
+
+  // A friend who isn't in this game (stepped out, or the round is full) watches from the sideline:
+  // walking onto the field she is eased back off it, so nobody trips over a spectator.
+  function sideline(dt) {
+    if (world.mode !== 'play' || !ACTIVE.has(game.state.phase) || teleporting || player.controller || player.rescuing) return;
+    const a = game.arena.area;
+    const pp = player.position;
+    const l = toLocal(a.f, pp.x, pp.z);
+    const ex = a.hw + SIDELINE - Math.abs(l.x);
+    const ez = a.hd + SIDELINE - Math.abs(l.z);
+    if (ex <= 0 || ez <= 0) return;
+    const step = NUDGE_SPEED * Math.min(0.25, Math.max(0.016, dt || 0));
+    // out across the nearer edge (or the other one when that side is open sky)
+    const tries = ex < ez ? [0, 1] : [1, 0];
+    for (const axis of tries) {
+      const lx = axis === 0 ? l.x + Math.sign(l.x || 1) * Math.min(ex, step) : l.x;
+      const lz = axis === 1 ? l.z + Math.sign(l.z || 1) * Math.min(ez, step) : l.z;
+      const q = toWorld(a.f, lx, lz);
+      if (!Number.isFinite(groundAt(q.x, q.z))) continue;
+      pp.x = q.x;
+      pp.z = q.z;
+      if (!nudged) {
+        nudged = true;
+        toast(COPY.watching);
+      }
+      return;
+    }
+  }
+
+  // Dodgeball: a ball from the other team whizzing past (close, but missing) makes her dodge.
+  function dodgeFrame(now) {
+    const st = game.state;
+    const mine = P(meId());
+    if (st.phase !== 'play' || !mine || mine.out || !Array.isArray(st.balls) || nowMs() < reactUntil) return;
+    const pp = player.position;
+    for (const b of st.balls) {
+      const fl = b.fl;
+      if (b.s !== 'air' || !fl || fl.done || fl.team === mine.team) continue;
+      const key = b.id + ':' + fl.t0;
+      if (dodged.has(key)) continue;
+      let min = Infinity;
+      for (let k = 0; k <= 4; k++) {
+        const q = ballPos(b, now + k * 60);
+        if (q && q.y < 2.2) min = Math.min(min, Math.hypot(q.x - pp.x, q.z - pp.z));
+      }
+      if (min > 0.75 && min < DODGE_NEAR) {
+        if (dodged.size > 32) dodged.clear();
+        dodged.add(key);
+        react('dodge', 0.5);
+        if (nowMs() - lastToastAt > 2500) {
+          const line = hypeLine('dodge', {});
+          if (line) {
+            toast(line);
+            lastToastAt = nowMs();
+          }
+        }
+        return;
+      }
+    }
   }
 
   function onAction() {
@@ -574,9 +648,13 @@ export function createSession(world, opts) {
     const inf = info();
     if (f.type === 'phase') {
       const h = P(me) ? hypeFor(f, me, inf) : null;
-      // the seeker reads hers on the blindfold; everyone else gets a toast
+      // the seeker reads hers on the blindfold; everyone else gets a toast, once the
+      // "Hide!" / "Go!" splash has had the screen to itself
       if (h && h.situation === 'seeker' && f.phase === 'hide') blindLine = hypeLine(h.situation, h.ctx);
-      else if (h) toast(hypeLine(h.situation, h.ctx));
+      else if (h) {
+        const line = hypeLine(h.situation, h.ctx);
+        at(SPLASH_GAP_MS, () => toast(line));
+      }
       return;
     }
     const prio = P(me) || f.type === 'win' ? toastPriority(f, me, inf) : 0;
@@ -588,8 +666,13 @@ export function createSession(world, opts) {
     let text = h ? hypeLine(h.situation, h.ctx) : '';
     if (!text) text = game.fxText(f, me);
     if (text) {
-      toast(text);
-      lastToastAt = t;
+      // news about me that also gets a big splash ("Found you!", "Frozen!", "Bonk!", "Tagged!")
+      // waits for it; the win line waits for the results splash
+      const victim = Array.isArray(f.ids) && f.ids[1] === me && (f.type === 'found' || f.type === 'freeze' || f.type === 'hit' || f.type === 'tagged');
+      const wait = f.type === 'win' ? WIN_TOAST_MS : victim ? SPLASH_GAP_MS : 0;
+      if (wait) at(wait, () => toast(text));
+      else toast(text);
+      lastToastAt = t + wait;
     }
   }
 
@@ -718,6 +801,10 @@ export function createSession(world, opts) {
     }
     lastSplash = sp ? sp.key : '';
     overlay.setBlind(!!u.blind, u.timer, blindLine);
+    // everybody's award: after the results splash, and through the break until the next countdown
+    if (`${st.round}|${st.phase}` !== lastPhaseKey) phaseSeenAt = nowMs();
+    const showAwards = !!u.awards && ((st.phase === 'results' && nowMs() - phaseSeenAt > AWARDS_AFTER_MS) || (st.phase === 'lobby' && st.round > 1));
+    if (typeof overlay.setAwards === 'function') overlay.setAwards(showAwards ? u.awards : null); // (test stand-ins may not draw it)
     setAction(u.action);
     const again = inGame && isHost && st.phase === 'lobby' && st.round > 1;
     overlay.setBar({
@@ -748,6 +835,7 @@ export function createSession(world, opts) {
     const pk = `${st.round}|${st.phase}`;
     if (pk !== lastPhaseKey) {
       lastPhaseKey = pk;
+      phaseSeenAt = t;
       if (st.phase === 'results') celebrate(null);
       // a friend still reading the app's how-to card at "Go!" would be stuck (a card holds the
       // controls): put it away so she can run. Never the leave card: that one is her choice.
