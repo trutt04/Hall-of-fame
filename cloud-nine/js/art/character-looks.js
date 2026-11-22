@@ -1,19 +1,21 @@
 // The cheerleader's looks: preset options for every slot, Bailey's default outfit and the
 // validators. Pure data and logic (no three.js, no DOM), so it runs under node --test.
 //
-//   LOOK_SLOTS                 the 11 slot names, in creator order
+//   LOOK_SLOTS                 the 12 slot names, in creator order (the pet last)
 //   LOOK_OPTIONS               { slot: [{ id, label, ...colors }] }  (deep frozen; colors are '#rrggbb')
 //   DEFAULT_LOOK               Bailey's real outfit (frozen)
 //   cleanLook(raw)             -> a fresh, valid look. Input is hostile (it arrives over the network):
 //                              anything unknown, mistyped, oversized or inherited falls back slot by slot
-//   randomLook(rng)            -> a fresh, valid look, for bots and "Surprise me!". rng() -> [0, 1)
+//   randomLook(rng)            -> a fresh, valid look, for bots and "Surprise me!". rng() -> [0, 1).
+//                              Never a pet: the cloud puppy is won (Rainbow's End), and bots don't get one
 //   lookOption(slot, id)       -> the option object for that id (the default's when unknown)
 //   lookKey(look)              -> a short stable string for a clean look (cache keys, equality)
 //
 // A look is a small object of preset ids, never free text:
-//   { skin, hair, hairStyle, bow, bowPattern, bowSize, top, bottom, shoes, socks, sparkle }
+//   { skin, hair, hairStyle, bow, bowPattern, bowSize, top, bottom, shoes, socks, sparkle, pet }
+// pet is 'none' or 'cloudPuppy' (drawn and walked by js/art/pet.js and js/world/pets.js, not the body).
 
-export const LOOK_SLOTS = ['hairStyle', 'hair', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'skin'];
+export const LOOK_SLOTS = ['hairStyle', 'hair', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'skin', 'pet'];
 
 const RAINBOW = ['#ff4f6d', '#ff9f43', '#ffe066', '#5fdd8b', '#4fb3ff', '#a46bff'];
 
@@ -122,6 +124,11 @@ const OPTIONS = {
     { id: 'max', label: 'Maximum!', level: 2 },
     { id: 'gold', label: 'Golden', level: 2, gold: true },
   ],
+  // A pet that follows her around. The cloud puppy is the 12th spirit stick's prize.
+  pet: [
+    { id: 'none', label: 'No pet' },
+    { id: 'cloudPuppy', label: 'Cloud puppy' },
+  ],
 };
 
 function deepFreeze(o) {
@@ -149,6 +156,7 @@ export const DEFAULT_LOOK = Object.freeze({
   shoes: 'cheer-black',
   socks: 'sparkle-black',
   sparkle: 'some',
+  pet: 'none',
 });
 
 const KEYS = Object.keys(DEFAULT_LOOK);
@@ -210,6 +218,10 @@ function unit(rng) {
 export function randomLook(rng) {
   const out = {};
   for (const slot of KEYS) {
+    if (slot === 'pet') {
+      out.pet = 'none'; // pets are won, never random (and bots never get one)
+      continue;
+    }
     const list = OPTIONS[slot], w = WEIGHTS[slot];
     let pick;
     if (w) {
