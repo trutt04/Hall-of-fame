@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Nine: content preview</title>
+<style>
+  :root {
+    --pink: #ff2e93; --pink-soft: #ff8cc6; --pink-pale: #ffd6ea; --ink: #2b2233; --black: #17121c;
+    --lilac: #cdb4ff; --lavender: #b89cf0; --cloud: #fff4fa; --white: #fff8fc; --purple: #7b5cff; --mint: #9be7c4;
+    --font: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { background: linear-gradient(180deg, #9fc4ff 0, #ffd1e8 420px, var(--cloud) 900px) no-repeat, var(--cloud); }
+  body { margin: 0 auto; max-width: 1180px; padding: 16px 16px 64px; color: var(--ink); font: 500 16px/1.45 var(--font); }
+  h1 { font-size: 30px; margin: 8px 0 4px; color: var(--black); }
+  h1 .bow { color: var(--pink); }
+  h2 { font-size: 23px; margin: 36px 0 10px; color: var(--pink); }
+  h3 { font-size: 18px; margin: 0 0 6px; }
+  p.lede { margin: 0 0 12px; max-width: 70ch; }
+  code, .mono { font: 14px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+  nav { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  nav a { color: var(--ink); background: var(--white); border: 2px solid var(--pink-pale); border-radius: 999px; padding: 6px 12px; text-decoration: none; font-weight: 700; }
+  .controls { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    background: rgba(255, 244, 250, .94); padding: 10px 12px; border-radius: 16px; box-shadow: 0 4px 16px rgba(43, 34, 51, .08); }
+  button, .btn { min-height: 48px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--pink); color: #fff; font: 800 16px var(--font); cursor: pointer; }
+  button.alt { background: var(--purple); }
+  label.check { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; font-weight: 700; }
+  label.check input { width: 22px; height: 22px; accent-color: var(--pink); }
+  .stats { font-weight: 700; color: var(--purple); }
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 14px; }
+  .card { background: var(--white); border: 2px solid var(--pink-pale); border-radius: 18px; padding: 14px 16px; min-width: 0; }
+  .card.rare { border-color: var(--lilac); }
+  .card .ctx { color: #6b5d78; margin: 0 0 8px; word-break: break-word; }
+  .card ul { margin: 0; padding-left: 20px; }
+  .card li { margin: 3px 0; }
+  .card li.long { color: #b0006a; }
+  details { margin-top: 8px; }
+  summary { cursor: pointer; font-weight: 700; color: var(--purple); min-height: 32px; }
+  .tag { display: inline-block; font-size: 13px; font-weight: 800; color: #fff; background: var(--lavender); border-radius: 999px; padding: 1px 8px; margin-left: 6px; vertical-align: 2px; }
+  .emotes { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; }
+  .emote { background: var(--white); border: 2px solid var(--pink-pale); border-radius: 999px; padding: 8px 14px; display: flex; gap: 10px; align-items: center; }
+  .emote .icon { font-size: 28px; line-height: 1; }
+  .emote b { display: block; }
+  .emote small { color: #6b5d78; }
+  .nicks { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+  .nick { background: var(--pink-pale); border-radius: 999px; padding: 6px 12px; font-weight: 800; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  input[type=text], input[type=number], input[type=date] { min-height: 48px; font: 600 16px var(--font); padding: 0 12px; border: 2px solid var(--lilac); border-radius: 12px; background: #fff; color: var(--ink); }
+  input[type=number] { width: 96px; }
+  .ok { color: #157a4c; font-weight: 800; }
+  .no { color: #b0006a; font-weight: 800; }
+  table { width: 100%; border-collapse: collapse; background: var(--white); border-radius: 14px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--pink-pale); vertical-align: top; }
+  th { background: var(--pink-pale); }
+  .table-wrap { overflow-x: auto; }
+  .howto ol { margin: 6px 0; padding-left: 22px; }
+  .howto .tip { color: var(--purple); font-weight: 700; }
+  .swatch { display: inline-block; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--black); vertical-align: -3px; margin-right: 6px; }
+  pre { white-space: pre-wrap; word-break: break-word; background: var(--white); border-radius: 12px; padding: 10px; border: 2px solid var(--pink-pale); }
+  @media (max-width: 520px) { h1 { font-size: 25px; } .grid { grid-template-columns: 1fr; } .controls { position: static; } }
+</style>
+</head>
+<body>
+<h1><span class="bow">&#x1F380;</span> Cloud Nine: content preview</h1>
+<p class="lede">Every situation's hype lines with sample values, plus the quick-cheers, nicknames, birthday mode, family notes,
+glossary, how-to cards and spirit sticks. Read it through out loud: if a line wouldn't make an 11-year-old smile, change it.</p>
+<nav id="nav"></nav>
+<div class="controls">
+  <button id="reshuffle" type="button">New samples</button>
+  <label class="check"><input id="long" type="checkbox"> Longest names</label>
+  <label class="check"><input id="raw" type="checkbox"> Show raw templates</label>
+  <span class="stats" id="stats"></span>
+</div>
+<main id="app"></main>
+<script type="module" src="./content-preview.js"></script>
+</body>
+</html>
