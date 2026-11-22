@@ -9,6 +9,7 @@
 //   rig.snapBehind(heading)                   jump behind the target (after a teleport)
 //   rig.play(shots, { skippable })            -> Promise<'done' | 'skipped'>
 //   rig.flyAlong(points, { dur, lookAhead, height, onProgress })   -> Promise<'done' | 'skipped'>
+//                                             over open sky (terrain.isSky(x, z)) it holds the last ground height
 //   rig.skip()
 //
 // A shot is { pos, look, fov?, dur, ease?, cut?, onStart? }. pos and look are [x, y, z] (the camera
@@ -275,6 +276,19 @@ export function createCameraRig({ camera, engine, terrain, input }) {
     let camY = null;
     let primed = false;
     let lastEl = 0;
+    // Cloud Nine: between the island and the clouds there is open sky (terrain.isSky, or a height
+    // far below everything). Never dive into it: hold the last real ground until the path reaches
+    // ground again (the camera then eases up or down to it).
+    const isSky = (x, z, g) => !Number.isFinite(g) || g <= -1000 || (typeof terrain.isSky === 'function' && terrain.isSky(x, z));
+    let lastGround = null;
+    const groundFor = (x, z, remember) => {
+      const g = terrain.heightAt(x, z);
+      if (!isSky(x, z, g)) {
+        if (remember) lastGround = g;
+        return g;
+      }
+      return lastGround !== null ? lastGround : 0;
+    };
     return play([{
       dur,
       ease: opts.ease || 'inOut',
@@ -284,12 +298,13 @@ export function createCameraRig({ camera, engine, terrain, input }) {
         const step = Math.max(0, el - lastEl);
         lastEl = el;
         at(d, a);
-        const want = terrain.heightAt(a.x, a.z) + height;
+        const ground = groundFor(a.x, a.z, true);
+        const want = ground + height;
         camY = camY === null ? want : damp(camY, want, 4, step || 0.016);
-        a.y = Math.max(camY, terrain.heightAt(a.x, a.z) + 1.2);
+        a.y = Math.max(camY, ground + 1.2);
         // aim a little down the road, eased so corners in the polyline never twitch the view
         at(d + lookAhead, b);
-        b.y = terrain.heightAt(b.x, b.z) + lookHeight;
+        b.y = groundFor(b.x, b.z, false) + lookHeight;
         if (!primed) {
           smoothLook.copy(b);
           primed = true;

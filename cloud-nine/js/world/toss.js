@@ -733,11 +733,21 @@ export function createToss(world) {
     const word = S.classic ? (landing === 'stuck' ? 'Clean catch!' : 'Squad save!') : landing === 'stuck' ? 'Stuck it!' : 'Cloud cradle!';
     thud.banner(word.toUpperCase(), landing);
     const done = S.tricks.filter((t) => t.done !== false).map((t) => t.id);
+    const unfinished = S.tricks.find((t) => t.done === false);
     const nick = net && net.me ? cleanNick(net.me.nick) : null;
-    const ctx = { stuck: landing === 'stuck', classic: S.classic, score: sc.total, height: Math.round(apexHeight), tricks: done.length, combo: S.maxChain, friends: S.friends, name: nick, newBest };
-    // a classic catch has its own words (the content lines are about clouds); a huge stuck toss gets 'bigToss'
+    const ctx = {
+      stuck: landing === 'stuck', classic: S.classic, score: sc.total, height: Math.round(apexHeight), tricks: done.length, combo: S.maxChain,
+      friends: S.friends, bases: S.friends, name: nick, newBest, trick: unfinished ? unfinished.id : done.length ? done[done.length - 1] : undefined,
+    };
+    // a classic catch has its own words (the content lines are about clouds); a huge stuck toss gets
+    // 'bigToss', a catch mid-trick 'cradle', her first toss ever 'firstToss', a new best 'personalBest'
     const big = landing === 'stuck' && !S.classic && (S.friends >= 2 || apexHeight >= 24 || S.maxChain >= 3);
-    const hypeLine = S.classic ? fallbackHype('tossLand', ctx) : line(big ? 'bigToss' : 'tossLand', ctx);
+    const first = !S.classic && !prevBest && !Object.keys(bests).some((k) => k !== pad.id && bests[k] > 0);
+    let situation = big ? 'bigToss' : 'tossLand';
+    if (landing === 'cradle') situation = 'cradle';
+    else if (first) situation = 'firstToss';
+    else if (newBest && prevBest > 0) situation = 'personalBest';
+    const hypeLine = S.classic ? fallbackHype('tossLand', ctx) : line(situation, ctx);
     S.pending = { sc, line: hypeLine, newBest, prevBest, apexHeight };
     applyPlayer();
     events.emit('landed', {

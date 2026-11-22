@@ -57,6 +57,8 @@ button{font-family:inherit;color:inherit}
 .c9-hud:not(.c9-playing) .c9-top,.c9-hud:not(.c9-playing) .c9-controls,.c9-hud:not(.c9-playing) .c9-hint,
 .c9-hud:not(.c9-playing) .c9-stick{visibility:hidden}
 .c9-hud.c9-modal .c9-controls,.c9-hud.c9-modal .c9-stick,.c9-hud.c9-modal .c9-hint{visibility:hidden}
+/* a mini game has the screen (the basket toss): its own overlay shows, ours steps aside */
+.c9-hud.c9-busy .c9-buttons,.c9-hud.c9-busy .c9-controls,.c9-hud.c9-busy .c9-hint,.c9-hud.c9-busy .c9-toasts{visibility:hidden}
 
 .c9-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
   padding:calc(10px + var(--sat)) calc(10px + var(--sar)) 0 calc(10px + var(--sal))}
@@ -157,7 +159,7 @@ button{font-family:inherit;color:inherit}
 /* ---------- the big centre splash ---------- */
 .c9-big{--accent:var(--pink);position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;pointer-events:none;text-align:center}
 .c9-big-text{position:relative;font-weight:900;font-size:clamp(46px,14vw,112px);line-height:.95;letter-spacing:-.01em;color:var(--white);
-  -webkit-text-stroke:.09em var(--black);paint-order:stroke fill;text-shadow:.06em .07em 0 var(--accent),.06em .07em 0 var(--accent);overflow-wrap:anywhere;max-width:92vw}
+  -webkit-text-stroke:.09em var(--black);paint-order:stroke fill;text-shadow:.06em .07em 0 var(--accent),.06em .07em 0 var(--accent);overflow-wrap:anywhere;max-width:92vw;white-space:pre-line}
 .c9-big-sub{max-width:min(560px,88vw);font-weight:800;font-size:clamp(17px,4.8vw,24px);line-height:1.2;color:var(--white);background:var(--black);padding:8px 18px;border-radius:999px;
   box-shadow:0 0 0 3px var(--accent)}
 .c9-big-stars{position:absolute;left:50%;top:50%;width:0;height:0}
@@ -192,6 +194,13 @@ button{font-family:inherit;color:inherit}
 .c9-wheel-key{position:absolute;top:-9px;right:-7px;width:22px;height:22px;display:grid;place-items:center;font-weight:900;font-size:12px;color:var(--white);
   background:var(--pink);border:2px solid var(--black);border-radius:50%}
 @media (pointer:coarse){.c9-wheel-key{display:none}}
+/* tablets and laptops: a wider wheel with bigger chips and full-size words */
+@media (min-width:700px) and (min-height:560px){
+  .c9-wheel-many .c9-wheel-disc{--rx:min(290px,33vw);--ry:min(240px,31vh)}
+  .c9-wheel-many .c9-wheel-item{min-width:96px;max-width:118px;min-height:66px;padding:6px 10px;border-radius:20px}
+  .c9-wheel-many .c9-wheel-text{font-size:16px}
+  .c9-wheel-many .c9-wheel-icon{font-size:28px}
+}
 
 /* ---------- cards: a bottom sheet on phones, a centred card on wide screens ---------- */
 .c9-card-wrap{position:absolute;inset:0;z-index:30;background:linear-gradient(to top,rgba(43,34,51,.42),rgba(43,34,51,.08) 70%)}
@@ -264,6 +273,20 @@ button{font-family:inherit;color:inherit}
 .c9-game-art .c9-icon{width:32px;height:32px;color:var(--black)}
 .c9-game-name{font-weight:900;font-size:21px;line-height:1.05}
 .c9-game-blurb{font-weight:600;font-size:15px;line-height:1.2;opacity:.8}
+
+/* spirit sticks: the menu row and the card's twelve-dot meter */
+.c9-row-sticks .c9-row-icon{background:var(--lemon)}
+.c9-row-sticks .c9-row-tag{background:var(--purple)}
+.c9-sticks-meter{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.c9-sticks-dot{width:24px;height:24px;border-radius:50%;background:var(--silver);border:2.5px solid var(--black);opacity:.55}
+.c9-sticks-dot.c9-got{opacity:1;background:radial-gradient(circle at 35% 35%,#fff 0 18%,var(--gold) 19% 55%,var(--pink) 56%)}
+
+/* notes from the family: little cards, the sender signed underneath */
+.c9-row-notes .c9-row-icon{background:var(--lilac)}
+.c9-notes{display:flex;flex-direction:column;gap:10px;margin:2px 0 4px}
+.c9-note-card{margin:0;padding:12px 14px;background:#fff;border:2.5px solid var(--black);border-radius:18px;box-shadow:0 3px 0 var(--black)}
+.c9-note-text{margin:0;font-weight:700;font-size:18px;line-height:1.3;color:var(--ink)}
+.c9-note-from{margin-top:6px;font-weight:900;font-size:16px;color:var(--pink)}
 
 /* overlays other parts mount into (Hit Zero) */
 .c9-overlay{position:fixed;inset:0;z-index:40}

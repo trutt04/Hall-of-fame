@@ -154,9 +154,11 @@ export function createLabels({ quality = 'high' } = {}) {
     const b = s.userData.base;
     if (!b) return 1;
     const d = cameraPos.distanceTo(anchorPos);
-    // grows with distance so it stays readable, up to a point
-    const f = Math.min(4, Math.max(1, d / 7.5));
+    // grows with distance so it stays readable, up to a point (a crowd across the plaza must not
+    // turn into a wall of name tags), and fades out far away
+    const f = Math.min(2.4, Math.max(1, d / 8));
     s.scale.set(b.w * f * pop, b.h * f * pop, 1);
+    if (s.material) s.material.opacity = d > 42 ? Math.max(0, 1 - (d - 42) / 16) : 1;
     return f;
   }
 

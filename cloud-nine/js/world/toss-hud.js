@@ -92,6 +92,11 @@ const CSS = `
   .c9t-gauge{height:46vh}
   .c9t-hint{bottom:calc(60px + env(safe-area-inset-bottom))}
 }
+/* tablets and laptops in landscape: the card waits on the right, so she stays in view in the middle */
+@media (min-width:900px) and (min-height:501px) and (orientation:landscape){
+  .c9t-card{left:auto;right:calc(16px + env(safe-area-inset-right));top:50%;bottom:auto;transform:translateY(-50%);animation:c9t-side .32s cubic-bezier(.2,1.3,.4,1) both}
+}
+@keyframes c9t-side{0%{transform:translate(40px,-50%);opacity:0}100%{transform:translate(0,-50%);opacity:1}}
 @media (prefers-reduced-motion:reduce){.c9t *{animation-duration:.01s!important;animation-iteration-count:1!important}}
 `;
 

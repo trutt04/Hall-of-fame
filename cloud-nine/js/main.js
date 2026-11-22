@@ -30,6 +30,7 @@ import { emitter, clamp } from './core/util.js';
 import { setReducedMotion } from './art/util.js';
 import { createPlayer, createPeers } from './world/player.js';
 import { createInteract } from './world/interact.js';
+import { createSpiritSticks, lockedLooks } from './world/sticks.js';
 import { createHud } from './ui/hud.js';
 import { createMenu, buildPauseMenu, buildPicker, JOIN_REASONS } from './ui/menu.js';
 import { createLabels } from './ui/labels.js';
@@ -110,7 +111,7 @@ function safeAudio(real) {
 // current and re-emits its events.
 function createNetFacade() {
   const events = emitter();
-  const FORWARD = ['status', 'join', 'leave', 'host', 'event', 'game'];
+  const FORWARD = ['status', 'join', 'leave', 'host', 'player', 'event', 'game'];
   let cur = null;
   let offs = [];
   const emptyPlayers = new Map();
@@ -139,7 +140,7 @@ function createNetFacade() {
       }
     },
     get current() { return cur; },
-    get kind() { return cur ? cur.kind || 'net' : 'none'; },
+    get kind() { return cur ? cur.kind || cur.mode || 'net' : 'none'; },
     get status() { return cur ? cur.status : 'offline'; },
     get me() { return cur ? cur.me : null; },
     get room() { return cur ? cur.room : null; },
@@ -152,7 +153,8 @@ function createNetFacade() {
     leaveRoom() { if (cur) guard(() => cur.leaveRoom()); },
     sendState(s) { if (cur && cur.room) guard(() => cur.sendState(s)); },
     sendStateFor(id, s) { if (cur) guard(() => cur.sendStateFor(id, s)); },
-    stateOf(id, now) { return cur ? guard(() => cur.stateOf(id, now), null) : null; },
+    stateOf(id, now, out) { return cur ? guard(() => cur.stateOf(id, now, out), null) : null; },
+    updateMe(o) { return cur && typeof cur.updateMe === 'function' ? guard(() => cur.updateMe(o), false) : false; },
     addBot(o) { return cur ? guard(() => cur.addBot(o), null) : null; },
     removeBot(id) { if (cur) guard(() => cur.removeBot(id)); },
     send(type, data) { return cur ? guard(() => cur.send(type, data), false) : false; },
@@ -343,14 +345,62 @@ async function boot() {
   const places = island.places || {};
   if (!places.plaza) places.plaza = { x: 0, z: 0, facing: 0 };
   const platforms = Array.isArray(island.platforms) ? island.platforms : [];
-  const terrain = { heightAt: (x, z) => Math.max(SKY_FLOOR, groundAt(x, z)) };
+  // What the camera treats as ground: the walkable surface, open sky clamped to a floor, and each
+  // cloud platform's puffy body (wider than its walkable top), so riding a slide down off a cloud
+  // the camera rises over the puffs instead of looking through them.
+  const camFocus = { x: 0, y: 0, z: 0 }; // where she is, from the last frame (for the camera's ground and blockers)
+  const camGround = (x, z) => {
+    let g = groundAt(x, z);
+    for (let i = 0; i < platforms.length; i++) {
+      const p = platforms[i];
+      const dx = x - p.x;
+      const dz = z - p.z;
+      const r = p.r * 1.75;
+      if (dx * dx + dz * dz < r * r && p.y + 0.4 > g && camFocus.y > p.y - 7) g = p.y + 0.4;
+    }
+    return Math.max(SKY_FLOOR, g);
+  };
+  const terrain = { heightAt: camGround, isSky: (x, z) => !Number.isFinite(groundAt(x, z)) };
   hud.setLoading(0.55, 'Tying the bows');
   await nextFrame();
 
   // ---------------------------------------------------------------- input, camera, audio, net
   const input = createInput({ canvas, stick: hud.stick });
   const rig = createCameraRig({ camera, engine, terrain, input });
-  rig.setBlocker((x, z) => colliders.insideBox(x, z, 1.6));
+  // The camera never sits inside a building, nor in a tree's canopy (trees only have a thin trunk
+  // collider): it slides in toward her and rises instead. Canopies go in a coarse grid.
+  const canopies = new Map();
+  const CANOPY_CELL = 8;
+  const cellKey = (ix, iz) => ix * 4096 + iz;
+  for (const p of island.decor && Array.isArray(island.decor.props) ? island.decor.props : []) {
+    if (!p || (p.type !== 'tree' && p.type !== 'bigTree') || !Number.isFinite(p.x) || !Number.isFinite(p.z)) continue;
+    const r = (p.type === 'bigTree' ? 4.2 : 2.1) * (Number(p.s) || 1);
+    const c = { x: p.x, z: p.z, r2: r * r };
+    for (let ix = Math.floor((p.x - r) / CANOPY_CELL); ix <= Math.floor((p.x + r) / CANOPY_CELL); ix++) {
+      for (let iz = Math.floor((p.z - r) / CANOPY_CELL); iz <= Math.floor((p.z + r) / CANOPY_CELL); iz++) {
+        const k = cellKey(ix, iz);
+        if (!canopies.has(k)) canopies.set(k, []);
+        canopies.get(k).push(c);
+      }
+    }
+  }
+  const inCanopy = (x, z) => {
+    const list = canopies.get(cellKey(Math.floor(x / CANOPY_CELL), Math.floor(z / CANOPY_CELL)));
+    if (!list) return false;
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const dx = x - c.x;
+      const dz = z - c.z;
+      if (dx * dx + dz * dz >= c.r2) continue;
+      // the tree she stands under does not count: there is no getting out of that one
+      const px = camFocus.x - c.x;
+      const pz = camFocus.z - c.z;
+      if (px * px + pz * pz < c.r2) continue;
+      return true;
+    }
+    return false;
+  };
+  rig.setBlocker((x, z) => colliders.insideBox(x, z, 1.6) || inCanopy(x, z));
 
   let audioReal = null;
   if (audioMod && typeof audioMod.createAudio === 'function') {
@@ -376,13 +426,36 @@ async function boot() {
   };
 
   // ---------------------------------------------------------------- the player
-  const home = () => places.plaza;
+  // Where she arrives (and where the rescue cloud brings her): the west side of the plaza, facing
+  // the cheer gym. The cake, the fountain and the gym's CHEER sign all stand on one line from the
+  // plaza's centre, so from there the sign hides behind the fountain; from out here the camera
+  // behind her sees the whole sign, the fountain, the cake and the Hit Zero stage.
+  const arrival = (() => {
+    const p = places.plaza;
+    const f = Number.isFinite(p.facing) ? p.facing : 0;
+    const g = places.gym;
+    // [to her left, ahead]: the signpost stands on her right
+    for (const [side, ahead] of [[11, 5], [9.5, 3], [8, 1], [4.5, 0], [0, 0]]) {
+      const x = p.x + Math.cos(f) * side + Math.sin(f) * ahead;
+      const z = p.z - Math.sin(f) * side + Math.cos(f) * ahead;
+      if (!Number.isFinite(groundAt(x, z)) || colliders.hits(x, z, 0.6)) continue;
+      let facing = f;
+      if (g && Number.isFinite(g.x) && Number.isFinite(g.z)) {
+        const gf = Number.isFinite(g.facing) ? g.facing : 0;
+        const half = (Number(g.d) || 12) / 2;
+        facing = Math.atan2(g.x + Math.sin(gf) * half - x, g.z + Math.cos(gf) * half - z);
+      }
+      return { x, z, facing };
+    }
+    return { x: p.x, z: p.z, facing: f };
+  })();
+  const home = () => arrival;
   const player = createPlayer({ scene, groundAt, platforms, slides: Array.isArray(places.slides) ? places.slides : [], colliders, input, rig, audio, hud, home });
   let myLook = store.look || cleanLook(charMod.DEFAULT_LOOK || placeholder.DEFAULT_LOOK);
   let myNick = store.nick;
   if (!myNick) myNick = store.setNick(content.randomNick()) || content.randomNick();
   player.setAvatar(makeCharacter(myLook));
-  player.place(places.plaza.x, places.plaza.z, places.plaza.facing ?? 0);
+  player.place(arrival.x, arrival.z, arrival.facing);
   player.frozen = true;
   const interact = createInteract({ player, camera, hud, canvas });
   const labels = createLabels({ quality });
@@ -419,6 +492,15 @@ async function boot() {
     console.warn('[c9] setBirthday failed', err);
   }
   world.birthday = { isBirthday, age, name: BIRTHDAY.name, info: bInfo };
+  // a soft pop for the birthday fireworks while she is on the island (not under every menu)
+  if (isBirthday && typeof island.onFirework === 'function') {
+    let pops = 0;
+    island.onFirework(() => {
+      if (document.body.dataset.mode !== 'play') return;
+      pops++;
+      if (pops < 12 || pops % 3 === 0) audio.sfx('firework', { volume: 0.3, pitch: 0.9 + Math.random() * 0.25 });
+    });
+  }
 
   // ---------------------------------------------------------------- the basket toss (and other parts that need the world)
   let toss = null;
@@ -431,12 +513,39 @@ async function boot() {
           const best = Number(store.progress.bestToss) || 0;
           if (r && Number(r.height) > best) store.patchProgress({ bestToss: Math.round(Number(r.height) * 10) / 10 });
         });
+        // while she flies, the toss's own overlay has the screen
+        toss.on('start', () => {
+          hud.closeWheel();
+          hud.hideHint(); // the walking hint has done its job once she is flying
+          hud.setBusy(true);
+        });
+        toss.on('end', () => hud.setBusy(false));
       }
     } catch (err) {
       console.warn('[c9] the basket toss part failed to start', err);
     }
   }
   world.games = gamesMod || null;
+
+  // ---------------------------------------------------------------- spirit sticks (CONTENT's collectibles)
+  const STICKS = Array.isArray(content.SPIRIT_STICKS) ? content.SPIRIT_STICKS : [];
+  const cleanFound = (raw) => {
+    try {
+      if (typeof content.cleanFoundSticks === 'function') return content.cleanFoundSticks(raw);
+    } catch (err) { /* below */ }
+    const ids = new Set(STICKS.map((s) => s.id));
+    return Array.isArray(raw) ? [...new Set(raw.filter((id) => ids.has(id)))] : [];
+  };
+  let foundSticks = cleanFound(store.progress.sticks);
+  let sticks = null;
+  if (STICKS.length && typeof island.spotFor === 'function') {
+    try {
+      sticks = createSpiritSticks({ scene, island, list: STICKS, found: foundSticks, groundAt, quality });
+    } catch (err) {
+      console.warn('[c9] the spirit sticks could not be placed', err);
+    }
+  }
+  world.sticks = sticks;
 
   // ---------------------------------------------------------------- the game layers (phase 2)
   // js/play/index.js exports installPlay(world): it sets world.onGameStart(kind, data) (see onGameStart
@@ -459,6 +568,9 @@ async function boot() {
   let myBubble = null;
   let myBubbleUntil = 0;
   let unlocked = false;
+  let stageShow = false; // she is up on the stage while Hit Zero runs
+  let hitZeroOpen = false;
+  let currentHz = null; // the Hit Zero overlay while it is open (tests read it as world.hitZero)
   const handledStarts = new Set();
 
   const sfx = (name, o) => audio.sfx(name, o);
@@ -551,13 +663,25 @@ async function boot() {
     hud.setButton('sound', { pressed: on, label: on ? 'Sound on' : 'Sound off' });
     menu.setSound(on);
   }
+  // The island's music always loops underneath; on her birthday the birthday song plays when she
+  // first lands on the island, and the island track comes back when it ends (one-shots return to
+  // the last looping track).
+  let birthdaySung = false;
+  function islandMusic() {
+    if (hitZeroOpen) return; // Hit Zero runs its own track
+    audio.music('island');
+    if (isBirthday && !birthdaySung && audio.enabled && unlocked && mode === 'play') {
+      birthdaySung = true;
+      audio.music('birthday');
+    }
+  }
   function toggleSound() {
     const on = !audio.enabled;
     audio.unlock();
     unlocked = true;
     audio.setEnabled(on);
     if (on) {
-      audio.music(isBirthday ? 'birthday' : 'island');
+      islandMusic();
       sfx('pop');
     }
     syncSound();
@@ -569,7 +693,7 @@ async function boot() {
     if (unlocked) return;
     unlocked = true;
     audio.unlock();
-    if (audio.enabled) audio.music(isBirthday ? 'birthday' : 'island');
+    if (audio.enabled) islandMusic();
     syncSound();
   };
   window.addEventListener('pointerdown', unlockOnce, true);
@@ -600,6 +724,8 @@ async function boot() {
     rows.sort((a, b) => (b.me - a.me) || (b.host - a.host) || (a.bot - b.bot));
     return rows;
   }
+  // the friends in the room we have seen, so a goodbye can still say who left
+  const knownFriends = new Map(); // id -> nick (humans only, never me)
   function refreshPeople() {
     peers.sync();
     const rows = playerRows();
@@ -610,16 +736,33 @@ async function boot() {
       const host = rows.find((r) => r.host);
       lobbyUI.update({ players: rows, isHost: net.isHost, hostNick: host ? host.nick : '' });
     }
+    if (session && session.kind === 'room') for (const r of rows) if (!r.me && !r.bot) knownFriends.set(r.id, r.nick);
   }
   net.on('join', (e) => {
     refreshPeople();
     const p = e && net.players.get(e.id);
     if (p && session && session.kind === 'room' && !p.bot && e.id !== (net.me && net.me.id)) {
-      hud.toast(nickOf(p) + ' ' + JOIN_LINES[Math.floor(Math.random() * JOIN_LINES.length)], { icon: 'sparkle' });
+      const line = content.hype('friendJoin', { name: nickOf(p) });
+      hud.toast(line || nickOf(p) + ' ' + JOIN_LINES[Math.floor(Math.random() * JOIN_LINES.length)], { icon: 'sparkle' });
       sfx('chime', { volume: 0.6 });
     }
   });
-  net.on('leave', () => refreshPeople());
+  net.on('leave', (e) => {
+    const id = e && e.id;
+    if (id && net.me && id === net.me.id) {
+      // NET says I am out of the room (the connection or the room was lost): keep playing here, solo
+      if (session && session.kind === 'room') roomLost();
+      return;
+    }
+    refreshPeople();
+    const nick = id ? knownFriends.get(id) : null;
+    if (nick && session && session.kind === 'room') {
+      knownFriends.delete(id);
+      hud.toast(content.hype('friendLeave', { name: nick }), { icon: 'sparkle', ms: 2400 });
+    }
+  });
+  // a friend changed their name or look (net.updateMe on their device)
+  net.on('player', () => refreshPeople());
   net.on('host', () => {
     refreshPeople();
     if (session && session.kind === 'room' && net.isHost && playing()) hud.toast('You are the host now! You pick the games.', { icon: 'crown' });
@@ -643,35 +786,44 @@ async function boot() {
     myBubbleUntil = performance.now() + 3000;
     myBubble.userData.pop = 0;
   }
+  const emoteSound = (e) => (e && typeof e.sfx === 'string' ? e.sfx : 'pop');
   function sendEmote(e) {
     const now = performance.now();
     if (now - lastEmoteAt < 1100) return;
     lastEmoteAt = now;
     showMyBubble(e);
     player.emote(animForEmote(e), 1.8);
-    sfx('pop', { volume: 0.7 });
+    sfx(emoteSound(e), { volume: 0.7 });
     if (session) net.send('emote', { id: e.id });
+  }
+  // The wheel holds 12 quick-cheers: CONTENT's list in its order, with "Happy birthday!" moved to
+  // the front on her birthday (and left out on other days, so the wheel stays roomy).
+  function wheelEmotes() {
+    const list = (content.EMOTES || []).filter((e) => e && typeof e.id === 'string');
+    const bday = list.find((e) => e.id === 'happyBirthday');
+    const rest = list.filter((e) => e !== bday);
+    return (isBirthday && bday ? [bday, ...rest] : rest).slice(0, 12);
   }
   function toggleWheel() {
     if (hud.wheelOpen) {
       hud.closeWheel();
       return;
     }
-    if (!playing() || hud.isModalOpen()) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active)) return;
     sfx('open', { volume: 0.5 });
-    hud.openWheel(content.EMOTES, sendEmote);
+    hud.openWheel(wheelEmotes(), sendEmote);
   }
   net.on('event', (ev) => {
     if (!ev || typeof ev !== 'object') return;
     const from = ev.from;
     const mine = net.me && from === net.me.id;
     if (ev.type === 'emote') {
-      if (mine) return; // shown already
+      if (mine) return; // shown already (NET echoes events to the sender too)
       const e = content.cleanEmote(ev.data && ev.data.id);
       if (!e) return;
       peers.emote(from, { text: e.text || e.id, icon: e.icon, anim: animForEmote(e) });
       const pos = peers.positionOf(from);
-      sfx('pop', pos ? { volume: 0.55, x: pos.x, z: pos.z } : { volume: 0.4 });
+      sfx(emoteSound(e), pos ? { volume: 0.55, x: pos.x, z: pos.z } : { volume: 0.4 });
     } else if (ev.type === 'game-start') {
       const data = ev.data && typeof ev.data === 'object' ? ev.data : {};
       if (session && session.kind === 'room' && net.room && from !== net.room.hostId && !mine) return; // only the host starts things
@@ -740,7 +892,13 @@ async function boot() {
     }
     if (!GAME_CHOICES.some((g) => g.id === kind)) return;
     if (kind === 'hitZero') {
-      launchHitZero();
+      // in a room everyone gets the same chart: the seed comes from the start's id
+      let seed;
+      if (typeof data.id === 'string' && data.id) {
+        seed = 0;
+        for (const ch of data.id.slice(0, 16)) seed = (seed * 31 + ch.charCodeAt(0)) % 100000;
+      }
+      launchHitZero({ seed });
       return;
     }
     if (!local && playing()) showHowTo(kind, false);
@@ -770,37 +928,184 @@ async function boot() {
     hud.setGameUI(null);
   }
 
-  async function launchHitZero() {
+  // ---------------------------------------------------------------- Hit Zero, on the stage
+  // The routine runs in RHYTHM's overlay; its scrim lets the island show through, so she performs
+  // every motion on the stage mat behind it (onMove), facing the judges, with the camera out front.
+  const stage = places.stage && Number.isFinite(places.stage.x) && Number.isFinite(places.stage.z) ? places.stage : null;
+  if (stage) {
+    const sy = groundAt(stage.x, stage.z);
+    interact.register({
+      id: 'stage', position: new THREE.Vector3(stage.x, Number.isFinite(sy) ? sy : 0, stage.z), radius: 4.2, label: 'Hit Zero!',
+      icon: 'music', priority: 2, onUse: () => launchHitZero(),
+    });
+  }
+  // performer colours for the overlay's own little figure, from her real look
+  function figureLook() {
+    const opt = (slot) => {
+      try {
+        return charMod.lookOption ? charMod.lookOption(slot, myLook && myLook[slot]) : null;
+      } catch (err) {
+        return null;
+      }
+    };
+    const out = {};
+    for (const [key, slot] of [['skin', 'skin'], ['hair', 'hair'], ['bow', 'bow'], ['top', 'top'], ['shorts', 'bottom'], ['shoes', 'shoes']]) {
+      const o = opt(slot);
+      if (o && typeof o.color === 'string' && /^#[0-9a-f]{6}$/i.test(o.color)) out[key] = o.color;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  // The camera out front, by the judges: it frames her real character exactly where Hit Zero would
+  // draw its performer (hz.performer: above the runway on a phone, beside it on a tablet), so she
+  // dances on the real stage in the gap the overlay leaves for her.
+  const STAGE_FOV = 50;
+  const stageCam = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  // Where she stands on the mat: the middle alone; with friends in a room, a V formation by join
+  // order (the first to join at the point), all facing the judges.
+  const FORMATION = [[0, 0], [1.6, -1.3], [-1.6, -1.3], [3.2, -2.6], [-3.2, -2.6], [0, -2.6], [4.6, -3.9], [-4.6, -3.9], [1.6, -3.9], [-1.6, -3.9]];
+  const stageSpot = { x: 0, z: 0 };
+  function stageSpotFor() {
+    let k = 0;
+    if (session && session.kind === 'room' && net.me) {
+      const humans = [...net.players.values()].filter((p) => p && !p.bot).map((p) => p.id);
+      k = Math.max(0, humans.indexOf(net.me.id)) % FORMATION.length;
+    }
+    const f = Number.isFinite(stage.facing) ? stage.facing : 0;
+    const [ax, az] = FORMATION[k];
+    // local x across the mat (her left), local z toward the judges
+    stageSpot.x = stage.x + Math.cos(f) * ax + Math.sin(f) * az;
+    stageSpot.z = stage.z - Math.sin(f) * ax + Math.cos(f) * az;
+    if (!Number.isFinite(groundAt(stageSpot.x, stageSpot.z))) {
+      stageSpot.x = stage.x;
+      stageSpot.z = stage.z;
+    }
+    return stageSpot;
+  }
+  function stageFrame() {
+    const f = Number.isFinite(stage.facing) ? stage.facing : 0;
+    const sx = stageSpot.x;
+    const sz = stageSpot.z;
+    const y0 = Number.isFinite(groundAt(sx, sz)) ? groundAt(sx, sz) : 0;
+    const W = Math.max(1, window.innerWidth);
+    const H = Math.max(1, window.innerHeight);
+    const K = H / 2 / Math.tan((STAGE_FOV * Math.PI) / 360);
+    let box = null;
+    try {
+      box = currentHz && currentHz.performer;
+    } catch (err) {
+      box = null;
+    }
+    const ok = box && [box.x, box.y, box.size].every(Number.isFinite) && box.size > 20;
+    const px = ok ? box.x : W / 2;
+    const py = ok ? box.y : H * 0.3;
+    const size = ok ? box.size : Math.min(H * 0.16, 130);
+    // far enough that she is as tall on screen as the drawn performer would be (bow included)
+    const dist = clamp((1.55 * K) / Math.max(40, size * 0.95), 3.2, 30);
+    stageCam.pos.set(sx + Math.sin(f) * dist, y0 + 1.4 + dist * 0.05, sz + Math.cos(f) * dist);
+    // aim so her middle lands on the performer's spot: turn and tilt off her by those angles
+    const ax = Math.atan((px - W / 2) / K);
+    const ay = Math.atan((py - size * 0.47 - H / 2) / K);
+    const dx = sx - stageCam.pos.x;
+    const dy = y0 + 0.72 - stageCam.pos.y;
+    const dz = sz - stageCam.pos.z;
+    const yaw = Math.atan2(dx, dz) + ax;
+    const pitch = Math.atan2(dy, Math.hypot(dx, dz)) + ay;
+    stageCam.look.set(stageCam.pos.x + Math.sin(yaw) * Math.cos(pitch), stageCam.pos.y + Math.sin(pitch), stageCam.pos.z + Math.cos(yaw) * Math.cos(pitch));
+    return stageCam;
+  }
+  function stageCamera() {
+    rig.play([{
+      dur: calm ? 0.01 : 1.1,
+      ease: 'inOut',
+      fov: STAGE_FOV,
+      pos: () => stageFrame().pos,
+      look: () => stageCam.look,
+    }, {
+      dur: 1e7,
+      ease: 'linear',
+      cut: true,
+      fov: STAGE_FOV,
+      pos: () => stageFrame().pos,
+      look: () => stageCam.look,
+    }], { skippable: false, handoff: calm ? 0.01 : 0.8 });
+  }
+
+  async function launchHitZero(opts = {}) {
+    if (hitZeroOpen) return;
+    hitZeroOpen = true;
+    // the host started it for everyone: a flyer in the air lands softly on her cloud first
+    if (toss && toss.active) toss.cancel();
     const mod = await optional('./rhythm/index.js');
     if (!mod || typeof mod.createHitZero !== 'function') {
+      hitZeroOpen = false;
       hud.toast('Hit Zero is still warming up backstage!', { icon: 'music', ms: 3000 });
       return;
     }
     await loadCss('css/rhythm.css');
+    hud.closeAll();
+    hud.hideHint();
+    const before = mode === 'overlay' ? 'play' : mode;
+    let release = null;
+    if (stage && before === 'play') {
+      // up onto the mat, facing the judges (behind a quick fade, the camera already out front)
+      await hud.fade(true, 170);
+      const spot = stageSpotFor();
+      player.place(spot.x, spot.z, Number.isFinite(stage.facing) ? stage.facing : 0);
+      release = player.takeControl('hitZero');
+      player.setAnim('clasp');
+      stageShow = true;
+      stageCamera();
+      sfx('whoosh', { volume: 0.5 });
+    }
     const container = el('div', 'c9-overlay c9-rhythm-host');
     document.body.appendChild(container);
-    const before = mode;
     setMode('overlay');
     audio.music(null);
+    if (stageShow) hud.fade(false, 260);
     let done = false;
+    let inst = null;
     const finish = (result) => {
       if (done) return;
       done = true;
       try {
-        if (inst && typeof inst.dispose === 'function') inst.dispose();
+        if (inst && typeof inst.destroy === 'function' && inst.phase !== 'closed') inst.destroy();
       } catch (err) { /* already gone */ }
       container.remove();
-      setMode(before === 'overlay' ? 'play' : before);
+      stageShow = false;
+      hitZeroOpen = false;
+      currentHz = null;
+      if (release) {
+        player.setAnim('idle');
+        release();
+      }
+      setMode(before);
+      if (before === 'play') followCamera();
+      // Hit Zero leaves its victory sting playing: the island's music comes back after it
       if (audio.enabled) audio.music('island');
+      const ctx = { name: myNick, score: result && Number.isFinite(result.score) ? result.score : undefined, misses: result && Number.isFinite(result.misses) ? result.misses : undefined };
       const zero = result && (result.hitZero || result.zero || result.perfect);
       if (zero) {
         fx.burst(player.position.x, player.position.y + 1.6, player.position.z, { count: 60, speed: 7 });
-        hud.big('HIT ZERO!', content.hype('routineZero'), { ms: 2600 });
-      } else if (result) hud.toast(content.hype('routineGood'), { icon: 'music' });
+        if (before === 'play') player.emote('cheer', 2.4);
+        hud.big('HIT ZERO!', content.hype('routineZero', ctx), { ms: 2600 });
+      } else if (result) {
+        if (before === 'play') player.emote('clap', 2);
+        hud.toast(content.hype('routineGood', ctx), { icon: 'music' });
+      }
     };
-    let inst = null;
     try {
-      inst = mod.createHitZero({ audio, container, level: 1, onDone: finish });
+      inst = mod.createHitZero({
+        audio, container, level: opts.level || 1, onDone: finish, look: figureLook(),
+        seed: Number.isFinite(opts.seed) ? opts.seed : undefined,
+        // on the stage her real character is the performer: the overlay leaves her spot empty
+        performer: !stageShow,
+        autoplay: store.flag('autoplay'), // test switch: a perfect bot plays the routine
+        // every motion she hits, her character does on the stage (Contract 3 names)
+        onMove: (name) => {
+          if (stageShow && typeof name === 'string') player.setAnim(name, { restart: true });
+        },
+      });
+      if (!done) currentHz = inst;
     } catch (err) {
       console.error('[c9] Hit Zero failed to start', err);
       finish(null);
@@ -849,14 +1154,14 @@ async function boot() {
         mod.openCreator({
           look: myLook,
           nick: myNick,
+          audio,
+          // options a spirit stick still has to unlock show a lock and the stick's hint
+          locked: lockedLooks(STICKS, foundSticks),
           onDone(look, nick) {
             if (look) applyLook(look);
             if (nick) applyNick(nick);
-            if (session && net.current && typeof net.current.updateMe === 'function') {
-              try {
-                net.current.updateMe({ nick: myNick, look: myLook });
-              } catch (err) { /* friends see it next time */ }
-            }
+            // in a room, everyone sees the new look and name right away (Contract 4)
+            if (session) net.updateMe({ nick: myNick, look: myLook });
             close();
           },
           onCancel: close,
@@ -914,6 +1219,7 @@ async function boot() {
 
   function leaveSession() {
     lobbyUI = null;
+    if (toss && toss.active) toss.cancel();
     if (world.activeGame) onGameEnd();
     if (session) net.leaveRoom();
     session = null;
@@ -922,7 +1228,7 @@ async function boot() {
     refreshPeople();
   }
 
-  async function startSolo() {
+  async function startSolo(opts = {}) {
     leaveSession();
     const n = makeNet('offline');
     net.use(n);
@@ -931,7 +1237,24 @@ async function boot() {
     } catch (err) { /* solo works without a room too */ }
     session = { kind: 'solo' };
     refreshPeople();
+    if (opts.stay && mode !== 'lobby' && mode !== 'menu' && mode !== 'title') return; // keep playing right where she is
     enterWorld();
+  }
+
+  // NET dropped us from the room (the connection or the room went away). Never a dead end: on the
+  // island she keeps playing by herself where she stands; from the lobby, a friendly choice.
+  function roomLost() {
+    if (mode === 'lobby' || mode === 'menu') {
+      leaveSession();
+      menu.message({
+        title: 'Lost the room',
+        lines: ['The connection to your friends dropped.', 'You can play by yourself, or make a new room.'],
+        actions: [{ label: 'Play by myself', icon: 'star', onClick: () => startSolo() }, { label: 'Back', onClick: () => showMenu() }],
+      });
+      return;
+    }
+    hud.toast("Lost the room. You're still on Cloud Nine! Make or join a room from the menu.", { icon: 'sparkle', ms: 5200 });
+    startSolo({ stay: true });
   }
 
   function roomsUnavailable() {
@@ -946,7 +1269,7 @@ async function boot() {
     leaveSession();
     menu.busy('Making your room...');
     const n = makeNet(params.get('net') || 'auto');
-    if (n.kind === 'offline') {
+    if ((n.kind || n.mode) === 'offline') {
       roomsUnavailable();
       return;
     }
@@ -970,7 +1293,7 @@ async function boot() {
       onSubmit: async (code) => {
         leaveSession();
         const n = makeNet(params.get('net') || 'auto');
-        if (n.kind === 'offline') return { ok: false, reason: 'offline' };
+        if ((n.kind || n.mode) === 'offline') return { ok: false, reason: 'offline' };
         net.use(n);
         const res = await withTimeout(n.joinRoom(code, { nick: myNick, look: myLook }), 15000, { ok: false, reason: 'offline' });
         if (!res || !res.ok) {
@@ -1003,6 +1326,26 @@ async function boot() {
     refreshPeople();
   }
 
+  // In a room everyone arrives together: stand in a line beside each other (by join order), not
+  // all on one spot.
+  function arrivalFor() {
+    let k = 0;
+    if (session && session.kind === 'room' && net.me) {
+      const humans = [...net.players.values()].filter((p) => p && !p.bot).map((p) => p.id);
+      k = Math.max(0, humans.indexOf(net.me.id));
+    }
+    if (!k) return arrival;
+    const side = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 1.5;
+    const rx = Math.cos(arrival.facing);
+    const rz = -Math.sin(arrival.facing);
+    for (const s of [side, side * 0.6, 0]) {
+      const x = arrival.x + rx * s;
+      const z = arrival.z + rz * s;
+      if (Number.isFinite(groundAt(x, z)) && !colliders.hits(x, z, 0.5)) return { x, z, facing: arrival.facing };
+    }
+    return arrival;
+  }
+
   let welcomed = false;
   function enterWorld() {
     lobbyUI = null;
@@ -1010,8 +1353,8 @@ async function boot() {
     setMode('play');
     followCamera();
     refreshPeople();
-    const p = places.plaza;
-    player.place(p.x, p.z, p.facing ?? 0);
+    const spot = arrivalFor();
+    player.place(spot.x, spot.z, spot.facing);
     followCamera();
     if (!welcomed) {
       welcomed = true;
@@ -1019,13 +1362,22 @@ async function boot() {
       player.position.y += 7;
       player.velocity.y = -2;
       if (isBirthday) {
-        hud.big('Happy Birthday, ' + BIRTHDAY.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday'), { ms: 3400 });
-        audio.music('birthday');
+        hud.big('Happy Birthday,\n' + BIRTHDAY.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
+        // a burst of birthday sparkle over the cake as she lands
+        const c = places.cake || places.plaza;
+        setTimeout(() => {
+          if (playing()) fx.burst(c.x, (Number.isFinite(groundAt(c.x, c.z)) ? groundAt(c.x, c.z) : 0) + 4, c.z, { count: calm ? 20 : 60, speed: 7 });
+        }, 600);
       } else {
-        hud.big(GAME.title, content.hype('welcome', { nick: myNick }), { ms: 2200 });
+        hud.big(GAME.title, content.hype('welcome', { name: myNick }), { ms: 2200 });
+      }
+      if (familyNotes.length) {
+        setTimeout(() => {
+          if (playing()) hud.toast(familyNotes.length === 1 ? 'Your family left you a note! It is in the menu.' : 'Your family left you notes! They are in the menu.', { icon: 'bow', ms: 5200 });
+        }, isBirthday ? 4200 : 2800);
       }
     }
-    if (audio.enabled && unlocked && !isBirthday) audio.music('island');
+    if (audio.enabled && unlocked) islandMusic();
     const touch = coarsePointer();
     let hinted = false;
     try {
@@ -1052,7 +1404,7 @@ async function boot() {
   function travelSpots() {
     const out = [];
     for (const [key, name, ic] of PLACE_LIST) {
-      let p = places[key];
+      let p = key === 'plaza' ? arrival : places[key];
       if (Array.isArray(p)) p = p[0];
       if (key === 'hideGarden' && p) p = p.seekerStart;
       if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.z)) continue;
@@ -1081,8 +1433,73 @@ async function boot() {
     }
     return out;
   }
+  // Notes from the family (js/content/notes.js): checked by CONTENT's cleanNote, shown in a card
+  // from the menu. Nothing shows until the owner adds some.
+  const familyNotes = (() => {
+    try {
+      if (!FEATURES.familyNotes || typeof content.familyNotes !== 'function') return [];
+      const list = content.familyNotes();
+      return Array.isArray(list) ? list.filter((n) => n && typeof n.text === 'string' && n.text).slice(0, 20) : [];
+    } catch (err) {
+      return [];
+    }
+  })();
+  function showNotes() {
+    if (!familyNotes.length) return;
+    sfx('open', { volume: 0.5 });
+    const box = el('div', 'c9-notes');
+    for (const n of familyNotes) {
+      const item = el('figure', 'c9-note-card');
+      item.appendChild(el('blockquote', 'c9-note-text', n.text));
+      if (n.from) item.appendChild(el('figcaption', 'c9-note-from', 'From ' + n.from));
+      box.appendChild(item);
+    }
+    hud.openCard({
+      icon: 'bow',
+      kicker: 'Notes from your family',
+      title: familyNotes.length === 1 ? 'A note for you!' : familyNotes.length + ' notes for you!',
+      contentEl: box,
+      actions: [{ label: 'Thank you!', icon: 'check', primary: true }],
+    });
+  }
+
+  // The spirit stick card: how many, the next hint, and what the found ones unlocked.
+  function showSticks() {
+    const s = sticksRow();
+    if (!s) return;
+    sfx('open', { volume: 0.5 });
+    const all = s.count >= s.total;
+    const box = el('div', 'c9-sticks');
+    const meter = el('div', 'c9-sticks-meter');
+    for (const st of STICKS) {
+      const got = foundSticks.includes(st.id);
+      const dot = el('span', 'c9-sticks-dot' + (got ? ' c9-got' : ''));
+      dot.title = got ? st.name : 'Not found yet';
+      meter.appendChild(dot);
+    }
+    box.appendChild(meter);
+    const won = STICKS.filter((st) => foundSticks.includes(st.id) && st.unlock && !st.unlock.later).map((st) => st.unlock.label);
+    const lines = [];
+    if (!all && s.hint) lines.push('Next hint: ' + s.hint);
+    if (won.length) lines.push('Unlocked: ' + won.join(', ') + '.');
+    else lines.push('Each stick unlocks something new for your cheerleader!');
+    hud.openCard({
+      icon: 'star',
+      kicker: 'Spirit sticks',
+      title: all ? 'All ' + s.total + ' found!' : s.count + ' of ' + s.total + ' found',
+      lines,
+      contentEl: box,
+      actions: [{ label: 'Keep looking!', icon: 'check', primary: true }, { label: 'My cheerleader', icon: 'bow', onClick: () => openCheerleader(backToPlay) }],
+    });
+  }
+  function backToPlay() {
+    menu.hide();
+    setMode('play');
+    followCamera();
+  }
+
   function openPauseMenu() {
-    if (!playing() || hud.isModalOpen()) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active)) return;
     sfx('open', { volume: 0.5 });
     const inRoom = session && session.kind === 'room';
     hud.openPanel({
@@ -1094,8 +1511,18 @@ async function boot() {
         places: travelSpots(),
         sound: audio.enabled,
         quality: engine.quality,
+        sticks: sticksRow(),
+        notes: familyNotes.length,
         leaveLabel: inRoom ? 'Leave the room' : 'Back to the menu',
         onClose: () => hud.closePanel(),
+        onNotes: () => {
+          hud.closePanel();
+          showNotes();
+        },
+        onSticks: () => {
+          hud.closePanel();
+          showSticks();
+        },
         onTravel: (p) => {
           hud.closePanel();
           player.teleport(p.x, p.z, p.facing).then(() => followCamera());
@@ -1213,8 +1640,40 @@ async function boot() {
     if (height > 2.2) fx.burst(x, y + 0.2, z, { count: Math.min(36, 10 + Math.round(height * 1.6)), speed: 3.5, size: 0.4 });
   });
   player.on('rescue', () => {
-    hud.toast(content.hype('cloudCatch'), { icon: 'sparkle', ms: 3000 });
+    hud.toast(content.hype('cloudCatch', { name: myNick }), { icon: 'sparkle', ms: 3000 });
   });
+
+  // ---------------------------------------------------------------- spirit sticks: touch one to collect it
+  function collectStick(hit) {
+    if (!hit || foundSticks.includes(hit.id)) return;
+    sticks.collect(hit.id);
+    foundSticks = cleanFound([...foundSticks, hit.id]);
+    store.patchProgress({ sticks: foundSticks });
+    const count = foundSticks.length;
+    const total = STICKS.length;
+    const all = count >= total;
+    fx.burst(hit.x, hit.y + 1.1, hit.z, { count: calm ? 24 : 56, speed: 6.5, size: 0.55 });
+    sfx('chime');
+    sfx('sparkle', { volume: 0.8, pitch: 1.2 });
+    if (all) sfx('tada', { volume: 0.8 });
+    player.emote('cheer', 1.6);
+    hud.big('Spirit stick\n' + count + ' of ' + total + '!', content.hype(all ? 'collectAll' : 'collect', { name: myNick, stick: hit.id, count, total }), { ms: 2800 });
+    const u = hit.stick && hit.stick.unlock;
+    if (u && !u.later && typeof u.label === 'string') {
+      setTimeout(() => hud.toast('Unlocked: ' + u.label + '! Try it on in My cheerleader.', { icon: 'bow', ms: 4600 }), 900);
+    }
+  }
+  function sticksRow() {
+    const total = STICKS.length;
+    if (!sticks || !total) return null;
+    let hint = null;
+    try {
+      hint = typeof content.nextHint === 'function' ? content.nextHint(foundSticks) : null;
+    } catch (err) {
+      hint = null;
+    }
+    return { count: foundSticks.length, total, hint };
+  }
   player.on('rescued', ({ x, y, z }) => {
     fx.burst(x, y + 0.6, z, { count: 28, speed: 4 });
     sfx('sparkle', { volume: 0.6 });
@@ -1224,8 +1683,20 @@ async function boot() {
   const listener = { x: 0, z: 0 };
   engine.addSystem({ update: () => input.update() }, 0);
   engine.addSystem(player, 10);
+  // the toss drives the player and aims the camera: after the player's own update, before the rig's (Contract 9)
+  if (toss) engine.addSystem({ update: (dt, t) => toss.update(dt, t) }, 12);
   engine.addSystem({ update: (dt, t) => peers.update(dt, t) }, 14);
   engine.addSystem(interact, 16);
+  if (sticks) {
+    engine.addSystem({
+      update(dt, t) {
+        // only she collects, walking about (not mid-toss, not on the stage, not in a menu)
+        const free = mode === 'play' && !player.controller && !player.rescuing;
+        const hit = sticks.update(dt, t, free ? player.position : null);
+        if (hit) collectStick(hit);
+      },
+    }, 18);
+  }
   engine.addSystem(rig, 40);
   engine.addSystem({
     update(dt, t) {
@@ -1273,13 +1744,18 @@ async function boot() {
     update() {
       listener.x = player.position.x;
       listener.z = player.position.z;
-      audio.setListener(listener.x, listener.z, rig.yaw);
+      camFocus.x = player.position.x;
+      camFocus.y = player.position.y;
+      camFocus.z = player.position.z;
+      // the rig's yaw points from the player back to the camera; the ears face the other way (Contract 6)
+      audio.setListener(listener.x, listener.z, rig.yaw + Math.PI);
     },
   }, 60);
+  const myState = { x: 0, y: 0, z: 0, h: 0, anim: 'idle' };
   engine.addSystem({
     update() {
-      // only from the island: in the lobby or a menu you are not standing anywhere yet
-      if (session && mode === 'play') net.sendState(player.getState());
+      // only from the island (and the Hit Zero stage): in the lobby or a menu you are not standing anywhere yet
+      if (session && (mode === 'play' || stageShow)) net.sendState(player.getState(myState));
     },
   }, 70);
   if (debugOn) {
@@ -1304,6 +1780,7 @@ async function boot() {
 
   Object.defineProperties(world, {
     mode: { get: () => mode, enumerable: true },
+    hitZero: { get: () => currentHz, enumerable: false },
     session: { get: () => session, enumerable: true },
   });
   Object.assign(world, {

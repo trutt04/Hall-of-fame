@@ -12,6 +12,8 @@
 //     seed         chart seed (same seed, same chart: phase 2 squads play one chart together)
 //     onResult(r)  every finished routine            onMove(m)  every motion hit ('highV', 'liberty', ...): for avatar.setAnim(m)
 //     look         performer colours { skin, hair, bow, top, shorts, shoes }
+//     performer    false: no drawn performer (the app shows her real character there instead;
+//                  hz.performer says where, in page pixels: { x, y (her feet), size (her height), side })
 //     practiceBeat the internal metronome's little beat (default: on when there is no audio module)
 //     rate         runs the internal clock fast (tests only)
 //   hz.el, hz.phase    'ready' | 'starting' | 'play' | 'finale' | 'judges' | 'calib' | 'closed'
@@ -131,6 +133,7 @@ export function createHitZero(opts = {}) {
   const seed = Number.isFinite(Number(opts.seed)) ? Number(opts.seed) : 11;
   const rate = Number(opts.rate) > 0 && Number(opts.rate) <= 16 ? Number(opts.rate) : 1;
   const look = opts.look && typeof opts.look === 'object' ? opts.look : undefined;
+  const showPerformer = opts.performer !== false;
   const calm = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
   const finePointer = !!(window.matchMedia && window.matchMedia('(pointer: fine)').matches);
   // the pixel budget from config: phones and tablets draw at 1.5x at most
@@ -961,7 +964,7 @@ export function createHitZero(opts = {}) {
         song, songBeat, spb: chart ? chart.spb : 60 / 144, approach: level.approach,
         notes: active ? run.notes : null, first: firstDraw, glow, motions, flip,
         fullOut: active ? run.fullOut : false, combo: active ? run.combo : 0,
-        figure, t, dt, keys: keyHints, look,
+        figure: showPerformer ? figure : null, t, dt, keys: keyHints, look,
         // she bobs on every beat
         bob: calm ? 0 : -Math.abs(Math.sin(Math.PI * (songBeat - Math.floor(songBeat)))) * field.layout.perf.size * 0.025,
       });
@@ -1070,6 +1073,11 @@ export function createHitZero(opts = {}) {
     close,
     destroy: teardown,
     get phase() { return phase; },
+    // where the performer stands (page pixels): her feet at x, y and her height
+    get performer() {
+      const P = field.layout && field.layout.perf;
+      return P ? { x: P.x + rootLeft, y: P.y + rootTop, size: P.size, side: !!P.side } : null;
+    },
     // tests: the chart being played, song time now, and where each lane's tap zone is
     get _test() {
       return {
