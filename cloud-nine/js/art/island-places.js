@@ -494,20 +494,42 @@ function drawBooth(batch, b) {
     const x = -1.05 + i * 0.3;
     g.tri([x - 0.15, 2.32, 1.27], [x, 2.12, 1.27], [x + 0.15, 2.32, 1.27], i % 2 ? K.white : K.pink);
   }
-  // sign board with chaser bulbs
-  g.box(0, 3.0, 0.2, 2.2, 0.7, 0.14, K.black, { bottom: true });
-  g.text('PHOTO', 0, 3.12, 0.28, 0.07, K.white);
-  // camera on top
-  g.box(0, 3.08, -0.3, 0.9, 0.55, 0.5, K.white, { top: K.rSilver });
-  g.cyl(0, 3.35, -0.05, 0.18, 0.1, K.black, { seg: 8, rx: Math.PI / 2 });
+  // The marquee on the roof: PHOTO BOOTH on all four sides with chaser bulbs, so it reads as a
+  // booth from anywhere on the plaza (she arrives looking at its side), and a big camera with a
+  // bow on top, turned toward the plaza.
+  const MY = 2.95; // the marquee's bottom, sitting on the roof
+  const MH = 1.45;
+  const MW = 2.0;
+  const FACE = MW / 2 + 0.012;
+  g.box(0, MY, 0, MW, MH, MW, K.black, { bottom: true });
+  g.box(0, MY + MH - 0.08, 0, MW + 0.12, 0.12, MW + 0.12, K.pink, { top: K.pinkSoft });
+  for (let s = 0; s < 4; s++) {
+    g.rotY(Math.PI / 2);
+    g.text('PHOTO', 0, MY + 0.72, FACE, 0.085, K.white);
+    g.text('BOOTH', 0, MY + 0.2, FACE, 0.085, 0xff8cc6);
+  }
+  // the camera, lens toward the front-left corner (the plaza and where she arrives)
+  g.at(0, MY + MH, 0, -Math.PI / 4);
+  g.box(0, 0, 0, 1.0, 0.62, 0.62, K.white, { top: K.pinkPale, side: 0xf1e7f6 });
+  g.box(-0.22, 0.62, -0.02, 0.34, 0.15, 0.3, K.black);
+  g.cyl(0, 0.31, 0.31, 0.25, 0.16, K.black, { seg: 10, rx: Math.PI / 2 });
+  g.box(0.33, 0.62, 0.08, 0.2, 0.09, 0.2, K.rSilver);
+  bow(g, 0.12, 0.66, 0.05, 0.3, { color: K.pink, star: K.black, detail: 'lo' });
+  g.restore();
   g.restore();
   glow.at(b.x, 0, b.z, b.facing);
-  for (let i = 0; i < 9; i++) {
-    const x = -1.0 + i * 0.25;
-    glow.sphere(x, 3.42, 0.28, 0.05, i % 2 ? 0xfff2b0 : 0xffb0dc, { seg: 4, rings: 2 });
-    glow.sphere(x, 2.78, 0.28, 0.05, i % 2 ? 0xffb0dc : 0xfff2b0, { seg: 4, rings: 2 });
+  for (let s = 0; s < 4; s++) {
+    glow.rotY(Math.PI / 2);
+    for (let i = 0; i < 7; i++) {
+      const x = -0.84 + i * 0.28;
+      glow.sphere(x, MY + MH - 0.16, FACE + 0.02, 0.05, i % 2 ? 0xfff2b0 : 0xffb0dc, { seg: 4, rings: 2 });
+      glow.sphere(x, MY + 0.09, FACE + 0.02, 0.05, i % 2 ? 0xffb0dc : 0xfff2b0, { seg: 4, rings: 2 });
+    }
   }
-  glow.cyl(0, 3.35, 0.06, 0.1, 0.04, 0x9fd8ff, { seg: 8, rx: Math.PI / 2 });
+  glow.at(0, MY + MH, 0, -Math.PI / 4);
+  glow.cyl(0, 0.31, 0.47, 0.16, 0.03, 0x9fd8ff, { seg: 10, rx: Math.PI / 2 });
+  glow.box(0.33, 0.71, 0.08, 0.14, 0.04, 0.14, 0xfff6c8);
+  glow.restore();
   glow.restore();
 }
 
