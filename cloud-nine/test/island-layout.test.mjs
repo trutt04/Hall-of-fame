@@ -268,14 +268,19 @@ test('the plan is deterministic', () => {
 });
 
 test('groundAt is fast', () => {
+  // The best of three runs, so a busy machine (other test runs, a browser) doesn't fail it; a real
+  // slowdown still shows in all three.
   let acc = 0;
   const n = 200000;
-  const t0 = performance.now();
-  for (let i = 0; i < n; i++) {
-    const y = groundAt(Math.sin(i * 0.37) * 110, Math.cos(i * 0.73) * 110);
-    if (y > -1e9) acc += y;
+  let ns = Infinity;
+  for (let run = 0; run < 3; run++) {
+    const t0 = performance.now();
+    for (let i = 0; i < n; i++) {
+      const y = groundAt(Math.sin(i * 0.37) * 110, Math.cos(i * 0.73) * 110);
+      if (y > -1e9) acc += y;
+    }
+    ns = Math.min(ns, ((performance.now() - t0) * 1e6) / n);
   }
-  const ns = ((performance.now() - t0) * 1e6) / n;
   assert.ok(Number.isFinite(acc));
   assert.ok(ns < 2000, 'groundAt took ' + ns.toFixed(0) + ' ns per call');
 });
