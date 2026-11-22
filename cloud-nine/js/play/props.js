@@ -1,18 +1,20 @@
-// The game props (PLAY): sparkly dodgeballs and the two giant bows of Capture the Bow (the island
-// already paints the bases). Everything is built once and pooled: all the balls are one
-// InstancedMesh (plus one for their shadows and one Points for their glints), each bow is one
-// merged mesh that moves between its base, a carrier's back (character anchors.back) and the grass
-// where it was dropped, and floats home on its own.
+// The game props (PLAY): sparkly dodgeballs, the two giant bows of Capture the Bow (the island
+// already paints the bases), and, for a hider during the hide phase, little sparkles over the
+// hide spots near her (one Points object for every spot). Everything is built once and pooled:
+// all the balls are one InstancedMesh (plus one for their shadows and one Points for their
+// glints), each bow is one merged mesh that moves between its base, a carrier's back (character
+// anchors.back) and the grass where it was dropped, and floats home on its own.
 //
 //   const props = createProps(world)
 //   props.begin(kind, game)        show what this game needs (built the first time it is needed)
-//   props.update(dt, t, frame)     frame = { game, now, charOf(id) -> character | null, posOf(id) -> { x, z } | null }
+//   props.update(dt, t, frame)     frame = { game, now, me, charOf(id) -> character | null, posOf(id) -> { x, z } | null }
 //   props.end()                    hide everything and give the bows back to the props root
 //   props.dispose()
-//   props.stats                    { balls, bows } what is on screen (tests)
+//   props.stats                    { balls, bows, spots } what is on screen (tests)
 //
 // Draw calls while a game is on: dodgeball 3 (balls, shadows, glints), Capture the Bow 2 (the two
-// bows). No allocation per frame: positions go through scratch vectors.
+// bows), hide and seek 1 while she hides (the spot sparkles). No allocation per frame: positions go
+// through scratch vectors.
 
 import * as THREE from '../../lib/three.module.min.js';
 import { PALETTE } from '../config.js';
@@ -23,6 +25,8 @@ import { bow as drawBow, K } from '../art/island-kit.js';
 import { ballPos, BALL } from '../games/index.js';
 
 const MAX_BALLS = 8;
+const MAX_SPOTS = 64;
+const SPOT_FAR = 18; // m: hide spots further away than this get no sparkle
 const TRAIL = [PALETTE.rhinestonePink, PALETTE.rhinestoneSilver, PALETTE.rhinestonePurple, PALETTE.white];
 
 function glintTexture() {
@@ -48,6 +52,38 @@ function glintTexture() {
     ctx.closePath();
     ctx.fill();
   }
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
+}
+
+// A hide-spot sparkle: a four-point star, white in the middle, gold to hot pink, with an ink
+// outline so it reads on the pale grass and the pastel sky.
+function spotTexture() {
+  const S = 64;
+  const c = document.createElement('canvas');
+  c.width = S;
+  c.height = S;
+  const ctx = c.getContext('2d');
+  const star = (r, k) => {
+    ctx.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = -Math.PI / 2 + (i * Math.PI) / 4;
+      const rr = i % 2 ? r * k : r;
+      ctx.lineTo(S / 2 + Math.cos(a) * rr, S / 2 + Math.sin(a) * rr);
+    }
+    ctx.closePath();
+  };
+  star(29, 0.34);
+  ctx.fillStyle = '#17121c';
+  ctx.fill();
+  star(25, 0.3);
+  const g = ctx.createRadialGradient(S / 2, S / 2, 0, S / 2, S / 2, 25);
+  g.addColorStop(0, '#fff8fc');
+  g.addColorStop(0.35, '#ffd36e');
+  g.addColorStop(1, '#ff2e93');
+  ctx.fillStyle = g;
+  ctx.fill();
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   return tex;
@@ -101,9 +137,11 @@ export function createProps(world) {
   const tmpS = new THREE.Vector3();
   const tmpM = new THREE.Matrix4();
   const tmpE = new THREE.Euler();
-  const stats = { balls: 0, bows: 0 };
+  const stats = { balls: 0, bows: 0, spots: 0 };
   let kind = null;
   let courtY = 0;
+  let glint = null; // one glint texture for the balls and the hide spots
+  const glintTex = () => glint || (glint = glintTexture());
 
   // ---------------------------------------------------------------- dodgeballs
   let balls = null;
@@ -121,7 +159,7 @@ export function createProps(world) {
     const ggeo = new THREE.BufferGeometry();
     ggeo.setAttribute('position', new THREE.BufferAttribute(gpos, 3).setUsage(THREE.DynamicDrawUsage));
     ggeo.setDrawRange(0, 0);
-    const gmat = new THREE.PointsMaterial({ size: 0.75, map: glintTexture(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, fog: false });
+    const gmat = new THREE.PointsMaterial({ size: 0.75, map: glintTex(), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, color: 0xffffff, fog: false });
     const glints = new THREE.Points(ggeo, gmat);
     glints.name = 'play-ball-glints';
     glints.frustumCulled = false;
@@ -313,6 +351,73 @@ export function createProps(world) {
     stats.bows = shown;
   }
 
+  // ---------------------------------------------------------------- hide spot sparkles
+  // While she hides, a little pink-and-gold star bobs over each hide spot near her ("hide here!").
+  // One Points object for every spot (alpha-blended with an ink outline, so it reads on the pale
+  // grass); the near ones are packed into the draw range each frame. Seekers never see them, and
+  // they go the moment seeking starts.
+  let spots = null;
+  function buildSpots(game) {
+    const list = Array.isArray(game.arena.spots) ? game.arena.spots.slice(0, MAX_SPOTS) : [];
+    const n = list.length;
+    const pos = new Float32Array(Math.max(1, n) * 3);
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3).setUsage(THREE.DynamicDrawUsage));
+    geo.setDrawRange(0, 0);
+    const mat = new THREE.PointsMaterial({ size: 1.9, map: spotTexture(), transparent: true, depthWrite: false, alphaTest: 0.02, fog: false });
+    const pts = new THREE.Points(geo, mat);
+    pts.name = 'play-hide-spots';
+    pts.frustumCulled = false;
+    pts.renderOrder = 4;
+    pts.visible = false;
+    root.add(pts);
+    const ys = new Float32Array(Math.max(1, n));
+    const phase = new Float32Array(Math.max(1, n));
+    for (let i = 0; i < n; i++) {
+      ys[i] = groundAt(list[i].x, list[i].z) + 1.7; // just over the hedge tops
+      phase[i] = Math.random() * Math.PI * 2;
+    }
+    spots = { pts, geo, mat, pos, list, n, ys, phase, key: list.map((s) => s.id).join('|') };
+  }
+
+  function updateSpots(dt, t, frame) {
+    const st = frame.game.state;
+    const me = frame.me;
+    const p = me && st.players && Object.prototype.hasOwnProperty.call(st.players, me) ? st.players[me] : null;
+    const on = st.phase === 'hide' && !!p && p.role === 'hider';
+    spots.pts.visible = on;
+    if (!on) {
+      stats.spots = 0;
+      return;
+    }
+    const at = frame.posOf(me);
+    const calm = isReducedMotion();
+    const pos = spots.pos;
+    let k = 0;
+    for (let i = 0; i < spots.n; i++) {
+      const s = spots.list[i];
+      const d = at ? Math.hypot(s.x - at.x, s.z - at.z) : 0;
+      if (d > SPOT_FAR || d < s.r + 0.3) continue; // far away, or the one she's tucked into
+      pos[k * 3] = s.x;
+      pos[k * 3 + 1] = spots.ys[i] + (calm ? 0 : Math.sin(t * 2.6 + spots.phase[i]) * 0.14);
+      pos[k * 3 + 2] = s.z;
+      k++;
+    }
+    spots.geo.setDrawRange(0, k);
+    spots.geo.attributes.position.needsUpdate = true;
+    spots.mat.size = calm ? 1.9 : 1.75 + 0.25 * Math.sin(t * 3.4);
+    stats.spots = k;
+  }
+
+  function disposeSpots() {
+    if (!spots) return;
+    spots.pts.removeFromParent();
+    spots.geo.dispose();
+    spots.mat.map.dispose();
+    spots.mat.dispose();
+    spots = null;
+  }
+
   // ---------------------------------------------------------------- the API
   return {
     begin(k, game) {
@@ -323,6 +428,11 @@ export function createProps(world) {
         courtY = groundAt(f.x, f.z);
         if (!balls) buildBalls();
         balls.mesh.visible = balls.shadows.visible = balls.glints.visible = true;
+      } else if (k === 'hideSeek') {
+        const key = Array.isArray(game.arena.spots) ? game.arena.spots.slice(0, MAX_SPOTS).map((s) => s.id).join('|') : '';
+        if (spots && spots.key !== key) disposeSpots();
+        if (!spots) buildSpots(game);
+        spots.pts.visible = false;
       } else if (k === 'captureBow') {
         if (!bows) buildBows(game);
         for (const bw of bows.list) {
@@ -339,6 +449,7 @@ export function createProps(world) {
       try {
         if (kind === 'dodgeball' && balls) updateBalls(dt, t, frame);
         else if (kind === 'captureBow' && bows) updateBows(dt, t, frame);
+        else if (kind === 'hideSeek' && spots) updateSpots(dt, t, frame);
       } catch (err) {
         if (!this.failed) console.warn('[c9 play] props update failed', err);
         this.failed = true;
@@ -358,16 +469,20 @@ export function createProps(world) {
           bw.mesh.visible = false;
         }
       }
+      if (spots) spots.pts.visible = false;
       stats.balls = 0;
       stats.bows = 0;
+      stats.spots = 0;
     },
     dispose() {
       this.end();
       root.removeFromParent();
+      disposeSpots();
+      if (glint) glint.dispose();
+      glint = null;
       if (balls) {
         balls.mesh.geometry.dispose();
         balls.ggeo.dispose();
-        balls.gmat.map.dispose();
         balls.gmat.dispose();
         balls.mesh.dispose();
         balls.shadows.dispose();
