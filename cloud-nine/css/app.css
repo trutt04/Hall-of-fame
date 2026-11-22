@@ -143,23 +143,47 @@ button{font-family:inherit;color:inherit}
 }
 @media (max-width:559px){.c9-gaming .c9-room{display:none}}
 .c9-game-head{display:flex;align-items:center;justify-content:center;gap:10px;width:100%}
-.c9-game-title{font-weight:900;font-size:14px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c9-game-title{font-weight:900;font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c9-game-timer{font-weight:900;font-size:26px;line-height:1;font-variant-numeric:tabular-nums;color:var(--black);padding:2px 10px;background:var(--pink-pale);border-radius:12px}
 .c9-game-timer.c9-urgent{background:var(--pink);color:var(--white);animation:c9-tick 1s steps(2) infinite}
-.c9-game-role{--role:var(--pink);font-weight:900;font-size:15px;letter-spacing:.12em;text-transform:uppercase;color:var(--white);background:var(--role);
-  padding:3px 14px;border-radius:999px;border:2.5px solid var(--black)}
-.c9-game-line{font-weight:700;font-size:15px;text-align:center;line-height:1.25;color:var(--ink)}
+.c9-game-more{display:none}
+.c9-game-role{--role:var(--pink);font-weight:900;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--white);background:var(--role);
+  padding:3px 14px;border-radius:999px;border:2.5px solid var(--black);text-shadow:0 1px 0 rgba(23,18,28,.45)}
+.c9-game-role.c9-light{color:var(--ink);text-shadow:none}
+.c9-game-line{font-weight:700;font-size:16px;text-align:center;line-height:1.25;color:var(--ink)}
 .c9-game-board{list-style:none;margin:2px 0 0;padding:0;display:flex;flex-wrap:wrap;justify-content:center;gap:4px 6px}
-.c9-score{--team:var(--lilac);display:inline-flex;align-items:center;gap:6px;padding:2px 4px 2px 10px;font-weight:800;font-size:14px;background:var(--white);
+.c9-score{--team:var(--lilac);display:inline-flex;align-items:center;gap:6px;padding:2px 4px 2px 10px;font-weight:800;font-size:16px;background:var(--white);
   border:2px solid var(--black);border-left:7px solid var(--team);border-radius:999px}
 .c9-score.c9-me{background:var(--pink-pale)}
 .c9-score-name{max-width:110px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c9-score-value{min-width:24px;padding:0 6px;font-weight:900;text-align:center;color:var(--white);background:var(--black);border-radius:999px;font-variant-numeric:tabular-nums}
+/* phones, upright or on their side: a slim bar with the game, the timer and the role. The tip and the
+   scoreboard fold away (they peek for a few seconds when they change, and the arrow opens them), and
+   the game layer's Leave button sits small beside the role. */
+@media (max-width:559px),(max-height:500px){
+  .c9-game{flex-direction:row;flex-wrap:wrap;align-items:center;justify-content:flex-start;gap:5px 8px;padding:5px 6px 6px 12px;border-radius:18px}
+  .c9-game-head{order:1;flex:1 1 100%;gap:8px;justify-content:flex-start}
+  .c9-game-title{flex:1 1 auto;min-width:0;letter-spacing:.04em}
+  .c9-game-timer{font-size:22px;padding:2px 8px}
+  .c9-game-more{display:grid;place-items:center;flex:0 0 auto;width:44px;height:40px;padding:0;color:var(--ink);background:var(--white);border:2.5px solid var(--black);
+    border-radius:999px;box-shadow:0 2px 0 var(--black)}
+  .c9-game-more[hidden]{display:none}
+  .c9-game-more .c9-icon{width:22px;height:22px;stroke-width:3;transition:transform .2s}
+  .c9-game-open .c9-game-more .c9-icon{transform:rotate(180deg)}
+  .c9-game-role{order:2;flex:0 1 auto;min-width:0;padding:3px 12px;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .c9-game > .c9p-bar{order:3;flex:1 1 auto;width:auto;margin:0;justify-content:flex-end;gap:6px}
+  .c9-game .c9p-btn{min-height:44px;padding:3px 12px 3px 9px;box-shadow:0 3px 0 var(--black)}
+  .c9-game-line{order:4;flex:1 1 100%;text-align:left}
+  .c9-game-board{order:5;flex:1 1 100%;justify-content:flex-start}
+  .c9-game:not(.c9-game-open):not(.c9-game-peek) .c9-game-line,
+  .c9-game:not(.c9-game-open):not(.c9-game-peek) .c9-game-board{display:none}
+}
 
 /* ---------- the big centre splash ---------- */
 .c9-big{--accent:var(--pink);position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;pointer-events:none;text-align:center}
 .c9-big-text{position:relative;font-weight:900;font-size:clamp(46px,14vw,112px);line-height:.95;letter-spacing:-.01em;color:var(--white);
   -webkit-text-stroke:.09em var(--black);paint-order:stroke fill;text-shadow:.06em .07em 0 var(--accent),.06em .07em 0 var(--accent);overflow-wrap:anywhere;max-width:92vw;white-space:pre-line}
+.c9-big-short .c9-big-text{font-size:clamp(110px,min(42vw,48vh),260px);-webkit-text-stroke:.07em var(--black);text-shadow:.05em .06em 0 var(--accent)}
 .c9-big-sub{max-width:min(560px,88vw);font-weight:800;font-size:clamp(17px,4.8vw,24px);line-height:1.2;color:var(--white);background:var(--black);padding:8px 18px;border-radius:999px;
   box-shadow:0 0 0 3px var(--accent)}
 .c9-big-stars{position:absolute;left:50%;top:50%;width:0;height:0}

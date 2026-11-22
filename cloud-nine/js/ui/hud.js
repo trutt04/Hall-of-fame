@@ -32,6 +32,19 @@ import { normalizeGameUI } from './gameui.js';
 
 const ICON_NAMES = new Set(['menu', 'sound', 'mute', 'games', 'emote', 'jump', 'close', 'back', 'people', 'dice', 'play', 'plus', 'key', 'home', 'star', 'check', 'hand', 'bow', 'map', 'door', 'sparkle', 'robot', 'crown', 'eyes', 'snow', 'ball', 'music', 'flag']);
 
+// True for a pale '#rrggbb' (relative luminance over ~0.4), where white text would not read.
+export function isLightColor(c) {
+  const m = typeof c === 'string' && /^#([0-9a-f]{6})$/i.exec(c);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const lin = (v) => {
+    v /= 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return lum > 0.4;
+}
+
 function iconOrText(v, className) {
   if (typeof v !== 'string' || !v) return null;
   if (ICON_NAMES.has(v)) return icon(v, className === 'c9-icon' ? 'c9-icon' : 'c9-icon ' + className);
@@ -121,13 +134,48 @@ export function createHud(root, opts = {}) {
   const gameHead = el('div', 'c9-game-head');
   const gameTitle = el('span', 'c9-game-title', '');
   const gameTimer = el('span', 'c9-game-timer', '');
-  gameHead.append(gameTitle, gameTimer);
+  // Phones fold the tip and the scoreboard away (CSS): they peek for a few seconds whenever they
+  // change, and this button opens them for good. Wide screens always show them and hide the button.
+  const gameMore = el('button', 'c9-game-more');
+  gameMore.type = 'button';
+  gameMore.setAttribute('aria-label', 'Show the scores and tips');
+  gameMore.setAttribute('aria-expanded', 'false');
+  gameMore.appendChild(icon('chevron'));
+  gameHead.append(gameTitle, gameTimer, gameMore);
   const gameRole = el('div', 'c9-game-role', '');
   const gameLine = el('div', 'c9-game-line', '');
+  gameLine.id = 'c9-game-line';
   const gameBoard = el('ol', 'c9-game-board');
+  gameBoard.id = 'c9-game-board';
+  gameMore.setAttribute('aria-controls', 'c9-game-line c9-game-board');
   game.append(gameHead, gameRole, gameLine, gameBoard);
   left.prepend(game); // narrow screens: it stacks above the chips; wide screens: CSS centres it
   let lastBig = '';
+  let gameOpen = false;
+  let peekKey = '';
+  let peekTimer = 0;
+  function setGameOpen(open) {
+    gameOpen = !!open;
+    game.classList.toggle('c9-game-open', gameOpen);
+    gameMore.setAttribute('aria-expanded', gameOpen ? 'true' : 'false');
+    gameMore.setAttribute('aria-label', gameOpen ? 'Hide the scores and tips' : 'Show the scores and tips');
+  }
+  function peekGame() {
+    clearTimeout(peekTimer);
+    game.classList.add('c9-game-peek');
+    peekTimer = setTimeout(() => {
+      game.classList.remove('c9-game-peek');
+      layoutToasts();
+    }, 4000);
+  }
+  onTap(gameMore, () => {
+    setGameOpen(!gameOpen);
+    if (!gameOpen) {
+      clearTimeout(peekTimer);
+      game.classList.remove('c9-game-peek');
+    }
+    layoutToasts();
+  });
 
   const bigEl = el('div', 'c9-big');
   bigEl.hidden = true;
@@ -477,6 +525,10 @@ export function createHud(root, opts = {}) {
       if (!game.hidden) {
         game.hidden = true;
         root.classList.remove('c9-gaming');
+        setGameOpen(false);
+        clearTimeout(peekTimer);
+        game.classList.remove('c9-game-peek');
+        peekKey = '';
         layoutToasts();
       }
       lastBig = '';
@@ -484,6 +536,14 @@ export function createHud(root, opts = {}) {
     }
     game.hidden = false;
     root.classList.add('c9-gaming');
+    // The folded details peek when they really change: a new tip or a new score, not a line whose
+    // only change is a ticking number ("Back in 5").
+    const detailKey = ui.line.replace(/\d+/g, '#') + '|' + JSON.stringify(ui.scoreboard);
+    if (detailKey !== peekKey) {
+      peekKey = detailKey;
+      if (ui.line || ui.scoreboard.length) peekGame();
+    }
+    gameMore.hidden = !(ui.line || ui.scoreboard.length);
     gameTitle.textContent = ui.title;
     gameTitle.hidden = !ui.title;
     gameTimer.textContent = ui.timer ? ui.timer.text : '';
@@ -492,6 +552,8 @@ export function createHud(root, opts = {}) {
     gameRole.textContent = ui.role ? ui.role.text : '';
     gameRole.hidden = !ui.role;
     gameRole.style.setProperty('--role', (ui.role && ui.role.color) || '');
+    // white words on a pale badge (lilac, mint, lemon) are hard to read: those get ink instead
+    gameRole.classList.toggle('c9-light', !!(ui.role && isLightColor(ui.role.color)));
     gameLine.textContent = ui.line;
     gameLine.hidden = !ui.line;
     // only rebuild the scoreboard when it changed
@@ -521,6 +583,8 @@ export function createHud(root, opts = {}) {
     }
     clearTimeout(bigTimer);
     bigText.textContent = String(text || '').slice(0, 40);
+    // a count ("3", "GO!") is the whole splash: it gets the giant size
+    bigEl.classList.toggle('c9-big-short', Array.from(bigText.textContent.trim()).length <= 3);
     bigSub.textContent = sub ? String(sub).slice(0, 90) : '';
     bigSub.hidden = !sub;
     bigEl.style.setProperty('--accent', cssColor(o.color) || '');
