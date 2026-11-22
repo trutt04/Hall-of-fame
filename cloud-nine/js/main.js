@@ -1043,6 +1043,8 @@ async function boot() {
       return;
     }
     await loadCss('css/rhythm.css');
+    // a friend still dressing up when the host starts Hit Zero: the creator closes first (as Cancel)
+    if (cheerClose) cheerClose();
     hud.closeAll();
     hud.hideHint();
     const before = mode === 'overlay' ? 'play' : mode;
@@ -1141,6 +1143,7 @@ async function boot() {
   // One creator at a time: a double tap on "My cheerleader" must not stack two (each with its own
   // renderer). And if she moved on while it loaded (tapped "Play by myself"), it does not open.
   let cheerOpening = false;
+  let cheerClose = null; // shuts an open creator, like Cancel (the host started Hit Zero for everyone)
   async function openCheerleader(back) {
     if (cheerOpening) return;
     cheerOpening = true;
@@ -1160,10 +1163,11 @@ async function boot() {
         if (closed) return;
         closed = true;
         cheerOpening = false;
+        cheerClose = null;
         back();
       };
       try {
-        mod.openCreator({
+        const handle = mod.openCreator({
           look: myLook,
           nick: myNick,
           audio,
@@ -1178,6 +1182,14 @@ async function boot() {
           },
           onCancel: close,
         });
+        cheerClose = () => {
+          try {
+            if (handle && typeof handle.close === 'function') handle.close();
+          } catch (err) {
+            /* already closing */
+          }
+          close();
+        };
       } catch (err) {
         console.error('[c9] the creator failed to open', err);
         setMode(before);
