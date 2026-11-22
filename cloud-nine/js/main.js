@@ -960,9 +960,32 @@ async function boot() {
   // dances on the real stage in the gap the overlay leaves for her.
   const STAGE_FOV = 50;
   const stageCam = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  // Where she stands on the mat: the middle alone; with friends in a room, a V formation by join
+  // order (the first to join at the point), all facing the judges.
+  const FORMATION = [[0, 0], [1.6, -1.3], [-1.6, -1.3], [3.2, -2.6], [-3.2, -2.6], [0, -2.6], [4.6, -3.9], [-4.6, -3.9], [1.6, -3.9], [-1.6, -3.9]];
+  const stageSpot = { x: 0, z: 0 };
+  function stageSpotFor() {
+    let k = 0;
+    if (session && session.kind === 'room' && net.me) {
+      const humans = [...net.players.values()].filter((p) => p && !p.bot).map((p) => p.id);
+      k = Math.max(0, humans.indexOf(net.me.id)) % FORMATION.length;
+    }
+    const f = Number.isFinite(stage.facing) ? stage.facing : 0;
+    const [ax, az] = FORMATION[k];
+    // local x across the mat (her left), local z toward the judges
+    stageSpot.x = stage.x + Math.cos(f) * ax + Math.sin(f) * az;
+    stageSpot.z = stage.z - Math.sin(f) * ax + Math.cos(f) * az;
+    if (!Number.isFinite(groundAt(stageSpot.x, stageSpot.z))) {
+      stageSpot.x = stage.x;
+      stageSpot.z = stage.z;
+    }
+    return stageSpot;
+  }
   function stageFrame() {
     const f = Number.isFinite(stage.facing) ? stage.facing : 0;
-    const y0 = Number.isFinite(groundAt(stage.x, stage.z)) ? groundAt(stage.x, stage.z) : 0;
+    const sx = stageSpot.x;
+    const sz = stageSpot.z;
+    const y0 = Number.isFinite(groundAt(sx, sz)) ? groundAt(sx, sz) : 0;
     const W = Math.max(1, window.innerWidth);
     const H = Math.max(1, window.innerHeight);
     const K = H / 2 / Math.tan((STAGE_FOV * Math.PI) / 360);
@@ -978,13 +1001,13 @@ async function boot() {
     const size = ok ? box.size : Math.min(H * 0.16, 130);
     // far enough that she is as tall on screen as the drawn performer would be (bow included)
     const dist = clamp((1.55 * K) / Math.max(40, size * 0.95), 3.2, 30);
-    stageCam.pos.set(stage.x + Math.sin(f) * dist, y0 + 1.4 + dist * 0.05, stage.z + Math.cos(f) * dist);
+    stageCam.pos.set(sx + Math.sin(f) * dist, y0 + 1.4 + dist * 0.05, sz + Math.cos(f) * dist);
     // aim so her middle lands on the performer's spot: turn and tilt off her by those angles
     const ax = Math.atan((px - W / 2) / K);
     const ay = Math.atan((py - size * 0.47 - H / 2) / K);
-    const dx = stage.x - stageCam.pos.x;
+    const dx = sx - stageCam.pos.x;
     const dy = y0 + 0.72 - stageCam.pos.y;
-    const dz = stage.z - stageCam.pos.z;
+    const dz = sz - stageCam.pos.z;
     const yaw = Math.atan2(dx, dz) + ax;
     const pitch = Math.atan2(dy, Math.hypot(dx, dz)) + ay;
     stageCam.look.set(stageCam.pos.x + Math.sin(yaw) * Math.cos(pitch), stageCam.pos.y + Math.sin(pitch), stageCam.pos.z + Math.cos(yaw) * Math.cos(pitch));
@@ -1008,8 +1031,10 @@ async function boot() {
   }
 
   async function launchHitZero(opts = {}) {
-    if (hitZeroOpen || (toss && toss.active)) return;
+    if (hitZeroOpen) return;
     hitZeroOpen = true;
+    // the host started it for everyone: a flyer in the air lands softly on her cloud first
+    if (toss && toss.active) toss.cancel();
     const mod = await optional('./rhythm/index.js');
     if (!mod || typeof mod.createHitZero !== 'function') {
       hitZeroOpen = false;
@@ -1024,7 +1049,8 @@ async function boot() {
     if (stage && before === 'play') {
       // up onto the mat, facing the judges (behind a quick fade, the camera already out front)
       await hud.fade(true, 170);
-      player.place(stage.x, stage.z, Number.isFinite(stage.facing) ? stage.facing : 0);
+      const spot = stageSpotFor();
+      player.place(spot.x, spot.z, Number.isFinite(stage.facing) ? stage.facing : 0);
       release = player.takeControl('hitZero');
       player.setAnim('clasp');
       stageShow = true;
