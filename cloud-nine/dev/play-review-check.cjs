@@ -267,7 +267,7 @@ async function hostLeaves(browser) {
   const btn = nh.page.locator('.c9p-btn-go:not([hidden])').first();
   const visible = await btn.isVisible().catch(() => false);
   check(visible, 'Play again! is on the new host\'s screen');
-  if (visible) await btn.click();
+  if (visible) await btn.click({ force: true }); // it bobs forever (the nudge), so never 'stable'
   const again = await other.until(async () => (await other.info())?.phase === 'countdown', 8000, 'countdown everywhere');
   check(!!again, 'Play again! starts the next round on every device');
   await nh.page.locator('.c9p-btn-leave').click();
@@ -286,9 +286,11 @@ async function perf(browser) {
   const ctx = await phone(browser);
   const t = await openPage(ctx, '?solo=1&bots=9&noaudio=1');
   await t.page.waitForTimeout(2500);
-  const mem0 = await t.ev(() => ({ ...window.__c9.renderer.info.memory }));
+  // two rounds of the three games: the first builds the pooled props and uploads the court, the
+  // field and the garden the first time they're seen; the second must add nothing
+  const mems = [];
   const rows = [];
-  for (const kind of ['dodgeball', 'captureBow', 'hideSeek']) {
+  for (const kind of ['dodgeball', 'captureBow', 'hideSeek', 'dodgeball', 'captureBow', 'hideSeek']) {
     await t.ev((k) => window.__c9.hostStartGame(k), kind);
     await t.until(async () => ['play', 'hide'].includes((await t.info())?.phase), 30000, kind + ' play');
     await t.page.waitForTimeout(2500);
@@ -299,13 +301,13 @@ async function perf(browser) {
     });
     rows.push({ kind, ...r });
     check(r.calls <= 220 && r.tris <= 160000, `perf ${kind}: ${r.players} players, ${r.calls} draw calls, ${r.tris} triangles`);
-    if (kind === 'captureBow') await t.shot('perf-captureBow', 200);
     await t.ev(() => window.__c9.play.end());
     await t.page.waitForTimeout(1500);
+    mems.push(await t.ev(() => ({ ...window.__c9.renderer.info.memory })));
   }
-  const mem1 = await t.ev(() => ({ ...window.__c9.renderer.info.memory }));
-  console.log('# memory before', JSON.stringify(mem0), 'after 3 games', JSON.stringify(mem1));
-  check(mem1.geometries - mem0.geometries <= 12 && mem1.textures - mem0.textures <= 4, 'perf: three games leave no pile of geometries or textures behind');
+  console.log('# memory after each game', JSON.stringify(mems));
+  const [a, b] = [mems[2], mems[5]];
+  check(b.geometries - a.geometries <= 3 && b.textures <= a.textures + 1, `perf: three more games leave nothing behind (geometries ${a.geometries} -> ${b.geometries}, textures ${a.textures} -> ${b.textures})`);
   await ctx.close();
 }
 
