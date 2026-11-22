@@ -34,7 +34,7 @@ test('the locks name real look options, never the default outfit', () => {
       assert.ok(info.hint && info.name, 'a lock needs a hint and a stick name');
     }
   }
-  // the pet is for later: everything else locks one option
+  // every stick locks one option, the cloud puppy included
   assert.equal(n, SPIRIT_STICKS.filter((s) => !s.unlock.later).length);
 });
 

@@ -44,8 +44,8 @@ test('spirit sticks: one on each toss target cloud, highest last; unlocks cover 
   assert.equal(unlocks.filter((u) => u.slot === 'hairStyle').length, 1, 'a hairstyle');
   const pets = unlocks.filter((u) => u.slot === 'pet');
   assert.equal(pets.length, 1);
-  assert.equal(pets[0].later, true, 'the pet comes later');
-  assert.equal(unlocks.filter((u) => u.later).length, 1, 'only the pet waits for phase 2');
+  assert.equal(pets[0].id, 'cloudPuppy');
+  assert.equal(unlocks.filter((u) => u.later).length, 0, 'nothing waits for later: the cloud puppy is built');
 });
 
 test('spirit sticks: saved progress is cleaned, and hints point to the next one', () => {

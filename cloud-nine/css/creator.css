@@ -183,7 +183,7 @@
 .c9c-tabs::-webkit-scrollbar { display: none; }
 .c9c-tab {
   flex: 1 1 0;
-  min-width: 56px;
+  min-width: min-content; /* seven tabs fit a 360 px phone: the short words (Bow, Pet) give way */
   min-height: 58px;
   display: flex;
   flex-direction: column;
@@ -328,6 +328,7 @@
 @media (max-width: 520px) {
   .c9c-title { left: auto; right: calc(12px + env(safe-area-inset-right)); transform: none; top: calc(20px + env(safe-area-inset-top)); font-size: 21px; padding: 0; }
   .c9c-panel { padding-left: 12px; padding-right: 12px; }
+  .c9c-tabs { gap: 3px; }
 }
 
 /* ---- landscape: side by side ---- */
