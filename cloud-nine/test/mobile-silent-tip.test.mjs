@@ -12,6 +12,12 @@ const MAC = { userAgent: IPADOS.userAgent, maxTouchPoints: 0 };
 const ANDROID = { userAgent: 'Mozilla/5.0 (Linux; Android 13; Pixel 5) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36', maxTouchPoints: 5 };
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Waits for something that should happen, with room to spare on a busy machine (a fixed sleep
+// made these tests flaky when several suites ran at once).
+async function waitFor(cond, ms = 3000) {
+  const end = Date.now() + ms;
+  while (!cond() && Date.now() < end) await sleep(5);
+}
 
 function rig(nav, o = {}) {
   const toasts = [];
@@ -49,7 +55,7 @@ test('an iPhone gets the toast once, a little after sound starts on the island',
   assert.equal(r.tip.soundStarted(), true);
   assert.equal(r.tip.soundStarted(), false, 'already on its way');
   assert.equal(r.toasts.length, 0, 'not straight away');
-  await sleep(90);
+  await waitFor(() => r.toasts.length >= 1);
   assert.equal(r.toasts.length, 1);
   assert.match(r.toasts[0].text, /isn't on silent/);
   assert.equal(r.progress()[SILENT_TIP_KEY], true, 'remembered on the device');
@@ -76,7 +82,7 @@ test('it waits for the island while a menu covers the toasts, and drops it if so
   assert.equal(r.toasts.length, 0, 'still in the menus');
   assert.equal(r.tip.pending, true);
   r.state.play = true;
-  await sleep(90);
+  await waitFor(() => r.toasts.length >= 1);
   assert.equal(r.toasts.length, 1);
 
   const q = rig(IPHONE, { play: false });
@@ -90,6 +96,6 @@ test('it waits for the island while a menu covers the toasts, and drops it if so
   assert.equal(q.progress()[SILENT_TIP_KEY], undefined, 'not marked: it can come the next time sound starts');
   q.state.on = true;
   assert.equal(q.tip.soundStarted(), true);
-  await sleep(90);
+  await waitFor(() => q.toasts.length >= 1);
   assert.equal(q.toasts.length, 1);
 });
