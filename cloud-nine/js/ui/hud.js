@@ -25,12 +25,29 @@
 //   hud.showHint(text) / hud.hideHint() / hud.fade(on, ms) -> Promise / hud.setDebug(text)
 //   hud.setLoading(progress01, text) / hud.hideLoading()
 //   hud.stick                                { show, move, hide } for core/input.js
+//   hud.skyLost(bool)                        the 3D view's WebGL context went away (iOS does this in the
+//                                            background): a friendly "tap to bring the sky back" screen
+//                                            instead of a frozen picture. false hides it (the context came
+//                                            back by itself); a tap while it is still gone reloads the page.
 
 import { emitter } from '../core/util.js';
-import { el, icon, onTap, starSvg, cssColor, wait, reducedMotion } from './dom.js';
+import { el, icon, onTap, starSvg, bowSvg, cssColor, wait, reducedMotion } from './dom.js';
 import { normalizeGameUI } from './gameui.js';
 
 const ICON_NAMES = new Set(['menu', 'sound', 'mute', 'games', 'emote', 'jump', 'close', 'back', 'people', 'dice', 'play', 'plus', 'key', 'home', 'star', 'check', 'hand', 'bow', 'map', 'door', 'sparkle', 'robot', 'crown', 'eyes', 'snow', 'ball', 'music', 'flag']);
+
+// True for a pale '#rrggbb' (relative luminance over ~0.4), where white text would not read.
+export function isLightColor(c) {
+  const m = typeof c === 'string' && /^#([0-9a-f]{6})$/i.exec(c);
+  if (!m) return false;
+  const n = parseInt(m[1], 16);
+  const lin = (v) => {
+    v /= 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+  const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
+  return lum > 0.4;
+}
 
 function iconOrText(v, className) {
   if (typeof v !== 'string' || !v) return null;
@@ -121,13 +138,48 @@ export function createHud(root, opts = {}) {
   const gameHead = el('div', 'c9-game-head');
   const gameTitle = el('span', 'c9-game-title', '');
   const gameTimer = el('span', 'c9-game-timer', '');
-  gameHead.append(gameTitle, gameTimer);
+  // Phones fold the tip and the scoreboard away (CSS): they peek for a few seconds whenever they
+  // change, and this button opens them for good. Wide screens always show them and hide the button.
+  const gameMore = el('button', 'c9-game-more');
+  gameMore.type = 'button';
+  gameMore.setAttribute('aria-label', 'Show the scores and tips');
+  gameMore.setAttribute('aria-expanded', 'false');
+  gameMore.appendChild(icon('chevron'));
+  gameHead.append(gameTitle, gameTimer, gameMore);
   const gameRole = el('div', 'c9-game-role', '');
   const gameLine = el('div', 'c9-game-line', '');
+  gameLine.id = 'c9-game-line';
   const gameBoard = el('ol', 'c9-game-board');
+  gameBoard.id = 'c9-game-board';
+  gameMore.setAttribute('aria-controls', 'c9-game-line c9-game-board');
   game.append(gameHead, gameRole, gameLine, gameBoard);
   left.prepend(game); // narrow screens: it stacks above the chips; wide screens: CSS centres it
   let lastBig = '';
+  let gameOpen = false;
+  let peekKey = '';
+  let peekTimer = 0;
+  function setGameOpen(open) {
+    gameOpen = !!open;
+    game.classList.toggle('c9-game-open', gameOpen);
+    gameMore.setAttribute('aria-expanded', gameOpen ? 'true' : 'false');
+    gameMore.setAttribute('aria-label', gameOpen ? 'Hide the scores and tips' : 'Show the scores and tips');
+  }
+  function peekGame() {
+    clearTimeout(peekTimer);
+    game.classList.add('c9-game-peek');
+    peekTimer = setTimeout(() => {
+      game.classList.remove('c9-game-peek');
+      layoutToasts();
+    }, 4000);
+  }
+  onTap(gameMore, () => {
+    setGameOpen(!gameOpen);
+    if (!gameOpen) {
+      clearTimeout(peekTimer);
+      game.classList.remove('c9-game-peek');
+    }
+    layoutToasts();
+  });
 
   const bigEl = el('div', 'c9-big');
   bigEl.hidden = true;
@@ -425,6 +477,59 @@ export function createHud(root, opts = {}) {
     }
   }
 
+  // ---------------------------------------------------------------- the sky took a nap
+  // Lives on <body>, above the menus, the creator and Hit Zero: once the 3D view is gone, nothing
+  // under it works until the page comes back. Shown after a short wait, because a context often
+  // comes straight back (contextrestored) and a flash of this screen would only confuse.
+  const nap = el('div', 'c9-nap');
+  nap.hidden = true;
+  nap.setAttribute('role', 'alertdialog');
+  nap.setAttribute('aria-modal', 'true');
+  nap.setAttribute('aria-labelledby', 'c9-nap-title');
+  nap.setAttribute('aria-describedby', 'c9-nap-line');
+  const napTitle = el('h2', 'c9-nap-title', 'The sky took a little nap');
+  napTitle.id = 'c9-nap-title';
+  const napLine = el('p', 'c9-nap-line', 'Tap to bring the sky back!');
+  napLine.id = 'c9-nap-line';
+  const napBtn = el('button', 'c9-btn c9-btn-primary c9-nap-btn');
+  napBtn.type = 'button';
+  napBtn.append(icon('reload'), el('span', 'c9-btn-label', 'Bring the sky back'));
+  nap.append(bowSvg({ className: 'c9-nap-bow' }), napTitle, napLine, napBtn);
+  let skyGone = false;
+  let napTimer = 0;
+  let napTapped = false;
+  function wakeSky() {
+    if (!skyGone) {
+      nap.hidden = true;
+      return;
+    }
+    if (napTapped) return;
+    napTapped = true;
+    napLine.textContent = 'Fluffing the clouds...';
+    location.reload();
+  }
+  onTap(napBtn, wakeSky);
+  // a tap anywhere on the screen counts: nobody should have to aim
+  nap.addEventListener('pointerup', (e) => {
+    if (e.target !== napBtn && !napBtn.contains(e.target)) wakeSky();
+  });
+  function skyLost(lost) {
+    skyGone = !!lost;
+    clearTimeout(napTimer);
+    if (!skyGone) {
+      nap.hidden = true;
+      return;
+    }
+    napTimer = setTimeout(() => {
+      if (!skyGone) return;
+      if (!nap.isConnected && document.body) document.body.appendChild(nap);
+      nap.hidden = false;
+      try {
+        napBtn.focus({ preventScroll: true });
+      } catch (err) { /* fine */ }
+    }, 700);
+  }
+
   // ---------------------------------------------------------------- veil and fade
   const veil = opts.veil || null;
   const veilFill = veil ? veil.querySelector('.c9-veil-bar i') : null;
@@ -477,6 +582,10 @@ export function createHud(root, opts = {}) {
       if (!game.hidden) {
         game.hidden = true;
         root.classList.remove('c9-gaming');
+        setGameOpen(false);
+        clearTimeout(peekTimer);
+        game.classList.remove('c9-game-peek');
+        peekKey = '';
         layoutToasts();
       }
       lastBig = '';
@@ -484,6 +593,14 @@ export function createHud(root, opts = {}) {
     }
     game.hidden = false;
     root.classList.add('c9-gaming');
+    // The folded details peek when they really change: a new tip or a new score, not a line whose
+    // only change is a ticking number ("Back in 5").
+    const detailKey = ui.line.replace(/\d+/g, '#') + '|' + JSON.stringify(ui.scoreboard);
+    if (detailKey !== peekKey) {
+      peekKey = detailKey;
+      if (ui.line || ui.scoreboard.length) peekGame();
+    }
+    gameMore.hidden = !(ui.line || ui.scoreboard.length);
     gameTitle.textContent = ui.title;
     gameTitle.hidden = !ui.title;
     gameTimer.textContent = ui.timer ? ui.timer.text : '';
@@ -492,6 +609,8 @@ export function createHud(root, opts = {}) {
     gameRole.textContent = ui.role ? ui.role.text : '';
     gameRole.hidden = !ui.role;
     gameRole.style.setProperty('--role', (ui.role && ui.role.color) || '');
+    // white words on a pale badge (lilac, mint, lemon) are hard to read: those get ink instead
+    gameRole.classList.toggle('c9-light', !!(ui.role && isLightColor(ui.role.color)));
     gameLine.textContent = ui.line;
     gameLine.hidden = !ui.line;
     // only rebuild the scoreboard when it changed
@@ -521,6 +640,8 @@ export function createHud(root, opts = {}) {
     }
     clearTimeout(bigTimer);
     bigText.textContent = String(text || '').slice(0, 40);
+    // a count ("3", "GO!") is the whole splash: it gets the giant size
+    bigEl.classList.toggle('c9-big-short', Array.from(bigText.textContent.trim()).length <= 3);
     bigSub.textContent = sub ? String(sub).slice(0, 90) : '';
     bigSub.hidden = !sub;
     bigEl.style.setProperty('--accent', cssColor(o.color) || '');
@@ -688,7 +809,9 @@ export function createHud(root, opts = {}) {
     },
 
     async fade(on, ms = 200) {
-      if (reducedMotion()) ms = Math.min(ms, 80);
+      // Reduced motion gets a slower, gentler fade, never a quicker one: an instant cut to white and
+      // back is a full-screen flash (css/app.css keeps this transition when the others are switched off).
+      if (reducedMotion()) ms = Math.max(ms, 260);
       fadeEl.style.transitionDuration = ms + 'ms';
       fadeEl.classList.toggle('c9-on', !!on);
       await wait(ms + 20);
@@ -714,6 +837,8 @@ export function createHud(root, opts = {}) {
         if (veil.classList.contains('c9-out')) veil.hidden = true;
       }, 560);
     },
+    skyLost,
+    get skyGone() { return skyGone; },
     onTap,
   };
   return api;

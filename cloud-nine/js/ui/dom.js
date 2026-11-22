@@ -39,6 +39,8 @@ const ICONS = {
   ball: 'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3.5 9.5c5 1.5 12 1.5 17 0M3.5 14.5c5-1.5 12-1.5 17 0',
   music: 'M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z',
   flag: 'M5 21V4M5 4h11l-2 4 2 4H5',
+  chevron: 'M6 9.5l6 6 6-6',
+  reload: 'M19.5 12a7.5 7.5 0 1 1-2.2-5.3M19.5 4.5v4.6h-4.6',
 };
 
 export function el(tag, className, text) {
@@ -134,6 +136,12 @@ if (typeof document !== 'undefined') {
       e.preventDefault();
     }
   }, true);
+  // iOS Safari only shows :active (every button's pressed look) when some touchstart listener exists.
+  document.addEventListener('touchstart', () => {}, { passive: true });
+  // iOS ignores user-scalable=no: these stop a pinch from zooming the menus from the very first
+  // screen (core/input.js does the same for the island once it is built).
+  const noZoom = (e) => e.preventDefault();
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, noZoom, { passive: false });
 }
 
 export function onTap(node, fn) {
