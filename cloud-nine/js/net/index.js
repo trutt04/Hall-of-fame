@@ -35,7 +35,9 @@
 //                             ways they go through cleanEmote (js/content/emotes.js), and unknown
 //                             ones are dropped. Never show a string from data.
 //   net.setGame(state) -> boolean   host only: replace the shared game state (plain JSON <= 16000 chars;
-//                             any kind, 'roam' included: only shape and size are checked)
+//                             any kind, 'roam' included: only shape and size are checked). Every
+//                             `nick` in it goes out blank, and each device fills in the checked
+//                             name it has for that player id (the key holding the object)
 //   net.game                  the last shared game state, or null (treat as read only)
 //   net.now()                 shared clock in ms (server time when online)
 //   net.on(evt, fn) / net.off(evt, fn)
@@ -409,7 +411,7 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
         stats.dropped.host++;
         return;
       }
-      setGameJson(g.json, g.state);
+      setGameJson(g.json, g.state && V.mapNicks(g.state, knownNick));
     },
     // After a reconnect or a new local leader: put back whatever went missing meanwhile.
     resync() {
@@ -445,6 +447,23 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
     r.lastSent = sent;
     r.lastAt = at;
     r.buf.push({ t: at, x: s.x, y: s.y, z: s.z, h: s.h, anim: s.anim });
+  }
+
+  // Names inside the game state (V.mapNicks): the host sends them blank, and each device shows the
+  // name it already checked for that player id. A name under an id it doesn't know goes through the
+  // same nickname checks as everyone's, or becomes that id's made-up name; never free text.
+  function knownNick(nick, id) {
+    const p = V.isId(id) ? players.get(id) || raw.players.get(id) : null;
+    if (p) return p.nick;
+    if (!nick) return '';
+    return V.cleanNickWith(nick, H.cleanNick, { strict: true }) || V.fallbackNick(id, H.randomNick);
+  }
+  function wireGame(json) {
+    try {
+      return JSON.stringify(V.mapNicks(JSON.parse(json), () => ''));
+    } catch (err) {
+      return json; // never happens: json is always what encodeData or decodeData accepted
+    }
   }
 
   function setGameJson(json, state) {
@@ -741,7 +760,7 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
     if (json === gameSentJson) return;
     gameSentJson = json;
     lastGameSent = now();
-    quiet(transport.setGame(json === 'null' ? null : json), 'game update');
+    quiet(transport.setGame(json === 'null' ? null : wireGame(json)), 'game update');
   }
 
   function dropBot(id) {
