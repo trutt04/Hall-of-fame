@@ -19,6 +19,8 @@
 //   ?debug=1              on-screen stats
 //   ?noaudio=1            never create audio
 //   ?birthday=1           force birthday mode (cake candles, banner, splash)
+//   ?welcome=1            show the first-time welcome again on this visit (My cheerleader opens after
+//                         the splash, the Games! and Menu bubbles); ?solo, ?room and ?game skip the creator
 
 import * as THREE from '../lib/three.module.min.js';
 import { GAME, PALETTE, BIRTHDAY, FEATURES } from './config.js';
@@ -41,6 +43,9 @@ import { GAME_CHOICES, gameTitle, normalizeHowto } from './ui/gameui.js';
 import { loadCss, el, reducedMotion, coarsePointer } from './ui/dom.js';
 import { cleanCode } from './ui/codepad.js';
 import { createSilentTip } from './ui/silent-tip.js';
+import { createBeacons } from './world/beacons.js';
+import { createTodo } from './ui/todo.js';
+import { createWelcome } from './ui/welcome.js';
 
 const nextFrame = () => new Promise((resolve) => requestAnimationFrame(() => resolve()));
 const HINT_KEY = 'c9.hinted.v1';
@@ -432,9 +437,9 @@ async function boot() {
 
   // ---------------------------------------------------------------- the player
   // Where she arrives (and where the rescue cloud brings her): the west side of the plaza, facing
-  // the cheer gym. The cake, the fountain and the gym's CHEER sign all stand on one line from the
-  // plaza's centre, so from there the sign hides behind the fountain; from out here the camera
-  // behind her sees the whole sign, the fountain, the cake and the Hit Zero stage.
+  // the basket toss headland, so the first thing a new flyer sees is the toss pads' clouds and
+  // rainbow slides under the "Basket toss" beacon, with the photo booth's sign just to her right
+  // (a phone in portrait only sees about 36 degrees across). No toss pads: she faces the cheer gym.
   const arrival = (() => {
     const p = places.plaza;
     const f = Number.isFinite(p.facing) ? p.facing : 0;
@@ -445,7 +450,10 @@ async function boot() {
       const z = p.z - Math.sin(f) * side + Math.cos(f) * ahead;
       if (!Number.isFinite(groundAt(x, z)) || colliders.hits(x, z, 0.6)) continue;
       let facing = f;
-      if (g && Number.isFinite(g.x) && Number.isFinite(g.z)) {
+      const pads = Array.isArray(places.tossPads) ? places.tossPads.filter((q) => q && Number.isFinite(q.x) && Number.isFinite(q.z)) : [];
+      const pad = pads[Math.floor((pads.length - 1) / 2)];
+      if (pad) facing = Math.atan2(pad.x - x, pad.z - z);
+      else if (g && Number.isFinite(g.x) && Number.isFinite(g.z)) {
         const gf = Number.isFinite(g.facing) ? g.facing : 0;
         const half = (Number(g.d) || 12) / 2;
         facing = Math.atan2(g.x + Math.sin(gf) * half - x, g.z + Math.cos(gf) * half - z);
@@ -515,6 +523,10 @@ async function boot() {
       world.toss = toss;
       if (toss && typeof toss.on === 'function') {
         toss.on('landed', (r) => {
+          if (todo) {
+            todo.tick('toss');
+            if (r && r.stuck) todo.tick('land');
+          }
           const best = Number(store.progress.bestToss) || 0;
           if (r && Number(r.height) > best) store.patchProgress({ bestToss: Math.round(Number(r.height) * 10) / 10 });
         });
@@ -579,6 +591,27 @@ async function boot() {
   function boothBusy() {
     return !!(world.booth && world.booth.active);
   }
+
+  // ---------------------------------------------------------------- first-time welcome, things to do, beacons
+  loadCss('css/welcome.css');
+  const welcome = createWelcome({ hud, store, force: store.flag('welcome') });
+  let todo = null; // js/ui/todo.js: the eight first goals, the HUD chip and the menu row
+  try {
+    todo = createTodo(world, {
+      onCreator: () => openCheerleader(backToPlay),
+      seed: [foundSticks.length ? 'stick' : '', Number(store.progress.bestToss) > 0 ? 'toss' : ''],
+    });
+  } catch (err) {
+    console.warn('[c9] the things to do list failed to start', err);
+  }
+  world.todo = todo;
+  let beacons = null; // js/world/beacons.js: a badge over each place with something to do
+  try {
+    beacons = createBeacons({ scene, places, groundAt });
+  } catch (err) {
+    console.warn('[c9] the beacons failed to start', err);
+  }
+  world.beacons = beacons;
 
   // ---------------------------------------------------------------- state of the app
   let mode = 'boot'; // 'title' | 'menu' | 'closet' | 'lobby' | 'play' | 'overlay'
@@ -836,6 +869,7 @@ async function boot() {
     player.emote(animForEmote(e), 1.8);
     sfx(emoteSound(e), { volume: 0.7 });
     if (session) net.send('emote', { id: e.id });
+    if (todo) todo.tick('cheer');
   }
   // The wheel holds 12 quick-cheers: CONTENT's list in its order, with "Happy birthday!" moved to
   // the front on her birthday (and left out on other days, so the wheel stays roomy).
@@ -936,6 +970,7 @@ async function boot() {
     // a friend in the quick-cheer wheel or the menu when the host starts: the game has the screen now
     hud.closeWheel();
     if (hud.panelOpen) hud.closePanel();
+    if (cheerClose && kind !== 'hitZero') cheerClose(); // Hit Zero closes it itself, once loaded
     if (kind === 'hitZero') {
       // in a room everyone gets the same chart: the seed comes from the start's id
       let seed;
@@ -969,6 +1004,7 @@ async function boot() {
     }
   }
   function onGameEnd() {
+    if (todo) todo.gameEnded(world.activeGame);
     world.activeGame = null;
     hud.setGameUI(null);
   }
@@ -1145,6 +1181,9 @@ async function boot() {
       inst = mod.createHitZero({
         audio, container, level: opts.level || 1, onDone: finish, look: figureLook(),
         seed: Number.isFinite(opts.seed) ? opts.seed : undefined,
+        onResult: () => {
+          if (todo) todo.tick('stage');
+        },
         // on the stage her real character is the performer: the overlay leaves her spot empty
         performer: !stageShow,
         autoplay: store.flag('autoplay'), // test switch: a perfect bot plays the routine
@@ -1162,8 +1201,10 @@ async function boot() {
 
   // ---------------------------------------------------------------- my cheerleader
   function applyLook(look) {
+    const before = JSON.stringify(myLook);
     const clean = store.setLook(look) || cleanLook(look);
     myLook = clean;
+    if (todo && JSON.stringify(clean) !== before) todo.tick('look');
     if (player.avatar && typeof player.avatar.setLook === 'function') {
       try {
         player.avatar.setLook(clean);
@@ -1189,7 +1230,7 @@ async function boot() {
   // renderer). And if she moved on while it loaded (tapped "Play by myself"), it does not open.
   let cheerOpening = false;
   let cheerClose = null; // shuts an open creator, like Cancel (the host started Hit Zero for everyone)
-  async function openCheerleader(back) {
+  async function openCheerleader(back, opts = {}) {
     if (cheerOpening) return;
     cheerOpening = true;
     const from = mode;
@@ -1217,7 +1258,8 @@ async function boot() {
           nick: myNick,
           audio,
           // options a spirit stick still has to unlock show a lock and the stick's hint
-          locked: lockedLooks(STICKS, foundSticks),
+          locked: todo ? todo.lock(lockedLooks(STICKS, foundSticks)) : lockedLooks(STICKS, foundSticks),
+          intro: opts.intro,
           onDone(look, nick) {
             if (look) applyLook(look);
             if (nick) applyNick(nick);
@@ -1509,6 +1551,22 @@ async function boot() {
       } else {
         hud.big(GAME.title, content.hype('welcome', { name: myNick }), { ms: 2200 });
       }
+      if (beacons) beacons.intro();
+      // A device that never dressed up gets My cheerleader once, right after the splash, starting
+      // from the default look (Done straight away is fine). Test switches skip it unless ?welcome=1.
+      const testRun = (store.flag('solo') || params.has('room') || params.has('game')) && !store.flag('welcome');
+      if (!testRun && welcome.creatorDue(!!store.look)) {
+        setTimeout(() => {
+          if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || world.activeGame || hitZeroOpen) return;
+          welcome.creatorShown();
+          openCheerleader(() => {
+            backToPlay();
+            setTimeout(() => {
+              if (playing() && !hitZeroOpen) hud.toast('Welcome to the squad, ' + myNick + '! Tap To do for fun things to try.', { icon: 'sparkle', ms: 4200 });
+            }, todo && todo.pending ? 3400 : 500);
+          }, { intro: 'You can change it any time from the menu!' });
+        }, isBirthday ? 3600 : 2400);
+      }
       if (familyNotes.length) {
         setTimeout(() => {
           if (playing()) hud.toast(familyNotes.length === 1 ? 'Your family left you a note! It is in the menu.' : 'Your family left you notes! They are in the menu.', { icon: 'bow', ms: 5200 });
@@ -1662,6 +1720,11 @@ async function boot() {
         sound: audio.enabled,
         quality: engine.quality,
         sticks: sticksRow(),
+        todo: todo ? todo.row : null,
+        onTodo: () => {
+          hud.closePanel();
+          if (todo) todo.open();
+        },
         notes: familyNotes.length,
         leaveLabel: inRoom ? 'Leave the room' : 'Back to the menu',
         onClose: () => hud.closePanel(),
@@ -1799,6 +1862,7 @@ async function boot() {
     sticks.collect(hit.id);
     foundSticks = cleanFound([...foundSticks, hit.id]);
     store.patchProgress({ sticks: foundSticks });
+    if (todo) todo.tick('stick');
     const count = foundSticks.length;
     const total = STICKS.length;
     const all = count >= total;
@@ -1848,6 +1912,14 @@ async function boot() {
     }, 18);
   }
   engine.addSystem(rig, 40);
+  // the to-do list's checks and celebrations, and the beacons (only in free roam: never over a game,
+  // Hit Zero, the booth or the toss)
+  engine.addSystem({
+    update(dt, t) {
+      if (todo) todo.update(dt);
+      if (beacons) beacons.update(dt, t, camera, player.position, mode === 'play' && !world.activeGame && !(toss && toss.active) && !boothBusy() && !player.controller);
+    },
+  }, 42);
   engine.addSystem({
     update(dt, t) {
       try {

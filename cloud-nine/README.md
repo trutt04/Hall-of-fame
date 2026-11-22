@@ -31,6 +31,11 @@ The first tap turns the sound on. The speaker button turns it off and on, and th
 
 ## What there is to do
 
+A badge floats over each of these places so she can spot them from across the island, and the
+"To do" chip (top left, also in the menu as "Things to do") lists eight first goals. Finishing
+all eight wins the gold bow in My cheerleader. On a new device, My cheerleader opens once right
+after the welcome, so each cousin can make her own look before playing.
+
 - **Basket toss.** Three glittery mats on the headland, each aimed at a cloud (8, 14 and 22 m
   up). Stand on one and tap "Basket toss!". The bases count "5, 6, 7, 8!" and throw her. Swipe
   (or press the arrows) for tricks, and near the top of the arc the swipes become body
@@ -110,6 +115,7 @@ Add these to the end of the address (start with `?`, join more with `&`):
 | `?solo=1` | Skip the menus, straight onto the island |
 | `?room=PLZ7&nick=Sam` | Join (or make) room PLZ7 as "Sam" with the same-browser test link: open it in several tabs to see each other |
 | `?birthday=1` | Birthday mode, any day |
+| `?welcome=1` | The first-time welcome again on this visit: My cheerleader opens after the splash, and the "Games!" and "Menu" bubbles show |
 | `?quality=low` | Battery saver graphics (also in the menu) |
 | `?noaudio=1` | No sound at all |
 | `?debug=1` | Frame rate, draw calls and position on screen |
