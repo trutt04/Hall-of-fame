@@ -4,8 +4,9 @@
 //
 // Contract 1:
 //   hud.toast(text, { icon, ms })            icon: an emoji or an icon name from ui/dom.js. While a big
-//                                            splash is up, toasts wait (queued, never dropped) and
-//                                            come one after another once it has gone
+//                                            splash is up, or the toss or the booth has the screen
+//                                            (setBusy), toasts wait in one queue and come one after
+//                                            another once it has gone (see queueToast)
 //   hud.prompt(label, onUse, { icon }) -> clear()   the big use button; wins over interact's suggestion
 //   hud.clearPrompt(onUse?)                  clears the prompt (only if it is still that onUse, when given)
 //   hud.big(text, sub, { ms, color }) -> Promise    centre splash, never blocks input
@@ -23,7 +24,9 @@
 //   hud.isModalOpen() / hud.on('modal', fn(open))    main.js suspends world input while one is open
 //   hud.escape() -> boolean                  closes the top-most wheel, card or panel
 //   hud.setPlaying(bool)                     shows or hides the in-world controls (menus hide them)
-//   hud.setBusy(bool)                        a mini game (the toss) has the screen: buttons and hint step aside
+//   hud.setBusy(bool)                        a mini game (the toss, the booth) has the screen: buttons and hint
+//                                            step aside, and toasts wait for it (a fresh one on screen goes back
+//                                            in the queue)
 //   hud.showHint(text) / hud.hideHint() / hud.fade(on, ms) -> Promise / hud.setDebug(text)
 //   hud.setLoading(progress01, text) / hud.hideLoading()
 //   hud.stick                                { show, move, hide } for core/input.js
@@ -49,6 +52,18 @@ export function isLightColor(c) {
   };
   const lum = 0.2126 * lin((n >> 16) & 255) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255);
   return lum > 0.4;
+}
+
+// The held toasts' queue (pure, for the tests). A new toast goes to the end; one with the same words
+// as a held one takes its place (the news is the same). Past `max`, the oldest leaves the queue and
+// is returned: shown at once behind a splash, let go while the toss or the booth has the screen.
+export const MAX_HELD = 6;
+export const TOAST_GAP_MS = 900; // held toasts come out this far apart: each one gets read
+export function queueToast(queue, item, max = MAX_HELD) {
+  const i = queue.findIndex((q) => q.text === item.text);
+  if (i >= 0) queue.splice(i, 1);
+  queue.push(item);
+  return queue.length > max ? queue.shift() : null;
 }
 
 function iconOrText(v, className) {
@@ -193,8 +208,11 @@ export function createHud(root, opts = {}) {
   bigEl.append(bigStars, bigText, bigSub);
   let bigTimer = 0;
   let bigDone = null;
-  const heldToasts = []; // toasts that came while a splash was up: { t, ms }, shown when it goes
-  const MAX_HELD = 6;
+  const heldToasts = []; // toasts that came while a splash was up or the screen was busy: { t, ms, text }
+  let busy = false; // the toss or the booth has the screen (setBusy)
+  let drainTimer = 0;
+  const holding = () => busy || !bigEl.hidden;
+  const shownToasts = new WeakMap(); // toast on screen -> { ms, at, out, gone }, so a busy screen can take it back
 
   const hint = el('div', 'c9-hint');
   hint.hidden = true;
@@ -672,24 +690,52 @@ export function createHud(root, opts = {}) {
 
   // ---------------------------------------------------------------- toasts
   function showToast(t, ms) {
+    t.classList.remove('c9-out');
     toasts.appendChild(t);
     while (toasts.children.length > 3) toasts.firstChild.remove();
-    setTimeout(() => t.classList.add('c9-out'), ms);
-    setTimeout(() => t.remove(), ms + 320);
+    const out = setTimeout(() => t.classList.add('c9-out'), ms);
+    const gone = setTimeout(() => t.remove(), ms + 320);
+    shownToasts.set(t, { ms, at: performance.now(), out, gone });
   }
 
-  // the splash has gone: the toasts it held come one after another, a moment apart
-  function releaseToasts() {
-    let k = 0;
-    while (heldToasts.length) {
-      const h = heldToasts.shift();
-      setTimeout(() => {
-        if (!bigEl.hidden) {
-          heldToasts.push(h); // another splash came meanwhile: wait for that one too
-          if (heldToasts.length > MAX_HELD) showToast(heldToasts.shift().t, h.ms);
-        } else showToast(h.t, h.ms);
-      }, k++ * 380);
+  // a toast that has to wait (a splash, or a busy screen): into the queue
+  function holdToast(h) {
+    const left = queueToast(heldToasts, h);
+    // past MAX_HELD the oldest goes: shown now behind a splash, let go while the screen is busy
+    if (left && !busy) showToast(left.t, left.ms);
+  }
+
+  // The splash has gone, or the screen is free again: the held toasts come one by one, a readable
+  // moment apart. Anything holding them again (another splash) pauses the line; its end restarts it.
+  function releaseToasts(delay = 0) {
+    if (drainTimer || holding() || !heldToasts.length) return;
+    drainTimer = setTimeout(drainToasts, delay);
+  }
+  function drainToasts() {
+    drainTimer = 0;
+    if (holding() || !heldToasts.length) return;
+    const h = heldToasts.shift();
+    showToast(h.t, h.ms);
+    if (heldToasts.length) drainTimer = setTimeout(drainToasts, TOAST_GAP_MS);
+  }
+
+  // The toss or the booth takes the screen (the toasts row is hidden then): toasts that only just
+  // came up go back to the front of the queue, so they are not missed; ones mostly read can go.
+  function takeBackToasts() {
+    const now = performance.now();
+    const back = [];
+    for (const t of [...toasts.children]) {
+      const s = shownToasts.get(t);
+      if (!s || t.classList.contains('c9-out') || now - s.at > s.ms * 0.5) continue;
+      clearTimeout(s.out);
+      clearTimeout(s.gone);
+      t.remove();
+      back.push({ t, ms: s.ms, text: t.textContent });
     }
+    for (let i = back.length - 1; i >= 0; i--) {
+      if (!heldToasts.some((h) => h.text === back[i].text)) heldToasts.unshift(back[i]);
+    }
+    while (heldToasts.length > MAX_HELD) heldToasts.shift();
   }
 
   // ---------------------------------------------------------------- the people list
@@ -746,14 +792,11 @@ export function createHud(root, opts = {}) {
       if (ic) t.appendChild(ic);
       t.appendChild(el('span', 'c9-toast-text', String(text || '').slice(0, 140)));
       const ms = o.ms ?? 2600;
-      if (!bigEl.hidden) {
-        // a splash has the middle of the screen: this one waits its turn (queued, not dropped;
-        // past MAX_HELD the oldest goes out now, so nothing piles up)
-        heldToasts.push({ t, ms });
-        if (heldToasts.length > MAX_HELD) {
-          const h = heldToasts.shift();
-          showToast(h.t, h.ms);
-        }
+      if (holding() || heldToasts.length) {
+        // a splash has the middle of the screen, or the toss or the booth has all of it, or
+        // others are still waiting: this one waits its turn, in order
+        holdToast({ t, ms, text: t.textContent });
+        releaseToasts();
         return t;
       }
       showToast(t, ms);
@@ -828,7 +871,14 @@ export function createHud(root, opts = {}) {
     // A mini game has the screen (the basket toss draws its own overlay): the corner buttons, the
     // big controls and the hint step aside. The joystick stays (it steers the landing).
     setBusy(on) {
-      root.classList.toggle('c9-busy', !!on);
+      const next = !!on;
+      root.classList.toggle('c9-busy', next);
+      if (next === busy) return;
+      busy = next;
+      // toasts wait while it has the screen, and come after it, one by one (a beat later, so a
+      // splash that starts right then, like a game's "Get ready!", goes first)
+      if (busy) takeBackToasts();
+      else releaseToasts(450);
     },
 
     showHint(text) {
