@@ -194,6 +194,7 @@ export function createHud(root, opts = {}) {
 
   const hint = el('div', 'c9-hint');
   hint.hidden = true;
+  let hintTimer = 0; // hideHint's fade-out, cancelled by a new showHint
 
   // ---------------------------------------------------------------- controls: use, jump, emote
   const controls = el('div', 'c9-controls');
@@ -796,14 +797,18 @@ export function createHud(root, opts = {}) {
     },
 
     showHint(text) {
+      // a hide still fading out must not take this new hint down with it
+      clearTimeout(hintTimer);
+      hintTimer = 0;
       hint.textContent = text;
       hint.hidden = false;
       hint.classList.remove('c9-out');
     },
     hideHint() {
-      if (hint.hidden) return;
+      if (hint.hidden || hintTimer) return;
       hint.classList.add('c9-out');
-      setTimeout(() => {
+      hintTimer = setTimeout(() => {
+        hintTimer = 0;
         hint.hidden = true;
       }, 420);
     },
