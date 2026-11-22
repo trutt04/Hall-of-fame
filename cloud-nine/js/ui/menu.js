@@ -7,7 +7,10 @@
 //   menu.title({ onPlay })
 //   menu.main({ nick, onSolo, onMake, onJoin, onCheerleader, onNewName, sound, onSound }) -> { setNick(n) }
 //   menu.join({ onSubmit(code) -> Promise<{ ok, reason }>, onBack, initial })
-//   menu.lobby({ code, onStart, onLeave, onExplore }) -> { update({ players, isHost, hostNick, status }) }
+//   menu.lobby({ code, onStart, onLeave, onExplore, onLock(on), onSendHome(id) })
+//                       -> { update({ players, isHost, hostNick, status, locked }) }
+//                       the host gets a "Lock the room" toggle and a "Send home" button on each friend
+//                       (two taps, so a slip of the thumb never sends anyone home)
 //   menu.closet({ nick, onNewName, onSurprise, onDone }) -> { setNick(n) }     (no creator.js yet)
 //   menu.message({ title, lines, icon, actions: [{ label, onClick, primary }] })
 //   menu.busy(text) / menu.hide() / menu.current / menu.setSound(on)
@@ -25,6 +28,7 @@ export const JOIN_REASONS = {
   full: { title: 'That room is full', line: 'A room holds ' + GAME.maxPlayers + ' cheerleaders. Maybe start your own?' },
   offline: { title: "Can't reach your friends", line: 'Rooms need the internet. You can still play by yourself!' },
   'bad-code': { title: 'That code looks funny', line: 'Room codes are 4 letters and numbers.' },
+  locked: { title: 'This room is locked', line: 'Ask the host to unlock it!' },
   error: { title: 'Oops, a hiccup', line: 'Something went wobbly. Try again in a moment!' },
 };
 
@@ -293,7 +297,7 @@ export function createMenu(root) {
   }
 
   // ---------------------------------------------------------------- lobby
-  function lobby({ code, onStart, onLeave, onExplore } = {}) {
+  function lobby({ code, onStart, onLeave, onExplore, onLock, onSendHome } = {}) {
     const s = frame('c9m-lobby-screen');
     s.setAttribute('aria-label', 'Your room');
     const c = card(null, null);
@@ -304,6 +308,11 @@ export function createMenu(root) {
     c.appendChild(tell);
     const who = el('ul', 'c9m-who');
     c.appendChild(who);
+    let locked = false;
+    const lockNote = el('p', 'c9m-sub c9m-lock-note', '');
+    const lockBtn = bigButton('Lock the room', 'key', 'white', () => onLock && onLock(!locked));
+    lockBtn.classList.add('c9m-lock');
+    c.append(lockNote, lockBtn);
     const status = el('p', 'c9m-msg', '');
     status.setAttribute('role', 'status');
     status.setAttribute('aria-live', 'polite');
@@ -318,12 +327,18 @@ export function createMenu(root) {
     mount('lobby', s);
     let lastKey = '';
     return {
-      update({ players = [], isHost = false, hostNick = '', status: st = '' } = {}) {
+      update({ players = [], isHost = false, hostNick = '', status: st = '', locked: lk = false } = {}) {
         start.hidden = !isHost;
         explore.hidden = isHost;
         tell.textContent = isHost ? 'Friends tap “Join a room” and type this code.' : 'You’re in! Waiting for ' + (hostNick || 'the host') + ' to start.';
+        if (isHost && lk) tell.textContent = 'The room is locked: only the friends here can play.';
         status.textContent = st || '';
-        const key = JSON.stringify(players.map((p) => [p.id, p.nick, p.host, p.me, p.color]));
+        locked = !!lk;
+        lockBtn.hidden = !isHost || !onLock;
+        lockBtn.querySelector('.c9-btn-label').textContent = locked ? 'Unlock the room' : 'Lock the room';
+        lockNote.textContent = locked && !isHost ? 'The host locked the room for this game.' : '';
+        lockNote.hidden = !lockNote.textContent;
+        const key = JSON.stringify([isHost, players.map((p) => [p.id, p.nick, p.host, p.me, p.color, p.bot])]);
         if (key === lastKey) return;
         lastKey = key;
         who.replaceChildren();
@@ -334,6 +349,7 @@ export function createMenu(root) {
           li.append(dot, el('span', 'c9m-who-name', p.nick || 'Cheerleader'));
           if (p.host) li.appendChild(icon('crown', 'c9-icon c9m-who-crown'));
           if (p.me) li.appendChild(el('span', 'c9m-who-you', 'you'));
+          if (isHost && onSendHome && !p.me && !p.bot) li.appendChild(homeButton(p, onSendHome));
           who.appendChild(li);
         }
         if (players.length < 2 && isHost) {
@@ -342,6 +358,30 @@ export function createMenu(root) {
         }
       },
     };
+  }
+
+  // "Send home" on a friend's name: the first tap asks, the second (within 3 s) sends.
+  function homeButton(p, onSendHome) {
+    let sure = false;
+    let timer = null;
+    const b = button('c9m-home', 'Send home', () => {
+      if (sure) {
+        clearTimeout(timer);
+        b.disabled = true;
+        onSendHome(p.id, p.nick);
+        return;
+      }
+      sure = true;
+      b.classList.add('c9m-sure');
+      b.querySelector('.c9-btn-label').textContent = 'Tap again';
+      timer = setTimeout(() => {
+        sure = false;
+        b.classList.remove('c9m-sure');
+        b.querySelector('.c9-btn-label').textContent = 'Send home';
+      }, 3000);
+    }, { icon: 'home' });
+    b.setAttribute('aria-label', 'Send ' + (p.nick || 'this friend') + ' home');
+    return b;
   }
 
   // ---------------------------------------------------------------- the closet placeholder
@@ -458,6 +498,12 @@ export function buildPauseMenu(o = {}) {
   const list = el('div', 'c9-list');
   list.appendChild(row('Keep playing', null, 'play', () => o.onClose && o.onClose(), { className: 'c9-row-primary' }));
   if (o.canPick) list.appendChild(row('Pick a game', o.isHost ? 'Everyone plays together' : 'Play with bot friends', 'games', () => o.onPick && o.onPick()));
+  if (o.code && o.isHost && o.onLock) {
+    list.appendChild(o.locked
+      ? row('Room is locked', 'Only the friends here can play. Tap to unlock.', 'key', () => o.onLock(false), { tag: 'LOCKED', className: 'c9-row-locked' })
+      : row('Lock the room', 'Only the friends here now can play', 'key', () => o.onLock(true)));
+  }
+  if (o.code && o.isHost && o.onSendHome && o.friends > 0) list.appendChild(row('Send a friend home', 'They keep playing on their own island', 'home', () => o.onSendHome()));
   list.appendChild(row('My cheerleader', 'Change your look', 'bow', () => o.onCheerleader && o.onCheerleader()));
   if (o.notes > 0) {
     list.appendChild(row('Notes from your family', o.notes === 1 ? 'A note just for you' : o.notes + ' notes just for you', 'bow',
