@@ -234,6 +234,14 @@ button{font-family:inherit;color:inherit}
   .c9-wheel.c9-in .c9-wheel-item{animation-name:c9-wheel-pop}
   .c9-wheel-many .c9-wheel-icon{font-size:28px}
 }
+/* iOS Safari's vh is the height with its toolbars hidden; dvh is what is really visible */
+@supports (height:1dvh){
+  @media (min-width:700px) and (min-height:560px){
+    .c9-wheel-disc{--ry:min(200px,26dvh)}
+    .c9-wheel-many .c9-wheel-disc{--ry:min(240px,31dvh)}
+  }
+  .c9-big-short .c9-big-text{font-size:clamp(110px,min(42vw,48dvh),260px)}
+}
 
 /* ---------- cards: a bottom sheet on phones, a centred card on wide screens ---------- */
 .c9-card-wrap{position:absolute;inset:0;z-index:30;background:linear-gradient(to top,rgba(43,34,51,.42),rgba(43,34,51,.08) 70%)}
@@ -263,7 +271,7 @@ button{font-family:inherit;color:inherit}
   .c9-btn{flex:0 1 auto}
 }
 @media (max-height:500px) and (orientation:landscape){
-  .c9-card{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(520px,92vw);max-height:calc(100% - 20px)}
+  .c9-card{left:50%;right:auto;bottom:auto;top:50%;transform:translate(-50%,-50%);width:min(520px,calc(100% - 20px - var(--sal) - var(--sar)));max-height:calc(100% - 20px - var(--sat) - var(--sab))}
   .c9-card.c9-in{animation:none}
   .c9-steps li{font-size:16px;margin-bottom:6px}
 }

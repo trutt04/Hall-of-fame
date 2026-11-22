@@ -207,6 +207,13 @@
   .c9-hz-how-item span{display:none}
 }
 
+/* iOS Safari's vh is the height with its toolbars hidden; dvh is what is really visible */
+@supports (height:1dvh){
+  .c9-hz-panel{height:clamp(170px,27dvh,320px)}
+  @media (min-width:900px) and (min-aspect-ratio:5/4){.c9-hz-panel{height:min(52dvh,420px)}}
+  @media (max-height:520px){.c9-hz-panel{height:clamp(150px,44dvh,220px)}}
+}
+
 /* ---------- reduced motion: no bouncing, no flashing; everything still shows ---------- */
 @media (prefers-reduced-motion:reduce){
   .c9-hz *,.c9-hz *::before,.c9-hz *::after{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important}

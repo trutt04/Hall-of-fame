@@ -88,6 +88,13 @@
   .c9m-logo-bow{width:min(30vh,48vw)}
   .c9m-btn-play{min-height:64px;font-size:28px}
 }
+@supports (height:1dvh){
+  .c9m-title-center{gap:clamp(14px,3dvh,26px)}
+  @media (max-height:520px) and (orientation:landscape){
+    .c9m-logo-word{font-size:min(15dvh,23vw)}
+    .c9m-logo-bow{width:min(30dvh,48vw)}
+  }
+}
 
 /* ---------- join: the keypad ---------- */
 .c9m-join-screen,.c9m-lobby-screen,.c9m-message-screen,.c9m-busy-screen{background:rgba(255,214,234,.55)}
