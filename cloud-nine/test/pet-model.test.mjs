@@ -173,9 +173,9 @@ test('pets: waits at the pad during her toss, sits by the mat for Hit Zero, besi
   run(pets, 2);
   assert.equal(e.mode, 'booth');
   const bd = Math.hypot(e.x - 5, e.z - 5);
-  assert.ok(bd > 0.5 && bd < 1, 'right beside her: ' + bd.toFixed(2));
+  assert.ok(bd > 0.35 && bd < 0.8, 'right beside her: ' + bd.toFixed(2));
   const ahead = (e.x - 5) * Math.sin(1) + (e.z - 5) * Math.cos(1);
-  assert.ok(ahead > 0.3, 'a little toward the lens');
+  assert.ok(ahead > 0.15, 'a little toward the lens');
   pets.dispose();
 });
 

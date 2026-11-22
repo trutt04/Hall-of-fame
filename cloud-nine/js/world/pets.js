@@ -527,11 +527,11 @@ export function createPets(world, { myLook = () => world.look } = {}) {
       if (mode === 'stage') {
         stageSpot(stage(), o.x, o.z, tgt);
       } else if (mode === 'booth') {
-        // in front of her and to her right, toward the lens: in the picture with her
+        // a step toward the lens and to her right, tucked in close: inside even a solo picture's frame
         const s = Math.sin(o.h);
         const c = Math.cos(o.h);
-        tgt.x = o.x + s * 0.5 - c * 0.52;
-        tgt.z = o.z + c * 0.5 + s * 0.52;
+        tgt.x = o.x + s * 0.25 - c * 0.42;
+        tgt.z = o.z + c * 0.25 + s * 0.42;
         face = o.h;
       } else {
         if (!e.visible) e.th = o.h;
