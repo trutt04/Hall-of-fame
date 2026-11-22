@@ -332,11 +332,13 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
     geo.setAttribute('color', new THREE.BufferAttribute(col, 3).setUsage(THREE.DynamicDrawUsage));
     geo.setAttribute('size', new THREE.BufferAttribute(size, 1).setUsage(THREE.DynamicDrawUsage));
     const tex = sparkTexture();
+    // Daytime fireworks: added light vanishes against a pastel sky, so the sparks are painted in
+    // their own full colour (a white-hot core) and fade with their alpha instead.
     const mat = new THREE.ShaderMaterial({
-      uniforms: { uMap: { value: tex }, uScale: { value: 400 } },
-      transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, fog: false, vertexColors: true,
+      uniforms: { uMap: { value: tex }, uScale: { value: 1100 } },
+      transparent: true, depthWrite: false, blending: THREE.NormalBlending, fog: false, vertexColors: true,
       vertexShader: 'attribute float size; varying vec3 vC; uniform float uScale; void main(){ vC = color; vec4 mv = modelViewMatrix * vec4(position, 1.0); gl_PointSize = size * uScale / max(1.0, -mv.z); gl_Position = projectionMatrix * mv; }',
-      fragmentShader: 'uniform sampler2D uMap; varying vec3 vC; void main(){ vec4 t = texture2D(uMap, gl_PointCoord); gl_FragColor = vec4(vC * t.rgb, 1.0); }',
+      fragmentShader: 'uniform sampler2D uMap; varying vec3 vC; void main(){ vec4 t = texture2D(uMap, gl_PointCoord); float k = max(max(vC.r, vC.g), vC.b); if (k < 0.004 || t.a < 0.02) discard; vec3 c = mix(vC / k, vec3(1.0), t.a * t.a * 0.45); gl_FragColor = vec4(c, min(1.0, t.a * 1.35) * k); }',
     });
     const pts = new THREE.Points(geo, mat);
     pts.name = 'fireworks';
@@ -347,7 +349,8 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
     for (let i = 0; i < FW_N; i++) parts.push({ life: 1, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: 1, g: 1, b: 1, s: 1 });
     return { geo, mat, tex, pts, parts, pos, col, size, next: 1.2, cursor: 0 };
   })();
-  const PALETTES = [[0xff2e93, 0xffd6ea], [0xa96bff, 0xe7d6ff], [0xffd36e, 0xfff3c4], [0x9fd8ff, 0xffffff], [0xff7ad1, 0xa96bff]];
+  // saturated pairs: pastel sparks disappear into the day sky
+  const PALETTES = [[0xff2e93, 0xa96bff], [0x7b5cff, 0xff7ad1], [0xffb21e, 0xff2e93], [0x2ea8ff, 0xff2e93], [0xff7ad1, 0x7b5cff]];
   const fc = new THREE.Color();
   function launch() {
     const rnd = Math.random;

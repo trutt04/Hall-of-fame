@@ -24,6 +24,7 @@
 //     setTreasureVisible('spiritStick', false) if a collectible stands there instead).
 //
 // Extras, not in the contract (safe to ignore):
+//   island.onFirework(fn({ x, y, z }))  every birthday firework burst
 //   island.setTreasureVisible(id, on)   hide a platform treasure once it is collected
 //                                       ids: 'poms' (cloud1), 'trophy' (cloud2), 'spiritStick' (cloud3)
 //   island.bounds                       { minX, maxX, minZ, maxZ } round everything walkable
@@ -188,6 +189,10 @@ export function buildIsland({ scene, quality = 'high', colliders = null } = {}) 
     update,
     setBirthday(info = {}) {
       corner.set(info || {});
+    },
+    // fn({ x, y, z }) for every birthday firework that bursts (for a pop of sound)
+    onFirework(fn) {
+      if (typeof fn === 'function' && typeof corner.onFirework === 'function') corner.onFirework(fn);
     },
     spotFor(where) {
       return spotIn(plan, decor, where);

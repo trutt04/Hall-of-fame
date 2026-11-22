@@ -159,7 +159,7 @@ button{font-family:inherit;color:inherit}
 /* ---------- the big centre splash ---------- */
 .c9-big{--accent:var(--pink);position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;pointer-events:none;text-align:center}
 .c9-big-text{position:relative;font-weight:900;font-size:clamp(46px,14vw,112px);line-height:.95;letter-spacing:-.01em;color:var(--white);
-  -webkit-text-stroke:.09em var(--black);paint-order:stroke fill;text-shadow:.06em .07em 0 var(--accent),.06em .07em 0 var(--accent);overflow-wrap:anywhere;max-width:92vw}
+  -webkit-text-stroke:.09em var(--black);paint-order:stroke fill;text-shadow:.06em .07em 0 var(--accent),.06em .07em 0 var(--accent);overflow-wrap:anywhere;max-width:92vw;white-space:pre-line}
 .c9-big-sub{max-width:min(560px,88vw);font-weight:800;font-size:clamp(17px,4.8vw,24px);line-height:1.2;color:var(--white);background:var(--black);padding:8px 18px;border-radius:999px;
   box-shadow:0 0 0 3px var(--accent)}
 .c9-big-stars{position:absolute;left:50%;top:50%;width:0;height:0}
@@ -194,6 +194,13 @@ button{font-family:inherit;color:inherit}
 .c9-wheel-key{position:absolute;top:-9px;right:-7px;width:22px;height:22px;display:grid;place-items:center;font-weight:900;font-size:12px;color:var(--white);
   background:var(--pink);border:2px solid var(--black);border-radius:50%}
 @media (pointer:coarse){.c9-wheel-key{display:none}}
+/* tablets and laptops: a wider wheel with bigger chips and full-size words */
+@media (min-width:700px) and (min-height:560px){
+  .c9-wheel-many .c9-wheel-disc{--rx:min(290px,33vw);--ry:min(240px,31vh)}
+  .c9-wheel-many .c9-wheel-item{min-width:96px;max-width:118px;min-height:66px;padding:6px 10px;border-radius:20px}
+  .c9-wheel-many .c9-wheel-text{font-size:16px}
+  .c9-wheel-many .c9-wheel-icon{font-size:28px}
+}
 
 /* ---------- cards: a bottom sheet on phones, a centred card on wide screens ---------- */
 .c9-card-wrap{position:absolute;inset:0;z-index:30;background:linear-gradient(to top,rgba(43,34,51,.42),rgba(43,34,51,.08) 70%)}

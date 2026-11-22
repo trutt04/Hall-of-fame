@@ -492,6 +492,15 @@ async function boot() {
     console.warn('[c9] setBirthday failed', err);
   }
   world.birthday = { isBirthday, age, name: BIRTHDAY.name, info: bInfo };
+  // a soft pop for the birthday fireworks while she is on the island (not under every menu)
+  if (isBirthday && typeof island.onFirework === 'function') {
+    let pops = 0;
+    island.onFirework(() => {
+      if (document.body.dataset.mode !== 'play') return;
+      pops++;
+      if (pops < 12 || pops % 3 === 0) audio.sfx('firework', { volume: 0.3, pitch: 0.9 + Math.random() * 0.25 });
+    });
+  }
 
   // ---------------------------------------------------------------- the basket toss (and other parts that need the world)
   let toss = null;
@@ -1305,7 +1314,7 @@ async function boot() {
       player.position.y += 7;
       player.velocity.y = -2;
       if (isBirthday) {
-        hud.big('Happy Birthday, ' + BIRTHDAY.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
+        hud.big('Happy Birthday,\n' + BIRTHDAY.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
         // a burst of birthday sparkle over the cake as she lands
         const c = places.cake || places.plaza;
         setTimeout(() => {
@@ -1560,7 +1569,7 @@ async function boot() {
     sfx('sparkle', { volume: 0.8, pitch: 1.2 });
     if (all) sfx('tada', { volume: 0.8 });
     player.emote('cheer', 1.6);
-    hud.big('Spirit stick ' + count + ' of ' + total + '!', content.hype(all ? 'collectAll' : 'collect', { name: myNick, stick: hit.id, count, total }), { ms: 2800 });
+    hud.big('Spirit stick\n' + count + ' of ' + total + '!', content.hype(all ? 'collectAll' : 'collect', { name: myNick, stick: hit.id, count, total }), { ms: 2800 });
     const u = hit.stick && hit.stick.unlock;
     if (u && !u.later && typeof u.label === 'string') {
       setTimeout(() => hud.toast('Unlocked: ' + u.label + '! Try it on in My cheerleader.', { icon: 'bow', ms: 4600 }), 900);
