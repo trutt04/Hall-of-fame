@@ -26,7 +26,9 @@ You need a Google account. You do **not** need a credit card.
   in the game at all.
 - **Private rooms.** A room can only be joined by someone who knows its code, and nobody can see a
   list of rooms. Each device gets an invisible, anonymous ID when it joins a room. There is nothing
-  to sign up for.
+  to sign up for. The host can also lock a room once everyone is in: then nobody else can join it
+  or see who is inside, and the host can send someone home. If you pasted the rules before this
+  was added, paste them again (step 3).
 - **The settings you copy in step 6 are not secret.** Firebase says so itself: they only say which
   database to use. What protects the data are the security rules you paste in step 3, which this
   repo already contains.

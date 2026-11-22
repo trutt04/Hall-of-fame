@@ -13,14 +13,19 @@
 //   connect() -> Promise<{ id }>     throws when this transport can't work here
 //   now() -> ms                      shared clock
 //   onLink(fn(up))                   link to the authority up or down
-//   probe(code) -> Promise<null | { meta, players }>
+//   probe(code) -> Promise<null | { meta, players } | { meta, locked: true }>   locked: I may not come in
 //   create(code) -> Promise<'ok' | 'taken'>
 //   enter(code, entry, sink)         subscribe, then write my player entry (joinedAt from the server)
 //   exit(botIds)                     remove my bots, my state and my entry, unsubscribe
 //   putPlayer(id, entry) patchPlayer(id, patch) dropPlayer(id) putState(id, s) dropState(id)
 //   pushEvent({ type, data }) setGame(json | null) setMeta({ hostId? }) claimHost() trimEvents(beforeMs)
+//   lock(locked, allowIds)           host: lock the room to the ids listed (unlock: false, [])
+//   sendHome(id, allowIds)           host: lock to allowIds (without id), then remove id's entry and state
 //   suspend() resume() dispose()
-//   sink: { meta(raw | null), player(id, raw | null), state(id, raw | null), event(key, raw), game(raw | null), resync() }
+//   sink: { meta(raw | null), player(id, raw | null), state(id, raw | null), event(key, raw), game(raw | null), resync(),
+//           removed() }   removed: the room was locked without me on its list, so I can't see it any more
+// While the room is locked and this tab is not on its list, nothing more is delivered (Firebase
+// stops a listener the rules no longer allow the same way).
 
 import { createRoomStore } from './room-store.js';
 import { isId } from './validate.js';
@@ -97,11 +102,21 @@ export function createLocalTransport({
     });
   }
 
+  // The room locked without me on its list: like Firebase, stop showing it, and say so once.
+  function shut(r) {
+    if (store.canRead(id, r.code)) return false;
+    if (!r.denied) {
+      r.denied = true;
+      if (r.sink.removed) r.sink.removed();
+    }
+    return true;
+  }
+
   function deliver(changes) {
     const r = room;
     if (!r) return;
     later(() => {
-      if (room !== r) return;
+      if (room !== r || shut(r)) return;
       for (const ch of changes) {
         if (ch.c !== r.code) continue;
         const s = r.sink;
@@ -126,7 +141,7 @@ export function createLocalTransport({
   // The whole room as it stands, for a fresh subscriber or after a new snapshot.
   function deliverWhole(r) {
     later(() => {
-      if (room !== r) return;
+      if (room !== r || shut(r)) return;
       const data = store.room(r.code);
       const s = r.sink;
       const now = new Set(data ? data.players.keys() : []);
@@ -488,6 +503,13 @@ export function createLocalTransport({
         () => false,
       ),
     trimEvents: (before) => request({ op: 'trim', code: needRoom(), before }),
+    lock: (locked, allow) => request({ op: 'lock', code: needRoom(), locked: locked === true, allow: Array.isArray(allow) ? allow : [] }),
+    async sendHome(pid, allow) {
+      const code = needRoom();
+      await request({ op: 'lock', code, locked: true, allow: Array.isArray(allow) ? allow : [] });
+      await request({ op: 'dropPlayer', code, id: pid });
+      await request({ op: 'dropState', code, id: pid });
+    },
     suspend() {
       post({ v: 1, k: 'bye', from: id });
     },

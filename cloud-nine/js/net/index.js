@@ -14,9 +14,13 @@
 //                             ?room=CODE links), else a new one. Rejects with err.reason 'offline'
 //                             when rooms can't be reached
 //   net.joinRoom(code, { nick, look }) -> Promise<{ ok, reason }>   'not-found' (also: nobody is in it) |
-//                             'full' | 'offline' | 'bad-code'. A wrong code never takes you out of your room.
+//                             'full' | 'locked' | 'offline' | 'bad-code'. A wrong code never takes you out of your room.
 //   net.leaveRoom() -> Promise
-//   net.room                  null | { code, hostId, createdAt }
+//   net.room                  null | { code, hostId, createdAt, locked }
+//   net.lockRoom(on) -> Promise<boolean>   host only: lock the room to the humans in it now (nobody new
+//                             can join or read it; a friend who drops out for a moment comes back), or unlock
+//   net.sendHome(id) -> Promise<boolean>   host only: lock the room without that friend and take them out;
+//                             their device leaves by itself ('leave' with reason 'removed')
 //   net.players               Map<id, { id, nick, look, bot, joinedAt }>, me and the host's bots included,
 //                             earliest first. Treat entries as read only.
 //   net.isHost                the host runs the games and the bots: the earliest human to join;
@@ -43,7 +47,9 @@
 //   net.on(evt, fn) / net.off(evt, fn)
 //       'status' (status)
 //       'join' { id }         someone appeared in net.players (me too, first)
-//       'leave' { id, reason? }   someone left. { id: net.me.id, reason: 'left' | 'lost' } means I am out
+//       'leave' { id, reason? }   someone left. { id: net.me.id, reason: 'left' | 'lost' | 'removed' } means
+//                             I am out ('removed': the host locked the room without me or sent me home)
+//       'room' { locked }     the room was locked or unlocked
 //       'host' { id }         the host changed (id null after leaving)
 //       'player' { id }       a player's nick or look changed
 //       'event' { from, type, data }
@@ -136,6 +142,11 @@ function withTimeout(p, ms) {
   );
 }
 
+// A write the rules (or the local room store) said no to, rather than one that got lost.
+function isRefusal(err) {
+  return /denied|permission/i.test(String((err && (err.code || err.message)) || err || ''));
+}
+
 function reasonError(reason, cause) {
   const e = new Error(reason === 'offline' ? 'rooms are not reachable right now' : reason);
   e.reason = reason;
@@ -203,6 +214,9 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
   let claimFails = 0;
   let claimAfter = -Infinity;
   let healFails = 0;
+  let admitted = false; // in the room for real (not still joining)
+  let refused = false; // the room shut its door while I was joining: the join says 'locked'
+  let lastLocked = null;
   let sendTimer = null;
   let dutyTimer = null;
   let claimTimer = null;
@@ -413,6 +427,15 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
       }
       setGameJson(g.json, g.state && V.mapNicks(g.state, knownNick));
     },
+    // The room locked without me on its list: the transport can't show it to me any more.
+    removed() {
+      if (!inRoom || leaving) return;
+      if (!admitted) {
+        refused = true;
+        return;
+      }
+      sentHome();
+    },
     // After a reconnect or a new local leader: put back whatever went missing meanwhile.
     resync() {
       if (!inRoom || leaving) return;
@@ -544,14 +567,19 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
     for (const id of left) remote.delete(id);
     const hostChanged = newHost !== hostId;
     hostId = newHost;
-    if (meta && (!room || room.hostId !== hostId || room.createdAt !== meta.createdAt)) {
-      room = Object.freeze({ code: roomCode, hostId, createdAt: meta.createdAt });
+    const locked = !!(meta && meta.locked);
+    if (meta && (!room || room.hostId !== hostId || room.createdAt !== meta.createdAt || room.locked !== locked)) {
+      room = Object.freeze({ code: roomCode, hostId, createdAt: meta.createdAt, locked });
     }
     if (hostChanged) hostChangedNow();
     for (const id of left) events.emit('leave', { id });
     for (const id of joined) events.emit('join', { id });
     for (const id of changed) events.emit('player', { id });
     if (hostChanged) events.emit('host', { id: hostId });
+    if (meta && locked !== lastLocked) {
+      lastLocked = locked;
+      events.emit('room', { locked });
+    }
     if (isHostNow()) fitBots(humans.length);
     else considerClaim();
   }
@@ -646,6 +674,10 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
         const s = senders.get(me.id);
         if (s) s.reset();
       } catch (err) {
+        if (isRefusal(err) && raw.meta && raw.meta.locked) {
+          sentHome();
+          return;
+        }
         if (++healFails >= 5) {
           warnOnce('heal', 'could not get back into the room:', (err && (err.code || err.message)) || err);
           roomLost();
@@ -804,6 +836,9 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
     claimedMeta = null;
     claimFails = 0;
     claimAfter = -Infinity;
+    admitted = false;
+    refused = false;
+    lastLocked = null;
   }
 
   async function enterRoom(code) {
@@ -818,6 +853,7 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
     const t0 = Date.now();
     while (inRoom && !(raw.meta && raw.players.has(me.id)) && Date.now() - t0 < T.joinWaitMs) await sleep(15);
     if (!inRoom || !raw.meta) throw new Error('the room did not arrive');
+    admitted = true;
     recompute();
     if (myLocal) getSender(me.id).update(myLocal, now());
   }
@@ -852,6 +888,22 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
     stopTimers();
     transport.exit([...myBots.keys()]).catch(noop);
     finishLeave('lost');
+  }
+
+  // The host locked the room without me (or sent me home): out at once, kindly ('removed').
+  function sentHome() {
+    if (!inRoom || leaving) return;
+    leaving = true;
+    stopTimers();
+    transport.exit([...myBots.keys()]).catch(noop);
+    finishLeave('removed');
+  }
+
+  // Humans in the room now (me too): the allow list of a lock.
+  function humansHere() {
+    const ids = [...raw.players.values()].filter((e) => !e.bot).map((e) => e.id);
+    if (me.id && !ids.includes(me.id)) ids.push(me.id);
+    return ids;
   }
 
   async function abandon() {
@@ -910,6 +962,7 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
       }
       const meta = info && V.cleanMeta(info.meta);
       if (!meta || meta.beat < now() - 12 * 3600 * 1000) return { ok: false, reason: 'not-found' };
+      if (info.locked === true) return { ok: false, reason: 'locked' };
       let humans = 0;
       const ps = info.players && typeof info.players === 'object' ? info.players : {};
       for (const [id, p] of Object.entries(ps)) {
@@ -923,8 +976,9 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
       try {
         await enterRoom(c);
       } catch (err) {
+        const locked = refused || (isRefusal(err) && !!raw.meta && raw.meta.locked); // it locked between the look and the knock
         await abandon();
-        return { ok: false, reason: 'offline' };
+        return { ok: false, reason: locked ? 'locked' : 'offline' };
       }
       // Two people may have squeezed in at the same moment: the later one steps back out.
       const all = [...raw.players.values()].filter((e) => !e.bot && e.joinedAt >= raw.meta.createdAt - 60000).sort(byJoin);
@@ -1104,6 +1158,29 @@ export function createNet({ mode = 'auto', firebase = null, local = null, tuning
       pendingGameJson = json;
       flushGameSoon();
       return true;
+    },
+
+    async lockRoom(on) {
+      if (!isHostNow() || !writable() || typeof transport.lock !== 'function') return false;
+      try {
+        await transport.lock(on === true, humansHere());
+        return true;
+      } catch (err) {
+        warnOnce('lock', 'the room lock did not go through:', (err && (err.code || err.message)) || err);
+        return false;
+      }
+    },
+
+    async sendHome(id) {
+      const e = typeof id === 'string' ? raw.players.get(id) : null;
+      if (!isHostNow() || !writable() || !e || e.bot || id === me.id || typeof transport.sendHome !== 'function') return false;
+      try {
+        await transport.sendHome(id, humansHere().filter((x) => x !== id));
+        return true;
+      } catch (err) {
+        warnOnce('home', 'sending a friend home did not go through:', (err && (err.code || err.message)) || err);
+        return false;
+      }
     },
 
     updateMe({ nick, look } = {}) {

@@ -5,7 +5,7 @@ import { cleanName, cleanAge, candleSpots } from '../js/art/island-cake.js';
 
 test('cleanName keeps letters and spaces, at most 12 characters, else Bailey', () => {
   assert.equal(cleanName('Bailey'), 'Bailey');
-  assert.equal(cleanName('  Bailey   Rose '), 'Bailey Rose');
+  assert.equal(cleanName('  Zippy   Zebra '), 'Zippy Zebra');
   assert.equal(cleanName('<b>Hi</b>'), 'bHib');
   assert.equal(cleanName('ABCDEFGHIJKLMNOP'), 'ABCDEFGHIJKL');
   assert.equal(cleanName(''), 'Bailey');

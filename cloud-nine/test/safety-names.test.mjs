@@ -18,10 +18,10 @@ test('names: put-downs typed as one word are caught, with doubled letters too', 
     });
   });
   L.endings.forEach((e, i) => {
-    assert.ok(isBlocked('Bailey' + e), `endings #${i} after a name`);
-    assert.ok(isBlocked('Bailey ' + e), `endings #${i} as its own word`);
+    assert.ok(isBlocked('Zuzu' + e), `endings #${i} after a name`);
+    assert.ok(isBlocked('Zuzu ' + e), `endings #${i} as its own word`);
   });
-  L.starts.forEach((s, i) => assert.ok(isBlocked(s + 'bailey'), `starts #${i} before a name`));
+  L.starts.forEach((s, i) => assert.ok(isBlocked(s + 'zuzu'), `starts #${i} before a name`));
   for (const [list, name] of [[L.anywhere, 'anywhere'], [L.words, 'words']]) {
     list.forEach((w, i) => {
       const stretched = Array.from(w, (ch) => ch + ch + ch).join('');
@@ -39,7 +39,7 @@ Brooklyn Paisley Savannah Claire Skylar Isla Naomi Elena Caroline Anna Maya Ruby
 Hailey Allison Gianna Samantha Sarah Autumn Quinn Eva Piper Sophie Sadie Delilah Josephine Nevaeh Adeline Lydia Clara Vivian
 Peyton Julia Brielle Reagan Jade Athena Maria Leilani Melanie Mackenzie Hadley Kaylee Rose Isabelle Melody Eliza Kylie Faith
 Mary Margaret Iris Jasmine Charlotte Taylor Khloe Alexa Amara Andrea Parker Eden Brianna Eloise Cecilia Remi Josie Reese
-Bailey Lucia Molly Daisy London Esther Harmony Alyssa Ariel Morgan Summer Juliette Callie Sienna Kayla Teagan Finley Sloane
+Lucia Molly Daisy London Esther Harmony Alyssa Ariel Morgan Summer Juliette Callie Sienna Kayla Teagan Finley Sloane
 Rachel Ember Kimberly Juniper Sydney Gemma Jessica Maddie Addie Goldie Freddie Frankie Elodie Heidi Dixie Trixie Bessie Jessie
 Missy Kassidy Cassidy Cass Tess Bess Lassie Phoebe Chelsea Michelle Rochelle Shelly Helen Hellen Natasha Sasha Tasha Aisha
 Fatima Fatma Anushka Nazia Janice Analise Annalise Analia Titania Kitty Titus Peter Willy Penny Peggy Hattie Dee Didi Diana

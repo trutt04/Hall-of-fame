@@ -19,9 +19,9 @@ test('notes: signed with a first name or a relation', () => {
     return n && n.from;
   };
   assert.equal(signed('Grandma'), 'Grandma');
-  assert.equal(signed('grandpa joe'), 'Grandpa Joe');
-  assert.equal(signed('Aunt Kim'), 'Aunt Kim');
-  assert.equal(signed('Great Grandma Rose'), 'Great Grandma Rose');
+  assert.equal(signed('grandpa zork'), 'Grandpa Zork');
+  assert.equal(signed('Aunt Zuzu'), 'Aunt Zuzu');
+  assert.equal(signed('Great Grandma Fizz'), 'Great Grandma Fizz');
   assert.equal(signed('Mom and Dad'), 'Mom and Dad');
   assert.equal(signed('Nana & Papa'), 'Nana & Papa');
   assert.equal(signed('Ava, Mia and Leo'), 'Ava, Mia and Leo');
@@ -29,7 +29,7 @@ test('notes: signed with a first name or a relation', () => {
   assert.equal(signed('Mary-Kate'), 'Mary-Kate');
   assert.equal(signed('Coach'), 'Coach');
   assert.equal(signed('  your   cousins '), null, 'two words, the first not a relation');
-  for (const bad of ['Kim Smith', 'Mary Jane Smith', 'Grandma Rose Smith', 'Aunt Kim Smith', 'Mom 2', 'Dad!', '@grandma', '',
+  for (const bad of ['Zuzu Sparkleton', 'Pip Zork Sparkleton', 'Grandma Fizz Sparkleton', 'Aunt Zuzu Sparkleton', 'Mom 2', 'Dad!', '@grandma', '',
     '   ', 'A Very Long Name That Goes On', null, 42, 'Grandma and', 'and Grandpa', 'Mom,, Dad']) {
     assert.equal(signed(bad), null, `refuses ${JSON.stringify(bad)}`);
   }
@@ -57,21 +57,21 @@ test('notes: text is tidied, capped and kept free of links, contact details and 
 
 test('notes: long text is clipped at a word with "..."', () => {
   const long = 'We are so proud of you and every single toss you fly. '.repeat(6).trim();
-  const n = cleanNote({ from: 'Uncle Ray', text: long });
+  const n = cleanNote({ from: 'Uncle Wobble', text: long });
   assert.ok(n.clipped);
   assert.ok(n.text.length <= NOTE_LIMITS.text, `${n.text.length}`);
   assert.ok(n.text.endsWith('...'));
   assert.ok(long.startsWith(n.text.slice(0, -3)), 'cut at a word boundary');
   assert.ok(!/\s\.\.\.$/.test(n.text));
-  assert.equal(cleanNote({ from: 'Uncle Ray', text: 'x'.repeat(2500) }), null, 'absurd lengths are refused');
+  assert.equal(cleanNote({ from: 'Uncle Wobble', text: 'x'.repeat(2500) }), null, 'absurd lengths are refused');
 });
 
 test('notes: familyNotes keeps the good ones in order', () => {
   const notes = [
     { from: 'Grandma', text: 'Fly high!' },
-    { from: 'Kim Smith', text: 'Hi!' },
-    { from: 'Aunt Kim', text: 'Hit zero, superstar!' },
+    { from: 'Zuzu Sparkleton', text: 'Hi!' },
+    { from: 'Aunt Zuzu', text: 'Hit zero, superstar!' },
     'nope',
   ];
-  assert.deepEqual(familyNotes(notes).map((n) => n.from), ['Grandma', 'Aunt Kim']);
+  assert.deepEqual(familyNotes(notes).map((n) => n.from), ['Grandma', 'Aunt Zuzu']);
 });

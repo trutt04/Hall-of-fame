@@ -158,6 +158,13 @@
 .c9m-who-dot{width:16px;height:16px;border-radius:50%;background:var(--pink);border:2.5px solid var(--black)}
 .c9m-who-crown{width:20px;height:20px;color:#c8902a}
 .c9m-who-you{font-size:16px;font-weight:900;letter-spacing:.02em;padding:0 8px;border-radius:999px;background:var(--black);color:var(--white)}
+/* the host's room lock, and "Send home" on a friend (two taps) */
+.c9m-lock{margin:0 0 12px}
+.c9m-lock-note{margin:0 0 10px}
+.c9m-home{display:inline-flex;align-items:center;gap:6px;min-height:48px;margin-left:4px;padding:4px 14px;font:inherit;font-weight:900;font-size:16px;
+  color:var(--ink);background:var(--white);border:2.5px solid var(--black);border-radius:999px;cursor:pointer;touch-action:manipulation}
+.c9m-home .c9-icon{width:20px;height:20px}
+.c9m-home.c9m-sure{background:var(--pink-pale)}
 .c9m-lobby-card .c9m-row{flex-wrap:wrap}
 
 /* ---------- messages, busy ---------- */

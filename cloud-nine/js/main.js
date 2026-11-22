@@ -112,7 +112,7 @@ function safeAudio(real) {
 // current and re-emits its events.
 function createNetFacade() {
   const events = emitter();
-  const FORWARD = ['status', 'join', 'leave', 'host', 'player', 'event', 'game'];
+  const FORWARD = ['status', 'join', 'leave', 'host', 'player', 'event', 'game', 'room'];
   let cur = null;
   let offs = [];
   const emptyPlayers = new Map();
@@ -160,6 +160,8 @@ function createNetFacade() {
     removeBot(id) { if (cur) guard(() => cur.removeBot(id)); },
     send(type, data) { return cur ? guard(() => cur.send(type, data), false) : false; },
     setGame(state) { return cur ? guard(() => cur.setGame(state), false) : false; },
+    lockRoom(on) { return cur && typeof cur.lockRoom === 'function' ? cur.lockRoom(on).catch(() => false) : Promise.resolve(false); },
+    sendHome(id) { return cur && typeof cur.sendHome === 'function' ? cur.sendHome(id).catch(() => false) : Promise.resolve(false); },
     on: events.on.bind(events),
     off: events.off.bind(events),
   };
@@ -742,7 +744,7 @@ async function boot() {
     hud.setButton('games', { hidden: !(session && (session.kind === 'solo' || net.isHost)) });
     if (lobbyUI) {
       const host = rows.find((r) => r.host);
-      lobbyUI.update({ players: rows, isHost: net.isHost, hostNick: host ? host.nick : '' });
+      lobbyUI.update({ players: rows, isHost: net.isHost, hostNick: host ? host.nick : '', locked: !!(net.room && net.room.locked) });
     }
     if (session && session.kind === 'room') for (const r of rows) if (!r.me && !r.bot) knownFriends.set(r.id, r.nick);
   }
@@ -758,8 +760,12 @@ async function boot() {
   net.on('leave', (e) => {
     const id = e && e.id;
     if (id && net.me && id === net.me.id) {
-      // NET says I am out of the room (the connection or the room was lost): keep playing here, solo
-      if (session && session.kind === 'room') roomLost();
+      // NET says I am out of the room (the connection or the room was lost, or the host closed it
+      // to me): keep playing here, solo
+      if (session && session.kind === 'room') {
+        if (e.reason === 'removed') roomClosed();
+        else roomLost();
+      }
       return;
     }
     refreshPeople();
@@ -771,6 +777,17 @@ async function boot() {
   });
   // a friend changed their name or look (net.updateMe on their device)
   net.on('player', () => refreshPeople());
+  // the host locked or unlocked the room
+  let roomLockShown = null;
+  net.on('room', (e) => {
+    refreshPeople();
+    const locked = !!(e && e.locked);
+    if (session && session.kind === 'room' && roomLockShown !== null && locked !== roomLockShown && playing()) {
+      if (locked) hud.toast(net.isHost ? 'Room locked! Only the friends here can play.' : 'The host locked the room for this game.', { icon: 'key', ms: 2800 });
+      else hud.toast(net.isHost ? 'Room unlocked. Friends can join with the code.' : 'The room is open again!', { icon: 'key', ms: 2400 });
+    }
+    roomLockShown = locked;
+  });
   net.on('host', () => {
     refreshPeople();
     if (session && session.kind === 'room' && net.isHost && playing()) hud.toast('You are the host now! You pick the games.', { icon: 'crown' });
@@ -1256,6 +1273,7 @@ async function boot() {
     if (world.activeGame) onGameEnd();
     if (session) net.leaveRoom();
     session = null;
+    roomLockShown = null;
     net.use(null);
     peers.clear();
     refreshPeople();
@@ -1295,6 +1313,62 @@ async function boot() {
     }
     hud.toast("Lost the room. You're still on Cloud Nine! Make or join a room from the menu.", { icon: 'sparkle', ms: 5200 });
     startSolo({ stay: true });
+  }
+
+  // The host closed the room to me (locked it without me, or sent me home). No blame, no fuss:
+  // she keeps playing, and can make her own room.
+  function roomClosed() {
+    const lines = ['The host closed the room for now.', 'You can make your own room, or keep exploring by yourself!'];
+    if (mode === 'lobby' || mode === 'menu') {
+      leaveSession();
+      menu.message({
+        title: 'Time for your own adventure!',
+        lines,
+        actions: [{ label: 'Make my own room', icon: 'plus', onClick: () => makeRoom() }, { label: 'Play by myself', icon: 'star', onClick: () => startSolo() }],
+      });
+      return;
+    }
+    startSolo({ stay: true });
+    hud.openCard({
+      icon: 'sparkle',
+      kicker: 'Room closed',
+      title: 'Time for your own adventure!',
+      lines,
+      actions: [{ label: 'Make my own room', primary: true, icon: 'plus', onClick: () => makeRoom() }, { label: 'Keep playing', primary: false }],
+    });
+  }
+
+  // The host: send a friend home, after a check.
+  function confirmSendHome(id, nick) {
+    const name = nick || 'this friend';
+    hud.openCard({
+      icon: 'home',
+      kicker: 'Send home',
+      title: 'Send ' + name + ' home?',
+      lines: ['They keep playing on their own island.', 'The room locks, so nobody new can join.'],
+      actions: [
+        { label: 'Send home', primary: true, icon: 'home', onClick: () => sendHome(id, name) },
+        { label: 'Keep playing', primary: false },
+      ],
+    });
+  }
+  async function sendHome(id, name) {
+    const ok = await net.sendHome(id);
+    hud.toast(ok ? name + ' is heading home. The room is locked.' : "Couldn't send " + name + ' home. Try again in a moment!', { icon: 'home', ms: 2600 });
+  }
+  // The host's list of friends to pick from (pause menu)
+  function pickFriendToSendHome() {
+    const me = net.me ? net.me.id : null;
+    const friends = [...net.players.values()].filter((p) => p && !p.bot && p.id !== me);
+    if (!friends.length) return;
+    hud.openCard({
+      icon: 'home',
+      kicker: 'Send a friend home',
+      title: 'Who is heading home?',
+      lines: ['They keep playing on their own island.'],
+      actions: friends.slice(0, 9).map((p) => ({ label: nickOf(p), primary: false, onClick: () => confirmSendHome(p.id, nickOf(p)) }))
+        .concat([{ label: 'Never mind', primary: false }]),
+    });
   }
 
   function roomsUnavailable() {
@@ -1362,6 +1436,8 @@ async function boot() {
       },
       onLeave: () => showMenu(),
       onExplore: () => enterWorld(),
+      onLock: (on) => net.lockRoom(on),
+      onSendHome: (id, nick) => sendHome(id, nick || 'Your friend'),
     });
     refreshPeople();
   }
@@ -1547,6 +1623,18 @@ async function boot() {
       contentEl: buildPauseMenu({
         code: inRoom && net.room ? net.room.code : null,
         isHost: inRoom && net.isHost,
+        locked: !!(inRoom && net.room && net.room.locked),
+        friends: inRoom ? [...net.players.values()].filter((p) => p && !p.bot && (!net.me || p.id !== net.me.id)).length : 0,
+        onLock: (on) => {
+          hud.closePanel();
+          net.lockRoom(on).then((ok) => {
+            if (!ok) hud.toast("Couldn't change the lock. Try again in a moment!", { icon: 'key', ms: 2400 });
+          });
+        },
+        onSendHome: () => {
+          hud.closePanel();
+          pickFriendToSendHome();
+        },
         canPick: session && (session.kind === 'solo' || net.isHost),
         places: travelSpots(),
         sound: audio.enabled,
@@ -1888,7 +1976,8 @@ async function boot() {
     } else {
       net.use(null);
       showTitle();
-      hud.toast((JOIN_REASONS[res.reason] || JOIN_REASONS.error).title, { icon: 'key' });
+      const why = JOIN_REASONS[res.reason] || JOIN_REASONS.error;
+      hud.toast(res.reason === 'locked' ? why.title + '. ' + why.line : why.title, { icon: 'key' });
     }
   } else if (store.flag('solo')) {
     await startSolo();

@@ -42,7 +42,7 @@ test('names: randomNick is seeded, varied and never doubles a word', () => {
 });
 
 test('cleanNick: trims, collapses spaces, capitalizes, allows accents', () => {
-  assert.equal(cleanNick('  bailey   rose '), 'Bailey Rose');
+  assert.equal(cleanNick('  zippy   zebra '), 'Zippy Zebra');
   assert.equal(cleanNick('zo\u00eb'), 'Zo\u00eb');
   assert.equal(cleanNick('Jose\u0301'), 'Jos\u00e9', 'decomposed accents are composed');
   assert.equal(cleanNick('mcKenna'), 'McKenna');

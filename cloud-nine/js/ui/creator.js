@@ -211,15 +211,10 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
   document.body.appendChild(root);
 
   // ---- nickname ----
-  let nickSource = 'none'; // 'given' | 'picked' | 'typed' | 'none'
-  if (typeof nick === 'string' && nick.trim()) {
-    nickInput.value = nick.trim().slice(0, 24);
-    nickSource = 'given';
-  }
+  if (typeof nick === 'string' && nick.trim()) nickInput.value = nick.trim().slice(0, 24);
   nickInput.addEventListener('input', () => {
     const v = filterTypedNick(nickInput.value);
     if (v !== nickInput.value) nickInput.value = v;
-    nickSource = v ? 'typed' : 'none';
     nameNote.textContent = '';
     root.classList.remove('c9c-shake');
   });
@@ -242,7 +237,6 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     pick.disabled = false;
     if (closed) return;
     nickInput.value = n;
-    nickSource = 'picked';
     nameNote.textContent = '';
     nickInput.classList.remove('c9c-pop');
     void nickInput.offsetWidth;
@@ -530,9 +524,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     if (!raw) {
       name = await pickNick();
     } else {
-      name = tryClean(m, raw);
-      // a generated name (or the one she already had) is trusted when it is plain letters and spaces
-      if (!name && (nickSource === 'picked' || nickSource === 'given') && /^[\p{L} ]{1,24}$/u.test(raw)) name = raw;
+      name = tryClean(m, raw); // every name, typed, picked or kept from before, passes cleanNick
     }
     if (!name) {
       nameNote.textContent = "Let's try a different name, or tap Pick for me!";

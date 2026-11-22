@@ -47,10 +47,12 @@ The first tap turns the sound on. The speaker button turns it off and on, and th
   rainbow socks...). The menu's "Spirit sticks" row shows how many are found and gives a hint for
   the next one. Locked choices in the creator show a padlock and the same hint.
 - **My cheerleader.** Hair, bow, outfit, shoes, sparkle and skin tone, plus her cheer name. Her
-  first look is her own team outfit: high pony, the big hot-pink bow with black stars, the black
+  first look is a hot-pink and black cheer outfit: high pony, the big hot-pink bow with black stars, the black
   rhinestone crop top and hot-pink shorts.
 - **Rooms.** "Make a room" shows a 4-letter code. Friends tap "Join a room" and type it. Rooms
   are private: there is no list of rooms anywhere, and only someone with the code can come in.
+  Once everyone is in, the host can lock the room (in the lobby or the menu) so nobody new can
+  join, and can send a friend home if someone shouldn't be there.
 
 ## Her birthday
 
@@ -70,7 +72,7 @@ address.
 
 **Privacy: this repo is public.** Everything in it, and in its history, can be read by anyone:
 her birthday in `js/config.js`, the family notes in `js/content/notes.js`, the Firebase project
-name. Use first names or relations only ("Grandma", "Aunt Kim"), never last names, towns, schools,
+name. Use first names or relations only ("Grandma", "Aunt Zuzu"), never last names, towns, schools,
 gyms or team names. To keep her birthday off the internet, leave the date `null` and send her the
 link with `?birthday=1` on the end on the day, and the party turns on. A detail
 committed by mistake stays in the history even after it is deleted, so check before you commit.
