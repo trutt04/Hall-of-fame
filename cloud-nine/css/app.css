@@ -183,6 +183,9 @@ button{font-family:inherit;color:inherit}
 .c9-wheel-item:active{box-shadow:0 1px 0 var(--black);margin-top:3px}
 .c9-wheel.c9-in .c9-wheel-item{animation:c9-wheel-pop .3s var(--d) cubic-bezier(.2,1.5,.4,1) both}
 @keyframes c9-wheel-pop{from{transform:translate(-50%,-50%) scale(.5);opacity:0}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+.c9-wheel-many .c9-wheel-disc{--rx:min(160px,39vw);--ry:min(212px,26vh)}
+.c9-wheel-many .c9-wheel-item{min-width:70px;max-width:82px;min-height:54px;padding:4px 7px;border-radius:18px}
+.c9-wheel-many .c9-wheel-text{font-size:13.5px}
 .c9-wheel-icon{font-size:24px;line-height:1}
 .c9-wheel-icon.c9-icon{width:24px;height:24px;color:var(--pink)}
 .c9-wheel-text{font-weight:900;font-size:14.5px;line-height:1.05;text-align:center}

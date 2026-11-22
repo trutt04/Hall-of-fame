@@ -61,16 +61,22 @@ const hexOf = (css) => parseInt(String(css).slice(1), 16);
 function makeRescueCloud() {
   const g = new Geo();
   g.jit = 0.04;
-  const white = hexOf(PALETTE.white);
-  const pink = hexOf(PALETTE.pinkPale);
-  const lilac = hexOf(PALETTE.cloudShadow);
-  g.ico(0, 0, 0, 1.05, white, { detail: 1, sy: 0.55 });
+  // pinker than the sky's clouds, so it reads as her ride, with rhinestones on the rim
+  const white = 0xffffff;
+  const pink = hexOf(PALETTE.pinkSoft);
+  const pale = hexOf(PALETTE.pinkPale);
+  g.ico(0, 0, 0, 1.05, pale, { detail: 1, sy: 0.55 });
   for (let i = 0; i < 7; i++) {
     const a = (i / 7) * Math.PI * 2;
-    g.ico(Math.cos(a) * 0.95, -0.05 + (i % 2) * 0.12, Math.sin(a) * 0.8, 0.55 + (i % 3) * 0.1, i % 3 === 0 ? pink : i % 3 === 1 ? white : lilac, { detail: 1, sy: 0.7 });
+    g.ico(Math.cos(a) * 0.95, -0.05 + (i % 2) * 0.12, Math.sin(a) * 0.8, 0.55 + (i % 3) * 0.1, i % 3 === 0 ? pink : i % 3 === 1 ? white : pale, { detail: 1, sy: 0.7 });
   }
   g.ico(-0.35, 0.3, -0.2, 0.55, white, { detail: 1, sy: 0.8 });
   g.ico(0.4, 0.28, 0.1, 0.5, pink, { detail: 1, sy: 0.8 });
+  const gems = [hexOf(PALETTE.rhinestonePink), hexOf(PALETTE.rhinestonePurple), hexOf(PALETTE.rhinestoneSilver)];
+  for (let i = 0; i < 9; i++) {
+    const a = (i / 9) * Math.PI * 2 + 0.2;
+    g.ico(Math.cos(a) * 1.32, 0.12, Math.sin(a) * 1.12, 0.09, gems[i % 3], { detail: 0 });
+  }
   const mesh = g.mesh(flatMat);
   mesh.name = 'rescueCloud';
   return mesh;

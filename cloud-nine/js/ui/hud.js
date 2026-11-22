@@ -19,6 +19,7 @@
 //   hud.openCard({ kicker, title, lines, contentEl, actions: [{ label, onClick, primary, keepOpen, icon }], onClose, accent })
 //   hud.closeCard() / hud.openPanel({ title, contentEl, onClose }) / hud.closePanel() / hud.closeAll()
 //   hud.isModalOpen() / hud.on('modal', fn(open))    main.js suspends world input while one is open
+//   hud.escape() -> boolean                  closes the top-most wheel, card or panel
 //   hud.setPlaying(bool)                     shows or hides the in-world controls (menus hide them)
 //   hud.showHint(text) / hud.hideHint() / hud.fade(on, ms) -> Promise / hud.setDebug(text)
 //   hud.setLoading(progress01, text) / hud.hideLoading()
@@ -78,7 +79,8 @@ export function createHud(root, opts = {}) {
     paintPeopleOpen();
     fire('people', peopleOpen);
   });
-  const isPeopleOpen = () => (peopleOpen === null ? window.innerWidth >= 700 : peopleOpen);
+  // automatic: open on wide screens while the room is small, a tidy pill otherwise
+  const isPeopleOpen = () => (peopleOpen === null ? window.innerWidth >= 700 && peopleList.children.length <= 5 : peopleOpen);
   function paintPeopleOpen() {
     const open = isPeopleOpen();
     people.classList.toggle('c9-open', open);
@@ -249,7 +251,7 @@ export function createHud(root, opts = {}) {
     const list = (Array.isArray(emotes) ? emotes : []).filter((e) => e && typeof e.id === 'string').slice(0, 12);
     wheelDisc.replaceChildren(wheelClose);
     const n = list.length;
-    const ring = n > 8 ? 2 : 1;
+    wheel.classList.toggle('c9-wheel-many', n > 8); // one bigger ellipse, smaller chips
     list.forEach((e, i) => {
       const b = el('button', 'c9-wheel-item');
       b.type = 'button';
@@ -257,24 +259,10 @@ export function createHud(root, opts = {}) {
       if (ic) b.appendChild(ic);
       b.appendChild(el('span', 'c9-wheel-text', String(e.text || e.id).slice(0, 18)));
       b.appendChild(el('span', 'c9-wheel-key', String(i + 1)));
-      // around the circle, starting at the top
-      let a;
-      let r;
-      if (ring === 1) {
-        a = -Math.PI / 2 + (i / n) * Math.PI * 2;
-        r = 1;
-      } else {
-        const inner = Math.min(4, Math.floor(n / 3));
-        if (i < inner) {
-          a = -Math.PI / 2 + (i / inner) * Math.PI * 2 + Math.PI / 4;
-          r = 0.5;
-        } else {
-          a = -Math.PI / 2 + ((i - inner) / (n - inner)) * Math.PI * 2;
-          r = 1;
-        }
-      }
-      b.style.setProperty('--x', (Math.cos(a) * r).toFixed(3));
-      b.style.setProperty('--y', (Math.sin(a) * r).toFixed(3));
+      // around the ellipse, starting at the top; with many, two straddle the top instead
+      const a = -Math.PI / 2 + ((i + (n > 8 ? 0.5 : 0)) / n) * Math.PI * 2;
+      b.style.setProperty('--x', Math.cos(a).toFixed(3));
+      b.style.setProperty('--y', Math.sin(a).toFixed(3));
       b.style.setProperty('--d', (i * 0.025).toFixed(3) + 's');
       onTap(b, () => {
         closeWheel();
@@ -470,12 +458,15 @@ export function createHud(root, opts = {}) {
     events.emit('modal', modal);
   }
 
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Escape') return;
+  // Escape closes the top-most thing. main.js calls this from input's 'escape' (one listener,
+  // so closing a panel never also reopens the menu in the same key press).
+  function escape() {
     if (wheelState) closeWheel();
     else if (cardState && cardState.dismissable) closeCard();
     else if (panelState) closePanel();
-  });
+    else return false;
+    return true;
+  }
   root.addEventListener('contextmenu', (e) => e.preventDefault());
 
   // ---------------------------------------------------------------- the game panel
@@ -662,6 +653,7 @@ export function createHud(root, opts = {}) {
     closePanel: () => closePanel(),
     get panelOpen() { return !!panelState; },
     isModalOpen,
+    escape,
     closeAll() {
       closeWheel();
       closePanel();

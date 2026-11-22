@@ -163,12 +163,10 @@ export function createMenu(root) {
     const solo = bigButton('Play by myself', 'star', 'primary', () => onSolo && onSolo());
     solo.dataset.autofocus = '1';
     list.appendChild(solo);
-    const make = bigButton('Make a room', 'plus', 'white', () => onMake && onMake());
-    const join = bigButton('Join a room', 'key', 'white', () => onJoin && onJoin());
-    if (!online) {
-      for (const b of [make, join]) b.title = 'Rooms need the internet';
+    if (online) {
+      list.append(bigButton('Make a room', 'plus', 'white', () => onMake && onMake()), bigButton('Join a room', 'key', 'white', () => onJoin && onJoin()));
     }
-    list.append(make, join, bigButton('My cheerleader', 'bow', 'lilac', () => onCheerleader && onCheerleader()));
+    list.append(bigButton('My cheerleader', 'bow', 'lilac', () => onCheerleader && onCheerleader()));
     c.appendChild(list);
     s.appendChild(c);
     if (onSound) s.appendChild(soundToggle(onSound));

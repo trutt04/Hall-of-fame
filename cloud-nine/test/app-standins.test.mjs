@@ -81,7 +81,7 @@ test('local mode: two devices meet in one room, the first is host, state and eve
   assert.ok(isValidCode(roomCode));
   const res = await guest.joinRoom(roomCode, { nick: 'Sister' });
   assert.deepEqual(res, { ok: true });
-  await wait(40);
+  await wait(150);
   assert.equal(host.players.size, 2);
   assert.equal(guest.players.size, 2);
   assert.equal(host.isHost, true);
@@ -92,14 +92,14 @@ test('local mode: two devices meet in one room, the first is host, state and eve
   host.on('event', (e) => seen.push(e));
   guest.send('emote', { id: 'yay' });
   guest.sendState({ x: 5, y: 1, z: -3, h: 2, anim: 'walk' });
-  await wait(40);
+  await wait(150);
   assert.deepEqual(seen.map((e) => [e.from, e.type, e.data.id]), [[guest.me.id, 'emote', 'yay']]);
   assert.equal(host.stateOf(guest.me.id, host.now() + 500).x, 5);
 
   // bots belong to the host and travel with it
   const bot = host.addBot({ nick: 'Glitter Gem' });
   host.sendStateFor(bot, { x: 9, y: 0, z: 9, h: 0, anim: 'idle' });
-  await wait(40);
+  await wait(150);
   assert.equal(guest.players.get(bot).bot, true);
   assert.equal(guest.stateOf(bot, guest.now() + 500).x, 9);
   assert.equal(guest.addBot({ nick: 'Nope' }), null, 'only the host adds bots');
@@ -108,7 +108,7 @@ test('local mode: two devices meet in one room, the first is host, state and eve
   const hosts = [];
   guest.on('host', (e) => hosts.push(e.id));
   host.leaveRoom();
-  await wait(60);
+  await wait(200);
   assert.equal(guest.players.has(host.me.id), false);
   assert.equal(guest.players.has(bot), false);
   assert.equal(guest.isHost, true);

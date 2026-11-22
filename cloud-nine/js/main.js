@@ -218,6 +218,8 @@ function assembleContent(mods) {
   return out;
 }
 
+const JOIN_LINES = ['joined the squad!', 'is here! Hi!', 'flew in!', 'landed on Cloud Nine!'];
+
 const EMOTE_ANIMS = [
   [/wave|hi|hey|hello|bye/i, 'wave'],
   [/clap|nice|good|gg|great/i, 'clap'],
@@ -309,7 +311,16 @@ async function boot() {
     }
   }
   const fallbackIsland = !island || !island.places || typeof island.groundAt !== 'function' ? await import('./world/fallback-island.js') : null;
-  if (fallbackIsland) island = fallbackIsland.buildIsland({ scene, quality, colliders });
+  if (fallbackIsland) {
+    if (island) {
+      console.warn('[c9] the island part has no places or groundAt, using the stand-in island');
+      try {
+        if (island.dispose) island.dispose();
+      } catch (err) { /* it is going anyway */ }
+      colliders.clear();
+    }
+    island = fallbackIsland.buildIsland({ scene, quality, colliders });
+  }
   let sky = null;
   if (skyMod && typeof skyMod.createSky === 'function') {
     try {
@@ -591,7 +602,7 @@ async function boot() {
     refreshPeople();
     const p = e && net.players.get(e.id);
     if (p && session && session.kind === 'room' && !p.bot && e.id !== (net.me && net.me.id)) {
-      hud.toast(nickOf(p) + ' ' + content.hype('join', { nick: nickOf(p) }).replace(/^\s*/, ''), { icon: 'sparkle' });
+      hud.toast(nickOf(p) + ' ' + JOIN_LINES[Math.floor(Math.random() * JOIN_LINES.length)], { icon: 'sparkle' });
       sfx('chime', { volume: 0.6 });
     }
   });
@@ -600,7 +611,15 @@ async function boot() {
     refreshPeople();
     if (session && session.kind === 'room' && net.isHost && playing()) hud.toast('You are the host now! You pick the games.', { icon: 'crown' });
   });
-  net.on('status', () => refreshPeople());
+  let lastStatus = null;
+  net.on('status', (st) => {
+    refreshPeople();
+    if (session && session.kind === 'room' && st !== lastStatus) {
+      if (st === 'offline' && lastStatus === 'online') hud.toast('Lost the connection. Hang on, trying again...', { icon: 'sparkle', ms: 3600 });
+      else if (st === 'online' && lastStatus === 'offline') hud.toast('Back with your squad!', { icon: 'sparkle' });
+    }
+    lastStatus = st;
+  });
 
   // ---------------------------------------------------------------- emotes
   function showMyBubble(e) {
@@ -645,6 +664,7 @@ async function boot() {
       if (session && session.kind === 'room' && net.room && from !== net.room.hostId && !mine) return; // only the host starts things
       onGameStart(data);
     } else if (ev.type === 'game-end') {
+      if (session && session.kind === 'room' && net.room && from !== net.room.hostId && !mine) return;
       onGameEnd(ev.data || {});
     } else if (ev.type === 'fx') {
       const d = ev.data || {};
@@ -919,7 +939,8 @@ async function boot() {
     }
     net.use(n);
     const code = await withTimeout(n.createRoom({ nick: myNick, look: myLook }), 15000, null);
-    if (!code || !net.room) {
+    // a room only this device can see is no room for friends
+    if (!code || !net.room || net.status === 'offline') {
       leaveSession();
       roomsUnavailable();
       return;
@@ -976,14 +997,14 @@ async function boot() {
     setMode('play');
     followCamera();
     refreshPeople();
+    const p = places.plaza;
+    player.place(p.x, p.z, p.facing ?? 0);
+    followCamera();
     if (!welcomed) {
       welcomed = true;
-      // arrive from the sky: a little drop onto the plaza with a sparkle landing
-      const p = places.plaza;
-      player.place(p.x, p.z, p.facing ?? 0);
+      // the first time: arrive from the sky, a little drop onto the plaza with a sparkle landing
       player.position.y += 7;
       player.velocity.y = -2;
-      followCamera();
       if (isBirthday) {
         hud.big('Happy Birthday, ' + BIRTHDAY.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday'), { ms: 3400 });
         audio.music('birthday');
@@ -1129,10 +1150,8 @@ async function boot() {
     else openPauseMenu();
   });
   input.on('escape', () => {
-    if (hud.wheelOpen) hud.closeWheel();
-    else if (hud.cardOpen) hud.closeCard();
-    else if (hud.panelOpen) hud.closePanel();
-    else if (playing()) openPauseMenu();
+    if (hud.escape()) return;
+    if (playing()) openPauseMenu();
   });
 
   const raycaster = new THREE.Raycaster();
@@ -1211,7 +1230,18 @@ async function boot() {
       }
     },
   }, 45);
-  engine.addSystem({ update: (dt) => fx.update(dt) }, 50);
+  let trail = 0;
+  engine.addSystem({
+    update(dt) {
+      // a little sparkle trail behind the cloud taxi
+      if (player.rescuing && (trail -= dt) <= 0) {
+        trail = 0.18;
+        const q = player.position;
+        fx.burst(q.x, q.y - 0.4, q.z, { count: 3, speed: 1.2, size: 0.32, up: 0 });
+      }
+      fx.update(dt);
+    },
+  }, 50);
   const camPos = new THREE.Vector3();
   engine.addSystem({
     update(dt) {
@@ -1278,6 +1308,22 @@ async function boot() {
     hostStartGame,
     setNick: applyNick,
     setLook: applyLook,
+    // bot friends for games (host only): random names and looks; they are players like anyone else
+    addBots(n = 1) {
+      const ids = [];
+      for (let i = 0; i < n; i++) {
+        const look = charMod.randomLook ? charMod.randomLook(Math.random) : placeholder.randomLook(Math.random);
+        const id = net.addBot({ nick: content.randomNick(), look });
+        if (!id) break;
+        ids.push(id);
+      }
+      refreshPeople();
+      return ids;
+    },
+    removeBots() {
+      for (const [id, p] of [...net.players]) if (p && p.bot) net.removeBot(id);
+      refreshPeople();
+    },
     parts: {
       island: !island.fallback, sky: !!skyMod, character: charMod !== placeholder, audio: !!audioReal, net: !!netMod,
       toss: !!toss, games: !!gamesMod, content: Object.fromEntries(Object.entries(content.modules).map(([k, v]) => [k, !!v])),

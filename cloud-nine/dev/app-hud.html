@@ -36,6 +36,9 @@
   hud.setPlaying(true);
   window.hud = hud;
   window.menu = menu;
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hud.escape();
+  });
   const players = [
     { id: 'a', nick: 'Bailey', color: '#ff2e93', host: true, me: true },
     { id: 'b', nick: 'Sister', color: '#9fd8ff' },
