@@ -1299,6 +1299,26 @@ async function boot() {
     refreshPeople();
   }
 
+  // In a room everyone arrives together: stand in a line beside each other (by join order), not
+  // all on one spot.
+  function arrivalFor() {
+    let k = 0;
+    if (session && session.kind === 'room' && net.me) {
+      const humans = [...net.players.values()].filter((p) => p && !p.bot).map((p) => p.id);
+      k = Math.max(0, humans.indexOf(net.me.id));
+    }
+    if (!k) return arrival;
+    const side = (k % 2 ? 1 : -1) * Math.ceil(k / 2) * 1.5;
+    const rx = Math.cos(arrival.facing);
+    const rz = -Math.sin(arrival.facing);
+    for (const s of [side, side * 0.6, 0]) {
+      const x = arrival.x + rx * s;
+      const z = arrival.z + rz * s;
+      if (Number.isFinite(groundAt(x, z)) && !colliders.hits(x, z, 0.5)) return { x, z, facing: arrival.facing };
+    }
+    return arrival;
+  }
+
   let welcomed = false;
   function enterWorld() {
     lobbyUI = null;
@@ -1306,7 +1326,8 @@ async function boot() {
     setMode('play');
     followCamera();
     refreshPeople();
-    player.place(arrival.x, arrival.z, arrival.facing);
+    const spot = arrivalFor();
+    player.place(spot.x, spot.z, spot.facing);
     followCamera();
     if (!welcomed) {
       welcomed = true;
