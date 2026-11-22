@@ -3,7 +3,9 @@
 // Every piece of text is set with textContent.
 //
 // Contract 1:
-//   hud.toast(text, { icon, ms })            icon: an emoji or an icon name from ui/dom.js
+//   hud.toast(text, { icon, ms })            icon: an emoji or an icon name from ui/dom.js. While a big
+//                                            splash is up, toasts wait (queued, never dropped) and
+//                                            come one after another once it has gone
 //   hud.prompt(label, onUse, { icon }) -> clear()   the big use button; wins over interact's suggestion
 //   hud.clearPrompt(onUse?)                  clears the prompt (only if it is still that onUse, when given)
 //   hud.big(text, sub, { ms, color }) -> Promise    centre splash, never blocks input
@@ -191,6 +193,8 @@ export function createHud(root, opts = {}) {
   bigEl.append(bigStars, bigText, bigSub);
   let bigTimer = 0;
   let bigDone = null;
+  const heldToasts = []; // toasts that came while a splash was up: { t, ms }, shown when it goes
+  const MAX_HELD = 6;
 
   const hint = el('div', 'c9-hint');
   hint.hidden = true;
@@ -659,9 +663,32 @@ export function createHud(root, opts = {}) {
           bigEl.hidden = true;
           bigDone = null;
           resolve();
+          releaseToasts();
         }, 260);
       }, Math.max(500, o.ms ?? 1900));
     });
+  }
+
+  // ---------------------------------------------------------------- toasts
+  function showToast(t, ms) {
+    toasts.appendChild(t);
+    while (toasts.children.length > 3) toasts.firstChild.remove();
+    setTimeout(() => t.classList.add('c9-out'), ms);
+    setTimeout(() => t.remove(), ms + 320);
+  }
+
+  // the splash has gone: the toasts it held come one after another, a moment apart
+  function releaseToasts() {
+    let k = 0;
+    while (heldToasts.length) {
+      const h = heldToasts.shift();
+      setTimeout(() => {
+        if (!bigEl.hidden) {
+          heldToasts.push(h); // another splash came meanwhile: wait for that one too
+          if (heldToasts.length > MAX_HELD) showToast(heldToasts.shift().t, h.ms);
+        } else showToast(h.t, h.ms);
+      }, k++ * 380);
+    }
   }
 
   // ---------------------------------------------------------------- the people list
@@ -717,11 +744,18 @@ export function createHud(root, opts = {}) {
       const ic = iconOrText(o.icon, 'c9-toast-icon');
       if (ic) t.appendChild(ic);
       t.appendChild(el('span', 'c9-toast-text', String(text || '').slice(0, 140)));
-      toasts.appendChild(t);
-      while (toasts.children.length > 3) toasts.firstChild.remove();
       const ms = o.ms ?? 2600;
-      setTimeout(() => t.classList.add('c9-out'), ms);
-      setTimeout(() => t.remove(), ms + 320);
+      if (!bigEl.hidden) {
+        // a splash has the middle of the screen: this one waits its turn (queued, not dropped;
+        // past MAX_HELD the oldest goes out now, so nothing piles up)
+        heldToasts.push({ t, ms });
+        if (heldToasts.length > MAX_HELD) {
+          const h = heldToasts.shift();
+          showToast(h.t, h.ms);
+        }
+        return t;
+      }
+      showToast(t, ms);
       return t;
     },
     prompt(label, onUse, o = {}) {
