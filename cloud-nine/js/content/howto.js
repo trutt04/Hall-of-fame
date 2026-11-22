@@ -26,10 +26,10 @@ export const HOWTO = Object.freeze({
       'Seeker: get close to a hider and tap to find them.',
     ], 'Pick a spot the seeker would never guess!'),
   freezeTag: card('freezeTag', 'Freeze Tag', '\u2744\ufe0f', 'snowflake',
-    'Tag to freeze, tag again to unfreeze!', [
+    'Tag to freeze, stand close to unfreeze!', [
       'If you are it, tag players to freeze them.',
       'Frozen? Strike a pose until a friend saves you.',
-      'Tag a frozen friend to unfreeze them!',
+      'Stand next to a frozen friend to unfreeze them!',
     ], 'Rescue your frozen friends fast. Teamwork wins!'),
   dodgeball: card('dodgeball', 'Dodgeball', '\u{1F3D0}', 'ball',
     'Team Pink and Team Purple, ready to play!', [
