@@ -109,8 +109,8 @@ audio.beat.on('beat', (b) => {
   });
 });
 audio.beat.on('section', (s) => {
-  window.__audioBoard.sections.push(s.id);
-  $('section').textContent = s.name;
+  window.__audioBoard.sections.push(s.name);
+  $('section').textContent = s.title;
 });
 audio.beat.on('end', () => {
   dots.forEach((d) => d.classList.remove('on', 'done'));
@@ -126,14 +126,14 @@ function buildTimeline() {
   timelineFor = st && st.id;
   for (const seg of [...box.querySelectorAll('.seg')]) seg.remove();
   if (!st) return;
-  st.sections.forEach((s, i) => {
+  st.forEach((s, i) => {
     const seg = document.createElement('div');
     seg.className = 'seg';
     seg.style.flex = String(s.end - s.start);
     seg.style.background = SECTION_COLORS[i % SECTION_COLORS.length];
     seg.style.opacity = String(0.55 + 0.45 * s.energy);
-    seg.title = `${s.name}: eight ${s.startEight + 1}, ${s.eights} eights`;
-    seg.innerHTML = `<span>${s.name}</span>`;
+    seg.title = `${s.title}: eight ${s.firstEight}, ${s.eights} eights`;
+    seg.innerHTML = `<span>${s.title}</span>`;
     box.insertBefore(seg, $('playhead'));
   });
 }
@@ -149,7 +149,7 @@ function frame() {
     let t = audio.beat.time();
     if (st.loop && t > st.duration) t = st.loopStart + ((t - st.loopStart) % (st.duration - st.loopStart));
     $('playhead').style.left = Math.max(0, Math.min(100, (t / st.duration) * 100)) + '%';
-    const eight = lastBeat ? lastBeat.eight + 1 : 1;
+    const eight = lastBeat ? lastBeat.eight : 1;
     const next = Math.max(0, (audio.beat.nextBeatTime() - audio.beat.time()) * 1000);
     $('clock').textContent = `${fmt(audio.beat.time())} · eight ${eight} · ${audio.beat.bpm} BPM · next beat in ${next.toFixed(0)} ms`;
   } else {

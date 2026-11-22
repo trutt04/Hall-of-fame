@@ -16,11 +16,16 @@
 //       camera rig pass rig.yaw + Math.PI: its yaw points from the player back to the camera.
 //   audio.beat                              the music clock
 //       bpm, playing                        playing is false while nothing plays (and while sound is off)
-//       time()                              song seconds being heard right now (output latency included)
+//       time()                              song seconds being heard right now (output latency included;
+//                                           a little below 0 just before the first beat)
 //       nextBeatTime()                      song time of the next beat
-//       structure                           the current track's sections and cues (sequencer.js songStructure)
-//       on('beat', fn({ n, count 1..8, eight, time, section, pass }))   fired as each beat is heard;
-//       on('section', fn({ id, name, time, energy, pass })), on('end', fn({ id })), off(evt, fn)
+//       structure                           the current track's sections in order, an array like
+//                                           [{ name: 'intro', eights: 2, ... }, ...] (fields: trackStructure)
+//       on('beat', fn({ n, count, eight, time, section, pass }))   fired as each beat is heard. Every
+//           track starts again from its first downbeat: n 0, count 1, eight 1. n counts beats from 0,
+//           count (1..8) and eight (1, 2, 3...) count from 1 like a coach does, and time is n beats in
+//           seconds, the same clock as time(). section is the section's name.
+//       on('section', fn({ name, title, time, energy, pass })), on('end', fn({ id })), off(evt, fn)
 //   audio.dispose()
 //
 // Extras: audio.unlocked, audio.state, audio.current (track id), audio.tracks, audio.sfxNames,
@@ -48,10 +53,27 @@ const FALLOFF = 14; // meters: at this distance a sound is at half volume
 const MAX_LIVE_SFX = 24;
 const MIN_GAP = { step: 0.07, tap: 0.04, count: 0.05 }; // seconds between repeats of one sound
 
+// A track's shape, as the rhythm game and the sound board read it: its sections in order, an array of
+//   { name (the section id: 'intro', 'opening', ...), eights, title (to show), start, end (song seconds),
+//     firstEight (counting from 1, like the beat event), beats, bars, energy (0..1) }
+// with the whole track's facts on the array itself: .id .title .bpm .beatsPerEight .duration (seconds,
+// without the ring-out) .beats .eights .loop .loopStart .tail (ring-out seconds) and
+// .cues [{ beat, time, eight (from 1), count, kind: 'hey' | 'hit' | 'crash' | 'whoosh' }].
 const structures = new Map();
 export function trackStructure(id) {
-  if (!SONGS[id]) return null;
-  if (!structures.has(id)) structures.set(id, songStructure(SONGS[id]));
+  if (!Object.prototype.hasOwnProperty.call(SONGS, id)) return null;
+  if (!structures.has(id)) {
+    const s = songStructure(SONGS[id]);
+    const list = s.sections.map((x) => ({
+      name: x.id, eights: x.eights, title: x.name, start: x.start, end: x.end,
+      firstEight: x.startEight + 1, beats: x.beats, bars: x.bars, energy: x.energy,
+    }));
+    Object.assign(list, {
+      id: s.id, title: s.title, bpm: s.bpm, beatsPerEight: s.beatsPerEight, duration: s.duration, beats: s.beats,
+      eights: s.eights, loop: s.loop, loopStart: s.loopStart, tail: s.tail, cues: s.cues.map((c) => ({ ...c, eight: c.eight + 1 })),
+    });
+    structures.set(id, list);
+  }
   return structures.get(id);
 }
 
@@ -209,8 +231,8 @@ export function createAudio() {
   function onStep(entry, step, when) {
     if (!step.beat && !step.sectionStart) return;
     const spb = 60 / entry.song.bpm;
-    const sec = step.sectionStart ? { id: step.section, name: step.name, time: step.t, energy: step.energy, pass: step.pass } : null;
-    const beat = step.beat ? { n: step.beat.n, count: step.beat.count, eight: step.beat.eight, time: step.beat.n * spb, section: step.section, pass: step.pass } : null;
+    const sec = step.sectionStart ? { name: step.section, title: step.name, time: step.t, energy: step.energy, pass: step.pass } : null;
+    const beat = step.beat ? { n: step.beat.n, count: step.beat.count, eight: step.beat.eight + 1, time: step.beat.n * spb, section: step.section, pass: step.pass } : null;
     whenHeard(when, () => {
       if (entry !== cur) return;
       if (sec) beatEvents.emit('section', sec);

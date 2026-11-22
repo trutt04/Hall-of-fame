@@ -104,7 +104,10 @@ test('the routine ends on the final pose and rings out cleanly', { skip }, async
 for (const id of ['island', 'game', 'tense']) {
   test(`"${id}" loops without a seam`, { skip }, async (t) => {
     if (!ready(t)) return;
-    const st = await page.evaluate(async ({ base, id }) => (await import(base + '/cloud-nine/js/audio/index.js')).trackStructure(id), { base: server.base, id });
+    const st = await page.evaluate(async ({ base, id }) => {
+      const s = (await import(base + '/cloud-nine/js/audio/index.js')).trackStructure(id);
+      return { duration: s.duration, loopStart: s.loopStart, sections: s.map((x) => ({ name: x.name, start: x.start })) };
+    }, { base: server.base, id });
     const seam = st.duration; // the song wraps here to st.loopStart
     const r = await music(id, { from: seam - 4, seconds: 8, seam });
     const info = `${id} seam: ${JSON.stringify(r.seam)}`;
@@ -115,10 +118,10 @@ for (const id of ['island', 'game', 'tense']) {
     // the beat grid runs straight through the wrap, and the loop's first section follows
     const spb = r.beats[1].at - r.beats[0].at;
     for (let i = 1; i < r.beats.length; i++) assert.ok(Math.abs(r.beats[i].at - r.beats[i - 1].at - spb) < 1e-6);
-    const loopFirst = st.sections.find((s) => Math.abs(s.start - st.loopStart) < 1e-6).id;
+    const loopFirst = st.sections.find((s) => Math.abs(s.start - st.loopStart) < 1e-6).name;
     const crossing = r.beats.findIndex((b) => b.section === loopFirst);
     assert.ok(crossing > 0, 'the loop did not come round: ' + r.beats.map((b) => b.section).join(','));
-    assert.ok(r.beats.slice(0, crossing).every((b) => b.section === st.sections[st.sections.length - 1].id));
+    assert.ok(r.beats.slice(0, crossing).every((b) => b.section === st.sections[st.sections.length - 1].name));
   });
 }
 
@@ -221,7 +224,7 @@ test('the live API: silent until a tap, then music, beats, sound off, tab hidden
     const a = createAudio();
     window.__t = { a, beats: [], ends: [], sections: [] };
     a.beat.on('beat', (b) => window.__t.beats.push(b));
-    a.beat.on('section', (s) => window.__t.sections.push(s.id));
+    a.beat.on('section', (s) => window.__t.sections.push(s.name));
     a.beat.on('end', (e) => window.__t.ends.push(e.id));
     const b = document.createElement('button');
     b.id = 'unlock-test';
@@ -242,7 +245,7 @@ test('the live API: silent until a tap, then music, beats, sound off, tab hidden
     const { a, beats, sections } = window.__t;
     return {
       state: a.state, current: a.current, playing: a.beat.playing, bpm: a.beat.bpm, time: a.beat.time(), next: a.beat.nextBeatTime(),
-      structure: a.beat.structure && a.beat.structure.id, beats: beats.map((b) => ({ n: b.n, count: b.count, time: b.time })), sections: sections.slice(),
+      structure: a.beat.structure && a.beat.structure.id, beats: beats.map((b) => ({ n: b.n, count: b.count, eight: b.eight, time: b.time })), sections: sections.slice(),
       tap: a.sfx('tap'), unknown: a.sfx('kazoo'), spatial: (a.setListener(0, 0, 0), a.sfx('sparkle', { x: -5, z: 2, volume: 0.8, pitch: 1.2 })),
       far: a.sfx('chime', { x: 900, z: 0 }),
     };
@@ -258,6 +261,7 @@ test('the live API: silent until a tap, then music, beats, sound off, tab hidden
   on.beats.forEach((b, i) => {
     assert.equal(b.n, i);
     assert.equal(b.count, (i % 8) + 1);
+    assert.equal(b.eight, Math.floor(i / 8) + 1);
     assert.ok(Math.abs(b.time - (i * 60) / 104) < 1e-9);
   });
   assert.deepEqual(on.sections, ['intro']);
@@ -266,13 +270,28 @@ test('the live API: silent until a tap, then music, beats, sound off, tab hidden
   assert.equal(on.spatial, true);
   assert.equal(on.far, false); // too far away to hear
 
-  // the routine publishes its structure; switching is immediate
+  // the routine publishes its structure as the rhythm game reads it, and its beats start again
+  // from its own first downbeat: n 0, count 1, eight 1, on the same clock as beat.time()
   const routine = await page.evaluate(() => {
     const { a } = window.__t;
+    window.__t.beats.length = 0;
     a.music('routine', { fade: 0.2 });
-    return { current: a.current, bpm: a.beat.bpm, eights: a.beat.structure.eights, sections: a.beat.structure.sections.length, again: a.music('routine') };
+    const st = a.beat.structure;
+    return {
+      current: a.current, bpm: a.beat.bpm, isArray: Array.isArray(st), eights: st.eights,
+      shape: st.map((s) => [s.name, s.eights]), again: a.music('routine'),
+    };
   });
-  assert.deepEqual(routine, { current: 'routine', bpm: 144, eights: 36, sections: 9, again: true });
+  assert.deepEqual(routine, {
+    current: 'routine', bpm: 144, isArray: true, eights: 36, again: true,
+    shape: [['intro', 2], ['opening', 4], ['standing', 4], ['stunts', 6], ['pyramid', 4], ['jumps', 4], ['running', 4], ['dance', 4], ['finale', 4]],
+  });
+  await page.waitForTimeout(1300);
+  const firstBeats = await page.evaluate(() => ({ beats: window.__t.beats.map((b) => [b.n, b.count, b.eight, b.time, b.section]), now: window.__t.a.beat.time() }));
+  assert.deepEqual(firstBeats.beats[0], [0, 1, 1, 0, 'intro']);
+  assert.deepEqual(firstBeats.beats[1], [1, 2, 1, 60 / 144, 'intro']);
+  const lastSeen = firstBeats.beats[firstBeats.beats.length - 1][3];
+  assert.ok(firstBeats.now >= lastSeen && firstBeats.now - lastSeen < 60 / 144 + 0.05, 'beat times and time() share a clock');
 
   // sound off: remembered, the context sleeps, the clock stops; a track asked for meanwhile waits
   await page.evaluate(() => {
