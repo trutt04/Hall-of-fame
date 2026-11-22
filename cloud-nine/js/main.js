@@ -9,6 +9,7 @@
 //   ./net/index.js                      -> an offline stand-in; solo rooms and bots work
 //   ./content/*.js                      -> tiny built-in lines (ui/standins.js)
 //   ./world/toss.js, ./games/index.js   -> no basket toss, no game rules yet
+//   ./world/photobooth.js               -> the photo booth stays scenery
 //   ./ui/creator.js, ./rhythm/index.js  -> loaded when first opened; a friendly placeholder if missing
 //
 // URL switches (for testing):
@@ -563,6 +564,21 @@ async function boot() {
       console.warn('[c9] the game layers failed to start', err);
     }
   }
+  // the photo booth by the plaza (js/world/photobooth.js): world.booth.close() whenever something else takes over
+  const boothMod = await optional('./world/photobooth.js');
+  if (boothMod && typeof boothMod.installPhotoBooth === 'function') {
+    try {
+      world.booth = boothMod.installPhotoBooth(world);
+    } catch (err) {
+      console.warn('[c9] the photo booth failed to start', err);
+    }
+  }
+  function closeBooth() {
+    if (world.booth) world.booth.close();
+  }
+  function boothBusy() {
+    return !!(world.booth && world.booth.active);
+  }
 
   // ---------------------------------------------------------------- state of the app
   let mode = 'boot'; // 'title' | 'menu' | 'closet' | 'lobby' | 'play' | 'overlay'
@@ -834,7 +850,7 @@ async function boot() {
       hud.closeWheel();
       return;
     }
-    if (!playing() || hud.isModalOpen() || (toss && toss.active)) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy()) return;
     sfx('open', { volume: 0.5 });
     hud.openWheel(wheelEmotes(), sendEmote);
   }
@@ -916,6 +932,7 @@ async function boot() {
       return;
     }
     if (!GAME_CHOICES.some((g) => g.id === kind)) return;
+    closeBooth();
     if (kind === 'hitZero') {
       // in a room everyone gets the same chart: the seed comes from the start's id
       let seed;
@@ -1058,6 +1075,7 @@ async function boot() {
   async function launchHitZero(opts = {}) {
     if (hitZeroOpen) return;
     hitZeroOpen = true;
+    closeBooth();
     // the host started it for everyone: a flyer in the air lands softly on her cloud first
     if (toss && toss.active) toss.cancel();
     const mod = await optional('./rhythm/index.js');
@@ -1269,6 +1287,7 @@ async function boot() {
 
   function leaveSession() {
     lobbyUI = null;
+    closeBooth();
     if (toss && toss.active) toss.cancel();
     if (world.activeGame) onGameEnd();
     if (session) net.leaveRoom();
@@ -1615,7 +1634,7 @@ async function boot() {
   }
 
   function openPauseMenu() {
-    if (!playing() || hud.isModalOpen() || (toss && toss.active)) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy()) return;
     sfx('open', { volume: 0.5 });
     const inRoom = session && session.kind === 'room';
     hud.openPanel({
