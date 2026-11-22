@@ -65,7 +65,20 @@ const CSS = `
 .c9p-award-row.c9p-me{background:#ffe0f0}
 .c9p-award-name{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .c9p-award-what{font-weight:700;color:#7b5cff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-@media (max-height:600px){.c9p-award-list{display:none}.c9p-awards{bottom:12px}}
+/* a phone on its side: the card takes the room under the game panel, her award whole, the squad's
+   on one line each; taller than that (a big room), it scrolls (c9p-scroll, set by fitAwards) */
+@media (max-height:600px){
+  .c9p-awards{bottom:calc(10px + env(safe-area-inset-bottom,0px));max-height:calc(100% - 196px);padding:8px 12px}
+  .c9p-award-me{margin:2px 0 0}
+  .c9p-award-me .c9-icon{width:28px;height:28px}
+  .c9p-award-title{font-size:24px}
+  .c9p-award-line{margin-bottom:4px}
+  .c9p-award-list{gap:2px 10px;padding-top:5px}
+  .c9p-award-row{flex-direction:row;align-items:baseline;gap:6px;padding:1px 4px}
+  .c9p-award-name{flex:none;max-width:55%}
+  .c9p-award-what{flex:1 1 auto;min-width:0}
+}
+.c9p-awards.c9p-scroll{overflow-y:auto;pointer-events:auto;touch-action:pan-y;overscroll-behavior:contain}
 .c9-hud.c9-modal .c9p-awards{visibility:hidden}
 @media (prefers-reduced-motion:reduce){.c9p-blind.c9p-in,.c9p-btn-go.c9p-in,.c9p-blind-star,.c9p-awards.c9p-in{animation:none}}
 `;
@@ -176,6 +189,13 @@ export function createOverlay(world, handlers = {}) {
     if (list.childNodes.length) awards.appendChild(list);
   }
   let confirming = false;
+  // Too tall for its room (a phone on its side, a big squad): the card scrolls, and only then
+  // takes touches (the joystick works through it otherwise).
+  function fitAwards() {
+    if (awards.hidden) return;
+    awards.classList.toggle('c9p-scroll', awards.scrollHeight > awards.clientHeight + 1);
+  }
+  window.addEventListener('resize', fitAwards);
 
   function mountBar() {
     // inside the HUD's game panel, under the scoreboard; anywhere on the HUD if there is none
@@ -251,6 +271,7 @@ export function createOverlay(world, handlers = {}) {
       awards.classList.remove('c9p-in');
       void awards.offsetWidth;
       awards.classList.add('c9p-in');
+      fitAwards();
     },
     get awardsShown() {
       return !awards.hidden;
@@ -292,6 +313,7 @@ export function createOverlay(world, handlers = {}) {
       return bar;
     },
     dispose() {
+      window.removeEventListener('resize', fitAwards);
       blind.remove();
       bar.remove();
       awards.remove();
