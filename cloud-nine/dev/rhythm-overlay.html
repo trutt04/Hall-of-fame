@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Hit Zero over the 3D view</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9fc4ff; overscroll-behavior: none; }
+  #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #open { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); min-height: 56px; padding: 10px 26px; border-radius: 999px;
+    border: 3px solid #2b2233; background: #ff2e93; color: #fff; font: 900 22px ui-rounded, system-ui, sans-serif; box-shadow: 0 5px 0 #2b2233; cursor: pointer; }
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+<button type="button" id="open" hidden>Perform on the stage</button>
+<script type="module">
+  // Hit Zero as an overlay over a stand-in for the island's stage (the real one is ISLAND's):
+  // a floating island, the performance mat, bleachers and the judges' table, the camera drifting.
+  // Same query params as rhythm-play.html.
+  import * as THREE from '../lib/three.module.min.js';
+  import { Geo } from '../js/art/geo.js';
+  import { flatMat } from '../js/art/materials.js';
+  import { createHitZero } from '../js/rhythm/index.js';
+
+  const q = new URLSearchParams(location.search);
+  const canvas = document.getElementById('scene');
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.setPixelRatio(Math.min(1.5, window.devicePixelRatio || 1));
+  const scene = new THREE.Scene();
+  scene.background = new THREE.Color(0xb8c8ff);
+  scene.fog = new THREE.Fog(0xffd1e8, 40, 120);
+  const camera = new THREE.PerspectiveCamera(55, 1, 0.3, 300);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xd7b8ff, 1.6));
+  const sun = new THREE.DirectionalLight(0xfff2e6, 1.4);
+  sun.position.set(10, 20, 8);
+  scene.add(sun);
+
+  const g = new Geo();
+  g.ico(0, -4, 0, 16, 0xa8e6a1, { detail: 1, sy: 0.35, flat: 0.1 });
+  g.cyl(0, -1.2, 0, 15.5, 1.2, 0x7fcf8a, { seg: 16 });
+  g.box(0, 0, 0, 12, 0.3, 9, 0xff2e93, { top: 0xff8cc6 }); // the performance mat
+  for (let i = 0; i < 4; i++) g.box(0, 0, -6 - i * 1.1, 14, 0.6 + i * 0.7, 1.1, i % 2 ? 0xcdb4ff : 0xb89cf0); // bleachers
+  g.box(0, 0, 7.4, 7, 1.1, 1.4, 0xff2e93, { top: 0xfff8fc }); // the judges' table
+  for (const [x, y, z, r] of [[-22, 6, -18, 4], [26, 9, -26, 5], [-30, 3, 14, 3.5], [18, 4, 22, 4]]) {
+    for (let k = 0; k < 4; k++) g.sphere(x + k * r * 0.7, y + (k % 2) * 0.8, z, r * (0.7 + (k % 3) * 0.15), 0xfff4fa, { seg: 8, rings: 5 });
+  }
+  scene.add(g.mesh(flatMat));
+
+  function resize() {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  window.addEventListener('resize', resize);
+  resize();
+  let t = 0;
+  let last = performance.now();
+  function loop(now) {
+    requestAnimationFrame(loop);
+    t += Math.min(0.05, (now - last) / 1000);
+    last = now;
+    const a = Math.sin(t * 0.15) * 0.5;
+    camera.position.set(Math.sin(a) * 22, 11, Math.cos(a) * 22);
+    camera.lookAt(0, 1, 0);
+    renderer.render(scene, camera);
+  }
+  requestAnimationFrame(loop);
+
+  let audio = null;
+  if (!q.has('noaudio')) {
+    try {
+      const m = await import('../js/audio/index.js');
+      audio = m.createAudio();
+      window.addEventListener('pointerdown', () => { try { audio.unlock(); } catch (e) {} }, { once: true, capture: true });
+    } catch (err) {
+      audio = null;
+    }
+  }
+  const openBtn = document.getElementById('open');
+  function open() {
+    openBtn.hidden = true;
+    window.__hz = createHitZero({
+      audio, container: document.body, level: q.get('level') || 1, autoplay: q.get('autoplay') === '1', rate: Number(q.get('rate')) || 1,
+      onResult(r) { window.__hzResult = r; },
+      onDone(r) { window.__hzDone = r || null; openBtn.hidden = false; },
+    });
+  }
+  openBtn.addEventListener('click', open);
+  open();
+</script>
+</body>
+</html>
