@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Nine: island viewer</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #ffd1e8; overflow: hidden; color: #2b2233;
+    font: 700 15px/1.3 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; left: 8px; top: 8px; background: rgba(255, 248, 252, .86); padding: 6px 10px; border-radius: 12px;
+    pointer-events: none; font-size: 13px; white-space: pre; box-shadow: 0 2px 10px rgba(80, 30, 80, .15); }
+  #hud b { color: #ff2e93; }
+  #nav { position: fixed; right: 8px; top: 8px; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; max-width: 58vw; }
+  #nav button { min-height: 36px; border: 0; border-radius: 18px; padding: 0 12px; background: #fff; color: #2b2233; font: inherit; font-size: 13px;
+    box-shadow: 0 2px 8px rgba(80, 30, 80, .18); cursor: pointer; }
+  #nav button.on { background: #ff2e93; color: #fff; }
+  #help { position: fixed; left: 8px; bottom: 8px; font-size: 12px; background: rgba(255, 248, 252, .8); padding: 4px 8px; border-radius: 10px; pointer-events: none; }
+  body.clean #hud, body.clean #nav, body.clean #help { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><b>CLOUD NINE</b> island viewer
+<span id="stats"></span></div>
+<div id="nav"></div>
+<div id="help">Drag to orbit, wheel or pinch to zoom. Walk: WASD or arrows, Space hops, drag looks.</div>
+<script type="module" src="./island-view.js"></script>
+</body>
+</html>
