@@ -44,7 +44,7 @@
 /* ---------- the result: a polaroid ---------- */
 .c9-booth-result-box{display:flex;flex-direction:column;align-items:center}
 .c9-booth-polaroid{background:#fff;padding:9px 9px 9px;border:3px solid var(--black);border-radius:10px;box-shadow:0 6px 0 var(--black),var(--soft-shadow);transform:rotate(-2deg);margin:4px 0 8px}
-.c9-booth-img{display:block;height:min(46dvh,400px);aspect-ratio:4/5;width:auto;max-width:100%;border-radius:4px;background:var(--pink-pale);object-fit:contain;
+.c9-booth-img{display:block;height:min(46vh,400px);height:min(46dvh,400px);aspect-ratio:4/5;width:auto;max-width:100%;border-radius:4px;background:var(--pink-pale);object-fit:contain;
   /* press and hold the picture to save it (iOS "Save to Photos"), even where the share sheet isn't allowed */
   -webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
 .c9-booth-develop .c9-booth-img{animation:c9-booth-develop 1.4s ease-out both}
@@ -57,7 +57,7 @@
   .c9-card.c9-booth-pick{padding-top:14px}
   .c9-card.c9-booth-pick .c9-title{font-size:26px}
   .c9-card.c9-booth-result{max-height:calc(100% - 24px - var(--sat))}
-  .c9-booth-img{height:min(42dvh,380px)}
+  .c9-booth-img{height:min(42vh,380px);height:min(42dvh,380px)}
 }
 /* wide screens and phones on their side: the picker moves to the right, she poses on the left */
 @media (min-width:760px),(max-height:500px) and (orientation:landscape){
@@ -66,7 +66,7 @@
   .c9-card.c9-booth-result{width:min(480px,calc(100% - 24px));max-height:calc(100% - 20px - var(--sat) - var(--sab))}
 }
 @media (max-height:500px) and (orientation:landscape){
-  .c9-booth-img{height:min(52dvh,300px)}
+  .c9-booth-img{height:min(52vh,300px);height:min(52dvh,300px)}
   .c9-card.c9-booth-pick .c9-title{font-size:24px}
 }
 @keyframes c9-booth-side{from{transform:translate(40px,-50%);opacity:0}to{transform:translate(0,-50%);opacity:1}}

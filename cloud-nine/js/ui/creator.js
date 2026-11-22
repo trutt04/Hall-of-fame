@@ -27,6 +27,7 @@ import { Geo } from '../art/geo.js';
 import { glowMat } from '../art/materials.js';
 import { createPuppy, petIcon, petTabIcon, PIVOT_Y } from '../art/pet.js';
 import { FONT_STACK } from '../config.js';
+import { useWebGL1Skinning } from '../core/webgl1.js';
 
 const TABS = [
   { id: 'hair', label: 'Hair', frame: 'head', sections: [['hairStyle', 'Hairstyle', 'tiles'], ['hair', 'Hair color', 'dots']] },
@@ -376,6 +377,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
   let returnAt = 0, clock = 0;
   try {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
+    useWebGL1Skinning(THREE, renderer); // no-op on WebGL 2
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
