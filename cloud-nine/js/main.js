@@ -565,6 +565,7 @@ async function boot() {
     }
   }
   // the photo booth by the plaza (js/world/photobooth.js): world.booth.close() whenever something else takes over
+  // (a game or the routine says so: her unsaved photo waits, and she hears about it once it is over)
   const boothMod = await optional('./world/photobooth.js');
   if (boothMod && typeof boothMod.installPhotoBooth === 'function') {
     try {
@@ -573,8 +574,8 @@ async function boot() {
       console.warn('[c9] the photo booth failed to start', err);
     }
   }
-  function closeBooth() {
-    if (world.booth) world.booth.close();
+  function closeBooth(why) {
+    if (world.booth) world.booth.close(why);
   }
   function boothBusy() {
     return !!(world.booth && world.booth.active);
@@ -932,7 +933,7 @@ async function boot() {
       return;
     }
     if (!GAME_CHOICES.some((g) => g.id === kind)) return;
-    closeBooth();
+    closeBooth('game');
     // a friend in the quick-cheer wheel or the menu when the host starts: the game has the screen now
     hud.closeWheel();
     if (hud.panelOpen) hud.closePanel();
@@ -1078,7 +1079,7 @@ async function boot() {
   async function launchHitZero(opts = {}) {
     if (hitZeroOpen) return;
     hitZeroOpen = true;
-    closeBooth();
+    closeBooth('routine');
     // the host started it for everyone: a flyer in the air lands softly on her cloud first
     if (toss && toss.active) toss.cancel();
     const mod = await optional('./rhythm/index.js');

@@ -8,10 +8,14 @@
 //   import { installPhotoBooth } from './world/photobooth.js'
 //   const booth = installPhotoBooth(world)   once the world exists (main.js); null when there is no booth
 //   booth.open()        the booth's prompt does this: her mark, the lens camera and the picker card
-//   booth.close()       back to free roam at once (a game or Hit Zero starting, the menu, Done)
+//                       (or first, the picture still waiting for her, with Save / Again! / Done)
+//   booth.close(why?)   back to free roam at once (a game or Hit Zero starting, the menu, Done).
+//                       why 'game' | 'routine': once it is over, a toast says her photo is waiting
 //   booth.active        true from the picker until Done (main.js keeps the menu and the wheel shut)
 //   booth.phase         'idle' | 'entering' | 'picking' | 'countdown' | 'developing' | 'result'
 //   booth.lastPhoto     { blob, width, height } of the last picture, or null (tests)
+//   booth.waiting       true while her last picture is unsaved: kept (one blob) until it is saved,
+//                       replaced by a new one, or the page goes away
 //   booth.stats         { canvases, freed } photo canvases made and given back (tests)
 //
 // Pure parts (node tests, no three.js, no DOM):
@@ -403,6 +407,10 @@ export function installPhotoBooth(world) {
   let photo = null; // { blob, url, width, height }
   let polaroid = null; // the result card's picture, while it shows
   let lastPhoto = null;
+  let waiting = null; // { blob, width, height }: her last picture while it is unsaved (never uploaded)
+  let closedFor = null; // why the booth last closed: 'game' | 'routine' nudge her about `waiting` after
+  let nudge = false;
+  let nudgeT = 0;
   let saving = false;
   const stats = { canvases: 0, freed: 0 };
 
@@ -551,7 +559,12 @@ export function installPhotoBooth(world) {
     sfx('whoosh', { volume: 0.4 });
     if (Math.hypot(p0.x - m.x, p0.z - m.z) > 0.3) world.spawnBurst(m.x, gy(m.x, m.z) + 0.3, m.z, { count: calm ? 8 : 16, speed: 2.5, size: 0.35 });
     hud.fade(false, 260);
-    showPicker();
+    nudge = false;
+    // her last picture, unsaved, comes first: Save, Again! or Done, the same as right after the shot
+    if (waiting) {
+      photo = { blob: waiting.blob, url: null, width: waiting.width, height: waiting.height };
+      showResult('Your photo waited for you!');
+    } else showPicker();
   }
 
   function showPicker(line) {
@@ -610,11 +623,15 @@ export function installPhotoBooth(world) {
     close();
   }
 
-  function close() {
+  function close(why) {
     if (phase === 'idle') return;
     run++;
     const was = phase;
     phase = 'idle';
+    // a game or the routine took her away: her unsaved picture waits, and she hears so after
+    closedFor = why === 'game' || why === 'routine' ? why : null;
+    nudge = !!(waiting && closedFor);
+    nudgeT = 0;
     clearShot();
     if (ui) ui.hide();
     closeMyCard();
@@ -730,6 +747,14 @@ export function installPhotoBooth(world) {
         // the picture never came back from the encoder: say so kindly, try again
         backToPicking('The camera blinked! Try again?');
       }
+    } else if (nudge && phase === 'idle') {
+      // the game or the routine that took her away is over, and she is free a moment: tell her once
+      if (!waiting) nudge = false;
+      else if (!free()) nudgeT = 0;
+      else if ((nudgeT += dt) > 1.5) {
+        nudge = false;
+        hud.toast('Your photo is waiting at the booth!', { icon: '\u{1F4F8}', ms: 4200 });
+      }
     }
   }
   engine.addSystem({ update }, 95);
@@ -764,13 +789,20 @@ export function installPhotoBooth(world) {
       canvas.width = 0; // give the pixels back right away
       canvas.height = 0;
       stats.freed++;
-      if (my !== run) return;
+      if (blob) {
+        // the newest picture takes the waiting one's place: one blob kept, never more
+        waiting = { blob, width: w, height: h };
+        lastPhoto = { blob, width: w, height: h };
+      }
+      if (my !== run) {
+        if (blob && closedFor) nudge = true; // a game took her away while it developed: it waits too
+        return;
+      }
       if (!blob) {
         backToPicking('The camera blinked! Try again?');
         return;
       }
       photo = { blob, url: null, width: w, height: h };
-      lastPhoto = { blob, width: w, height: h };
     };
     try {
       canvas.toBlob(done, 'image/png');
@@ -847,8 +879,9 @@ export function installPhotoBooth(world) {
   }
 
   // ---------------------------------------------------------------- the result
-  function showResult() {
-    if (phase !== 'developing' || !photo) return;
+  // title: given when the picture is one that waited for her (it shows at once, already developed)
+  function showResult(title) {
+    if (!photo || (phase !== 'developing' && phase !== 'entering')) return;
     phase = 'result';
     if (ui) ui.hide();
     try {
@@ -858,12 +891,11 @@ export function installPhotoBooth(world) {
     }
     const file = shareableFile(photo.blob, photoFileName(new Date()));
     const share = !!file && coarsePointer();
-    const pol = buildPolaroid(photo.url, { calm, alt: 'Your photo from the Cloud Nine photo booth' });
+    const pol = buildPolaroid(photo.url, { calm: calm || !!title, alt: 'Your photo from the Cloud Nine photo booth' });
     polaroid = pol;
-    const title = boothLine(isBirthday() && Math.random() < 0.5 ? 'birthday' : subjects.length > 1 ? 'squad' : 'result');
     openMyCard({
       kicker: 'Photo booth',
-      title,
+      title: title || boothLine(isBirthday() && Math.random() < 0.5 ? 'birthday' : subjects.length > 1 ? 'squad' : 'result'),
       contentEl: pol.el,
       actions: [
         { label: share ? 'Share' : 'Save', icon: 'star', primary: true, keepOpen: true, onClick: () => save(pol, share) },
@@ -879,13 +911,16 @@ export function installPhotoBooth(world) {
     if (phase !== 'result' || !photo || saving) return;
     saving = true;
     const my = run;
+    const blob = photo.blob;
     let res = 'failed';
     try {
-      res = await savePhoto(photo.blob, photoFileName(new Date()), { share });
+      res = await savePhoto(blob, photoFileName(new Date()), { share });
     } catch (err) {
       res = 'failed';
     }
     saving = false;
+    // saved (or shared): it is hers now, nothing waits at the booth any more
+    if ((res === 'downloaded' || res === 'shared') && waiting && waiting.blob === blob) waiting = null;
     if (my !== run || phase !== 'result') return;
     if (res === 'downloaded' || res === 'shared') {
       pol.note(res === 'shared' ? 'Shared! It only goes where you sent it.' : boothLine('saved'));
@@ -953,6 +988,7 @@ export function installPhotoBooth(world) {
     get active() { return phase !== 'idle'; },
     get phase() { return phase; },
     get lastPhoto() { return lastPhoto; },
+    get waiting() { return !!waiting; },
     get choice() { return { frame: choice.frame, pose: choice.pose }; },
     get subjects() { return subjects.map((s) => ({ id: s.id || 'me', bot: !!s.bot })); },
     stats,
@@ -964,6 +1000,8 @@ export function installPhotoBooth(world) {
     snap,
     dispose() {
       close();
+      waiting = null;
+      nudge = false;
       clearTimeout(friendTimer);
       if (net && typeof net.off === 'function') net.off('event', onEvent);
       interact.unregister('photoBooth');
