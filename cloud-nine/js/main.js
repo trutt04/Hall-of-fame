@@ -1351,6 +1351,9 @@ async function boot() {
       });
       return;
     }
+    // a friend still dressing up: the creator closes first (as Cancel), so the card is not left
+    // waiting underneath it until she taps Done
+    if (cheerClose) cheerClose();
     startSolo({ stay: true });
     hud.openCard({
       icon: 'sparkle',
