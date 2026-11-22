@@ -147,18 +147,24 @@ test('pets: a happy spin on a cheer, hidden through a game, back after, and alon
 
 test('pets: waits at the pad during her toss, sits by the mat for Hit Zero, beside her in the booth', () => {
   const { world, player } = fakeWorld();
+  world.groundAt = (x) => (x > 40 ? 14 : 0); // the toss's target cloud, 14 m up, past x = 40
   const pets = createPets(world, { myLook: () => ({ pet: 'cloudPuppy' }) });
   player.position.set(20, 0, 0);
   run(pets, 1);
   const e = pets.mine;
   world.toss.active = true;
-  run(pets, 0.5, (t) => { player.position.y = t * 30; }); // up she goes
+  run(pets, 1, (t) => { player.position.set(20 + t * 30, t * 16, 0); }); // up she goes, over the cloud
   run(pets, 2);
   assert.equal(e.mode, 'wait');
   assert.ok(Math.hypot(e.x - 20, e.z) > 1.8 && Math.hypot(e.x - 20, e.z) < 3, 'at the pad, off its mat');
-  assert.ok(e.y < 1, 'it stays down');
+  assert.ok(e.y < 1, 'it stays down at the pad, even with her over a high cloud');
   assert.ok(e.excite > 0.9, 'bouncing');
+  // she lands on the cloud and the toss ends: it poofs up beside her
+  player.position.set(50, 14, 0);
   world.toss.active = false;
+  run(pets, 0.2);
+  assert.equal(e.mode, 'follow');
+  assert.ok(Math.hypot(e.x - 50, e.z) < 2 && e.y > 13, 'on the cloud with her');
   player.position.set(31, 0.2, -31);
   player.controller = 'hitZero';
   run(pets, 3);

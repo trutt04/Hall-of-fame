@@ -473,7 +473,8 @@ export function createPets(world, { myLook = () => world.look } = {}) {
   }
   // where it floats: over the ground under it or under her, whichever is higher (it is a cloud:
   // beside her on a cloud platform it floats over open sky); her own height when both are sky
-  function floorY(g, o) {
+  function floorY(g, o, mode) {
+    if ((mode === 'wait' || mode === 'stage') && fin(g)) return g; // its own spot: never up to her cloud
     const b = Math.max(g, o.ground);
     return fin(b) ? b : o.y;
   }
@@ -540,9 +541,10 @@ export function createPets(world, { myLook = () => world.look } = {}) {
       }
     }
     let gp = groundY(e.x, e.z); // the ground under it (the shadow, and how high it floats)
-    tgt.y = floorY(gp, o);
+    tgt.y = floorY(gp, o, mode);
     // she jumped somewhere (travel, the stage, the booth's mark, back from the rescue cloud): poof along
-    const jumped = fin(e.ox) && Math.hypot(o.x - e.ox, o.z - e.oz) > PET.jump;
+    // (not while it waits: a friend flying fast in a toss is not a teleport, and it stays put anyway)
+    const jumped = mode !== 'wait' && fin(e.ox) && Math.hypot(o.x - e.ox, o.z - e.oz) > PET.jump;
     e.ox = o.x;
     e.oz = o.z;
     if (!e.visible || jumped || Math.hypot(tgt.x - e.x, tgt.z - e.z) > PET.catchUp) {
@@ -561,7 +563,7 @@ export function createPets(world, { myLook = () => world.look } = {}) {
         }
       }
       gp = groundY(x, z);
-      tgt.y = floorY(gp, o);
+      tgt.y = floorY(gp, o, mode);
       puffIn(e, x, z, tgt.y);
       e.heading = Math.atan2(o.x - x, o.z - z);
       if (e.arrive > 0) {
