@@ -414,6 +414,7 @@ export function createHud(root, opts = {}) {
     }
     cardState = { onClose: o.onClose || null, dismissable: o.dismissable !== false };
     cardWrap.hidden = false;
+    card.scrollTop = 0; // one card element for all: the next card starts at its top, not where the last was scrolled
     card.classList.remove('c9-in');
     void card.offsetWidth;
     card.classList.add('c9-in');

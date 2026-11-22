@@ -933,6 +933,9 @@ async function boot() {
     }
     if (!GAME_CHOICES.some((g) => g.id === kind)) return;
     closeBooth();
+    // a friend in the quick-cheer wheel or the menu when the host starts: the game has the screen now
+    hud.closeWheel();
+    if (hud.panelOpen) hud.closePanel();
     if (kind === 'hitZero') {
       // in a room everyone gets the same chart: the seed comes from the start's id
       let seed;
