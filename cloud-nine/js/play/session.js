@@ -133,6 +133,7 @@ export function createSession(world, opts) {
   const seenChars = new Set(); // scratch sets for the roles pass (reused, no garbage)
   const tagNow = new Set();
   const probe = { x: 0, z: 0 };
+  const propFrame = { game: null, now: 0, me: null, charOf: (id) => charOf(id), posOf: (id) => posOf(id) }; // reused every frame
   const outbox = createOutbox({ send: (batch) => net.send('fx', batch) });
 
   const view = {
@@ -884,7 +885,10 @@ export function createSession(world, opts) {
         } catch (err) { /* a sparkle missed */ }
       }
     }
-    props.update(dt, t / 1000, { game, now, charOf, posOf });
+    propFrame.game = game;
+    propFrame.now = now;
+    propFrame.me = meId();
+    props.update(dt, t / 1000, propFrame);
     tags.update();
     if (t - roleAt >= ROLE_MS) {
       roleAt = t;

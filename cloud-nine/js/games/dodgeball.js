@@ -10,7 +10,8 @@
 // live and passed close, with slack for lag. A catch ({ type: 'catch', ballId }) puts the thrower
 // out and brings your earliest-benched teammate back in. Nobody sits out long: after
 // `comebackSeconds` on the bench ('auto': 12 s in a small game up to 18 s with ten players, so a
-// 3 v 3 isn't over in a flash; can be turned off) your team cheers you back in. A team
+// 3 v 3 isn't over in a flash; can be turned off) your team cheers you back in. In the first 40 s
+// (the warm-up) a sweep doesn't end it: the first friend on the bench is cheered straight back. A team
 // wins when the other is all out at once, or with more players left after `playSeconds`
 // (2 minutes); equal is a tie. Benched players cheer their team on (mat talk).
 
@@ -31,6 +32,9 @@ export const BALL = {
   pickR: 1.4, // m: walk this close to a resting ball to pick it up
 };
 const HIT_GRACE_MS = 600; // a hit report may arrive this long after the ball landed (lag)
+// The warm-up: in the first 40 s a sweep doesn't end the round; the team's first friend on the
+// bench is cheered straight back in instead (teams of two or more: a 1 v 1 stays a duel).
+export const WARMUP_MS = 40000;
 const CATCH_WINDOW_MS = 550; // the Catch! button counts for this long (forgiving: kids on phones)
 
 // ---------- ball paths (exported for renderers) ----------
@@ -154,8 +158,18 @@ function bringBack(g, team, now, who = null, why = 'catch') {
 function checkWin(g, now) {
   if (g.st.phase !== 'play') return;
   countLeft(g);
+  if (g.st.left[0] > 0 && g.st.left[1] > 0) return;
+  if (now - g.st.phaseStarted < WARMUP_MS) {
+    let saved = false;
+    for (const t of [0, 1]) {
+      if (g.st.left[t] === 0 && teamIds(g, t).length >= 2 && bringBack(g, t, now, null, 'cheer')) saved = true;
+    }
+    if (saved) {
+      g.bump();
+      if (g.st.left[0] > 0 && g.st.left[1] > 0) return;
+    }
+  }
   const [a, b] = g.st.left;
-  if (a > 0 && b > 0) return;
   if (a === 0 && b === 0) g.finish({ winner: 'tie', ids: g.st.order.slice() }, now);
   else g.finish({ winner: a > 0 ? 0 : 1, ids: teamIds(g, a > 0 ? 0 : 1) }, now);
 }

@@ -3,7 +3,7 @@
 // joiner, the seeker / "it" / the bow carrier leaving, the host leaving, Play again!).
 //   python3 -m http.server 8116 --bind 127.0.0.1          (from the repo root)
 //   node cloud-nine/dev/play-review-check.cjs [baseUrl] [shotsDir] [scenario,scenario]
-// Scenarios: awards hidden spectator leavers hostleaves perf (default: all). Screenshots are
+// Scenarios: awards hidden toasts spectator leavers hostleaves perf (default: all). Screenshots are
 // written as games-<name>.png when a directory is given (never commit them).
 
 const { chromium } = require('playwright');
@@ -96,15 +96,34 @@ async function awards(browser, kind) {
 
 // ---------------------------------------------------------------- solo hide and seek: hidden!
 async function hidden(browser) {
-  const ctx = await phone(browser);
-  const t = await openPage(ctx, '?solo=1&game=hideSeek&bots=5&speed=2&noaudio=1');
-  await t.until(async () => (await t.info())?.phase === 'hide', 40000, 'hide');
-  const role = (await t.info()).me.role;
-  if (role !== 'hider') {
-    console.log('# (she is the seeker this time: the hidden check is skipped)');
+  // the seeker rotates at random: try a few times until she is a hider
+  let ctx = null;
+  let t = null;
+  for (let k = 0; k < 4; k++) {
+    ctx = await phone(browser);
+    t = await openPage(ctx, '?solo=1&game=hideSeek&bots=5&speed=2&noaudio=1');
+    await t.until(async () => (await t.info())?.phase === 'hide', 40000, 'hide');
+    if ((await t.info()).me.role === 'hider') break;
     await ctx.close();
+    ctx = null;
+  }
+  if (!ctx) {
+    console.log('# (she was the seeker every time: the hidden check is skipped)');
     return;
   }
+  // gold glints over the hide spots near her, while she hides
+  await t.page.waitForTimeout(1800); // the "Hide!" splash goes first
+  const glints = await t.until(async () => (await t.info())?.props?.spots > 0, 4000, 'spot glints');
+  check(!!glints, 'hide and seek: glints over the hide spots near her while she hides');
+  const calls = await t.ev(() => window.__c9.renderer.info.render.calls);
+  // look into the garden for the picture (the camera's yaw points back at the view)
+  await t.ev(() => {
+    const w = window.__c9;
+    const a = w.play.session.game.arena.area.f;
+    const p = w.player.position;
+    w.rig.yaw = Math.atan2(a.x - p.x, a.z - p.z) + Math.PI;
+  });
+  await t.shot('hide-spots', 600);
   // walk her into a hedge spot (teleporting her there, like a kid who ran there)
   await t.ev(() => {
     const w = window.__c9;
@@ -118,6 +137,36 @@ async function hidden(browser) {
   }), 4000, 'Hidden! badge');
   check(!!badge, 'hide and seek: tucked into a spot, her badge says Hidden!');
   await t.shot('hidden', 300);
+  const seek = await t.until(async () => (await t.info())?.phase === 'play', 25000, 'seeking');
+  const off = seek && (await t.info()).props.spots === 0;
+  check(!!off, `hide and seek: the glints go when seeking starts (${calls} draw calls while hiding)`);
+  await ctx.close();
+}
+
+// ---------------------------------------------------------------- a toast during a splash waits
+async function toasts(browser) {
+  const ctx = await phone(browser);
+  const t = await openPage(ctx, '?solo=1&noaudio=1');
+  await t.page.waitForTimeout(1500);
+  const during = await t.ev(async () => {
+    const hud = window.__c9.hud;
+    const done = hud.big('Bonk!', 'To the bench. Cheer them on!', { ms: 1500 });
+    hud.toast('Ava hit you! Cheer from the bench.');
+    hud.toast('Bea made a great catch!');
+    const shown = document.querySelectorAll('.c9-toast').length;
+    await done;
+    return { shown };
+  });
+  check(during.shown === 0, `toasts: while a splash is up, toasts wait (${during.shown} on screen)`);
+  const after = await t.until(() => t.ev(() => {
+    const big = document.querySelector('.c9-big');
+    const n = document.querySelectorAll('.c9-toast').length;
+    return n >= 2 && big && big.hidden ? n : null;
+  }), 3000, 'the held toasts');
+  check(after >= 2, `toasts: once the splash has gone, the held toasts show (${after})`);
+  await t.shot('toasts-after-splash', 100);
+  // a real game moment: the countdown and "Go!" splash, then the news
+  check(t.errors.length === 0, 'toasts: no console errors' + (t.errors.length ? '\n    ' + t.errors.slice(0, 4).join('\n    ') : ''));
   await ctx.close();
 }
 
@@ -306,7 +355,21 @@ async function perf(browser) {
     mems.push(await t.ev(() => ({ ...window.__c9.renderer.info.memory })));
   }
   console.log('# memory after each game', JSON.stringify(mems));
-  const [a, b] = [mems[2], mems[5]];
+  let [a, b] = [mems[2], mems[5]];
+  if (b.geometries - a.geometries > 3) {
+    // a part of the island seen for the first time uploads its geometry once (the garden when the
+    // camera only got there in the second round): one more round must then add nothing
+    for (const kind of ['dodgeball', 'captureBow', 'hideSeek']) {
+      await t.ev((k) => window.__c9.hostStartGame(k), kind);
+      await t.until(async () => ['play', 'hide'].includes((await t.info())?.phase), 30000, kind + ' play');
+      await t.page.waitForTimeout(2500);
+      await t.ev(() => window.__c9.play.end());
+      await t.page.waitForTimeout(1500);
+    }
+    a = b;
+    b = await t.ev(() => ({ ...window.__c9.renderer.info.memory }));
+    console.log('# one more round', JSON.stringify(b));
+  }
   check(b.geometries - a.geometries <= 3 && b.textures <= a.textures + 1, `perf: three more games leave nothing behind (geometries ${a.geometries} -> ${b.geometries}, textures ${a.textures} -> ${b.textures})`);
   await ctx.close();
 }
@@ -321,6 +384,10 @@ async function perf(browser) {
     if (want('hidden')) {
       console.log('# hidden');
       await hidden(browser).catch((e) => check(false, 'hidden threw: ' + e.message));
+    }
+    if (want('toasts')) {
+      console.log('# toasts');
+      await toasts(browser).catch((e) => check(false, 'toasts threw: ' + e.message));
     }
     if (want('spectator')) {
       console.log('# spectator');
