@@ -94,7 +94,7 @@ Add these to the end of the address (start with `?`, join more with `&`):
 | Switch | What it does |
 |---|---|
 | `?solo=1` | Skip the menus, straight onto the island |
-| `?room=ABCD&nick=Sam` | Join (or make) room ABCD as "Sam" with the same-browser test link: open it in several tabs to see each other |
+| `?room=PLZ7&nick=Sam` | Join (or make) room PLZ7 as "Sam" with the same-browser test link: open it in several tabs to see each other |
 | `?birthday=1` | Birthday mode, any day |
 | `?quality=low` | Battery saver graphics (also in the menu) |
 | `?noaudio=1` | No sound at all |
