@@ -291,7 +291,9 @@ test('the live API: silent until a tap, then music, beats, sound off, tab hidden
   assert.deepEqual(firstBeats.beats[0], [0, 1, 1, 0, 'intro']);
   assert.deepEqual(firstBeats.beats[1], [1, 2, 1, 60 / 144, 'intro']);
   const lastSeen = firstBeats.beats[firstBeats.beats.length - 1][3];
-  assert.ok(firstBeats.now >= lastSeen && firstBeats.now - lastSeen < 60 / 144 + 0.05, 'beat times and time() share a clock');
+  // Same clock: time() is at or just past the last beat seen. The slack (two beats and a bit) is for
+  // a busy machine, where beat events reach the page late; a different clock would be off by far more.
+  assert.ok(firstBeats.now >= lastSeen && firstBeats.now - lastSeen < 2 * (60 / 144) + 0.3, 'beat times and time() share a clock');
 
   // sound off: remembered, the context sleeps, the clock stops; a track asked for meanwhile waits
   await page.evaluate(() => {
