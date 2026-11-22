@@ -11,8 +11,8 @@
 //   menu.closet({ nick, onNewName, onSurprise, onDone }) -> { setNick(n) }     (no creator.js yet)
 //   menu.message({ title, lines, icon, actions: [{ label, onClick, primary }] })
 //   menu.busy(text) / menu.hide() / menu.current / menu.setSound(on)
-//   buildPauseMenu({ code, isHost, canPick, places, sound, quality, sticks: { count, total }, onClose, onTravel, onPick,
-//                    onCheerleader, onSticks, onSound, onQuality, onLeave, leaveLabel }) -> element
+//   buildPauseMenu({ code, isHost, canPick, places, sound, quality, sticks: { count, total }, notes (count), onClose,
+//                    onTravel, onPick, onCheerleader, onSticks, onNotes, onSound, onQuality, onLeave, leaveLabel }) -> element
 //   buildPicker({ games, onPick }) -> element
 //   JOIN_REASONS      friendly words for every joinRoom failure
 
@@ -459,6 +459,10 @@ export function buildPauseMenu(o = {}) {
   list.appendChild(row('Keep playing', null, 'play', () => o.onClose && o.onClose(), { className: 'c9-row-primary' }));
   if (o.canPick) list.appendChild(row('Pick a game', o.isHost ? 'Everyone plays together' : 'Play with bot friends', 'games', () => o.onPick && o.onPick()));
   list.appendChild(row('My cheerleader', 'Change your look', 'bow', () => o.onCheerleader && o.onCheerleader()));
+  if (o.notes > 0) {
+    list.appendChild(row('Notes from your family', o.notes === 1 ? 'A note just for you' : o.notes + ' notes just for you', 'bow',
+      () => o.onNotes && o.onNotes(), { className: 'c9-row-notes' }));
+  }
   if (o.sticks && o.sticks.total) {
     const s = o.sticks;
     const all = s.count >= s.total;

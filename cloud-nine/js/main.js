@@ -1344,6 +1344,11 @@ async function boot() {
       } else {
         hud.big(GAME.title, content.hype('welcome', { name: myNick }), { ms: 2200 });
       }
+      if (familyNotes.length) {
+        setTimeout(() => {
+          if (playing()) hud.toast(familyNotes.length === 1 ? 'Your family left you a note! It is in the menu.' : 'Your family left you notes! They are in the menu.', { icon: 'bow', ms: 5200 });
+        }, isBirthday ? 4200 : 2800);
+      }
     }
     if (audio.enabled && unlocked) islandMusic();
     const touch = coarsePointer();
@@ -1401,6 +1406,36 @@ async function boot() {
     }
     return out;
   }
+  // Notes from the family (js/content/notes.js): checked by CONTENT's cleanNote, shown in a card
+  // from the menu. Nothing shows until the owner adds some.
+  const familyNotes = (() => {
+    try {
+      if (!FEATURES.familyNotes || typeof content.familyNotes !== 'function') return [];
+      const list = content.familyNotes();
+      return Array.isArray(list) ? list.filter((n) => n && typeof n.text === 'string' && n.text).slice(0, 20) : [];
+    } catch (err) {
+      return [];
+    }
+  })();
+  function showNotes() {
+    if (!familyNotes.length) return;
+    sfx('open', { volume: 0.5 });
+    const box = el('div', 'c9-notes');
+    for (const n of familyNotes) {
+      const item = el('figure', 'c9-note-card');
+      item.appendChild(el('blockquote', 'c9-note-text', n.text));
+      if (n.from) item.appendChild(el('figcaption', 'c9-note-from', 'From ' + n.from));
+      box.appendChild(item);
+    }
+    hud.openCard({
+      icon: 'bow',
+      kicker: 'Notes from your family',
+      title: familyNotes.length === 1 ? 'A note for you!' : familyNotes.length + ' notes for you!',
+      contentEl: box,
+      actions: [{ label: 'Thank you!', icon: 'check', primary: true }],
+    });
+  }
+
   // The spirit stick card: how many, the next hint, and what the found ones unlocked.
   function showSticks() {
     const s = sticksRow();
@@ -1450,8 +1485,13 @@ async function boot() {
         sound: audio.enabled,
         quality: engine.quality,
         sticks: sticksRow(),
+        notes: familyNotes.length,
         leaveLabel: inRoom ? 'Leave the room' : 'Back to the menu',
         onClose: () => hud.closePanel(),
+        onNotes: () => {
+          hud.closePanel();
+          showNotes();
+        },
         onSticks: () => {
           hud.closePanel();
           showSticks();
