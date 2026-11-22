@@ -16,7 +16,7 @@
 .c9m-list{display:flex;flex-direction:column;gap:14px}
 .c9m-row{display:flex;align-items:stretch;gap:12px;margin-top:6px}
 .c9m-row > .c9m-btn{flex:1 1 0;width:auto;min-width:0}
-.c9m-row .c9-btn-label{overflow-wrap:anywhere}
+.c9m-row .c9-btn-label{overflow-wrap:break-word;overflow-wrap:anywhere}
 
 .c9m-btn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;min-height:64px;padding:10px 22px;font-weight:900;font-size:21px;letter-spacing:.01em;
   color:var(--ink);background:var(--white);border:var(--line);border-radius:999px;box-shadow:var(--sticker);cursor:pointer;touch-action:manipulation}
@@ -68,7 +68,7 @@
 .c9m-hi{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 16px}
 .c9m-hi-text{display:flex;flex-direction:column;min-width:0}
 .c9m-hi-small{font-weight:800;font-size:16px;letter-spacing:.06em;color:var(--pink-ink);text-transform:uppercase}
-.c9m-hi-nick{font-weight:900;font-size:clamp(28px,8vw,36px);line-height:1;color:var(--black);overflow-wrap:anywhere}
+.c9m-hi-nick{font-weight:900;font-size:clamp(28px,8vw,36px);line-height:1;color:var(--black);overflow-wrap:break-word;overflow-wrap:anywhere}
 .c9m-hi-nick.c9m-pop{animation:c9-pop .3s cubic-bezier(.2,1.6,.4,1) both}
 .c9m-dice{width:60px;height:60px;display:grid;place-items:center;padding:0;color:var(--black);background:var(--lemon);border:var(--line);border-radius:18px;
   box-shadow:0 4px 0 var(--black);cursor:pointer;flex:0 0 auto}
