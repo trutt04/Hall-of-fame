@@ -16,7 +16,8 @@
 //   game.state                         small JSON for net.setGame(). Always { kind, phase, phaseEnds, round,
 //                                      scores, seq, ... }. It is updated in place and `seq` goes up on
 //                                      every change: send it when seq changes (throttled, ~10 Hz is plenty).
-//   game.host.tick(now, view) -> fx[]  host only, every frame. view = { pos(id) -> { x, z } | null, ids() }
+//   game.host.tick(now, view) -> fx[]  host only, every frame. view = { pos(id) -> { x, z } | null, ids(),
+//                                      solid?(x, z) -> true where a body can't stand (bots then walk round it) }
 //   game.host.claim(fromId, claim, view) -> boolean    validates (phase, role, distance with lag slack, timing)
 //   game.host.addPlayer(id, { nick, bot }?) / game.host.removePlayer(id)    safe at any moment
 //   game.bot(id, view, dt) -> { move: { x, z }, action, anim, face }   host only, every frame, per bot.

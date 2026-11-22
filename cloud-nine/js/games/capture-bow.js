@@ -288,6 +288,16 @@ export const captureBow = {
     if (res.winner === 0 || res.winner === 1) g.st.wins[res.winner] += 1;
   },
 
+  awards(g) {
+    const P = (id) => g.P(id);
+    return [
+      { id: 'bowBoss', score: (id) => num(P(id).caps) },
+      { id: 'guard', score: (id) => num(P(id).tags) },
+      { id: 'bowSaver', score: (id) => num(P(id).saves) },
+      { id: 'grabber', score: (id) => num(P(id).grabs) },
+    ];
+  },
+
   reset(g) {
     for (const bow of g.st.bows) sendBowHome(g, bow);
     g.st.lastScore = null;

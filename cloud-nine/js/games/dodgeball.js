@@ -9,7 +9,8 @@
 // { type: 'hit', ballId, target } (fair to the one being hit) and the host checks the ball was
 // live and passed close, with slack for lag. A catch ({ type: 'catch', ballId }) puts the thrower
 // out and brings your earliest-benched teammate back in. Nobody sits out long: after
-// `comebackSeconds` on the bench (20 s, can be turned off) your team cheers you back in. A team
+// `comebackSeconds` on the bench ('auto': 12 s in a small game up to 18 s with ten players, so a
+// 3 v 3 isn't over in a flash; can be turned off) your team cheers you back in. A team
 // wins when the other is all out at once, or with more players left after `playSeconds`
 // (2 minutes); equal is a tie. Benched players cheer their team on (mat talk).
 
@@ -30,7 +31,7 @@ export const BALL = {
   pickR: 1.4, // m: walk this close to a resting ball to pick it up
 };
 const HIT_GRACE_MS = 600; // a hit report may arrive this long after the ball landed (lag)
-const CATCH_WINDOW_MS = 350; // the Catch! button counts for this long
+const CATCH_WINDOW_MS = 550; // the Catch! button counts for this long (forgiving: kids on phones)
 
 // ---------- ball paths (exported for renderers) ----------
 
@@ -172,6 +173,14 @@ function placeBalls(g) {
   }
 }
 
+/** How long a benched player waits before the team cheers them back in (0 = only by a catch). */
+export function comebackMs(g) {
+  const s = g.st.settings.comebackSeconds;
+  if (s !== 'auto') return num(s) * 1000;
+  const perTeam = Math.ceil(g.st.order.length / 2);
+  return clamp(3 * perTeam + 3, 10, 18) * 1000;
+}
+
 function fillEmptyTeam(g, now) {
   // somebody left and a team is empty: move the newest bot (or newest player) over, so play goes on
   for (const t of [0, 1]) {
@@ -203,7 +212,7 @@ export const dodgeball = {
     { id: 'playSeconds', label: 'Round time', options: [60, 90, 120, 150, 180], default: 120 },
     { id: 'balls', label: 'Balls', options: ['auto', 3, 4, 5, 6], labels: { auto: 'Auto' }, default: 'auto' },
     { id: 'ballSpeed', label: 'Ball speed', options: [10, 12, 14, 16], labels: { 10: 'Floaty', 12: 'Gentle', 14: 'Normal', 16: 'Zoomy' }, default: 14 },
-    { id: 'comebackSeconds', label: 'Back from the bench', options: [0, 15, 20, 30], labels: { 0: 'Only by a catch' }, default: 20 },
+    { id: 'comebackSeconds', label: 'Back from the bench', options: ['auto', 0, 10, 15, 20, 30], labels: { auto: 'Auto', 0: 'Only by a catch' }, default: 'auto' },
     BOT_SETTING,
   ],
 
@@ -282,7 +291,7 @@ export const dodgeball = {
         g.bump();
       }
     }
-    const comeback = st.settings.comebackSeconds * 1000;
+    const comeback = comebackMs(g);
     if (comeback > 0) {
       for (const id of st.order) {
         const p = g.P(id);
@@ -406,6 +415,16 @@ export const dodgeball = {
     if (res.winner === 0 || res.winner === 1) g.st.wins[res.winner] += 1;
   },
 
+  awards(g) {
+    const P = (id) => g.P(id);
+    return [
+      { id: 'catcher', score: (id) => num(P(id).catches) },
+      { id: 'thrower', score: (id) => num(P(id).ko) },
+      { id: 'dodger', many: true, score: (id) => (P(id).out ? 0 : 1) },
+      { id: 'matTalk', score: (id) => (P(id).out ? 1 : 0) },
+    ];
+  },
+
   reset(g) {
     for (const id of g.st.order) {
       const p = g.P(id);
@@ -488,8 +507,8 @@ export const dodgeball = {
     else if (st.phase === 'play') {
       if (!p) u.line = 'Dodge, duck, dip, dive and dodge!';
       else if (p.out) {
-        const cb = st.settings.comebackSeconds;
-        const left = cb > 0 ? Math.max(0, Math.ceil((p.outAt + cb * 1000 - now) / 1000)) : 0;
+        const cb = comebackMs(g);
+        const left = cb > 0 ? Math.max(0, Math.ceil((p.outAt + cb - now) / 1000)) : 0;
         u.line = cb > 0 ? `On the bench! Cheer your team on. Back in ${left}, or sooner with a catch!` : 'On the bench! Cheer your team on. A catch brings you back!';
       }
       else if (held(g, me)) u.line = 'Throw it at the other team!';
@@ -741,7 +760,10 @@ function dodgeBot(g, id, pos, dt, m) {
       m.spot = w;
     }
     const opp = inIds(g, 1 - p.team).map((o) => ({ id: o, q: g.pos(o) })).filter((o) => o.q);
-    if (now >= m.throwAt && opp.length) {
+    // back off from the midline before throwing (no point-blank bonks in the opening rush),
+    // unless it is taking too long to get there
+    const back = toLocal(A.f, pos.x, pos.z).z * sg;
+    if (now >= m.throwAt && opp.length && (back >= 1.8 || now >= m.throwAt + 2500)) {
       opp.sort((a, b) => dist(pos, a.q) - dist(pos, b.q));
       const t = g.rng() < 0.55 ? opp[0] : opp[Math.floor(g.rng() * opp.length)];
       const tr = g.track.get(t.id);
