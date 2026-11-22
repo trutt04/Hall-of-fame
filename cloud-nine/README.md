@@ -51,6 +51,8 @@ The first tap turns the sound on. The speaker button turns it off and on, and th
   rhinestone crop top and hot-pink shorts.
 - **Rooms.** "Make a room" shows a 4-letter code. Friends tap "Join a room" and type it. Rooms
   are private: there is no list of rooms anywhere, and only someone with the code can come in.
+  Once everyone is in, the host can lock the room (in the lobby or the menu) so nobody new can
+  join, and can send a friend home if someone shouldn't be there.
 
 ## Her birthday
 
