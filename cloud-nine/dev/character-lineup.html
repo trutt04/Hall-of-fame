@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Nine: character lineup</title>
+<link rel="icon" href="data:,">
+<style>
+  :root { --pink: #ff2e93; --ink: #2b2233; --font: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  html, body { margin: 0; height: 100%; overflow: hidden; font: 700 16px/1.25 var(--font); color: var(--ink);
+    background: linear-gradient(180deg, #9fc4ff 0%, #cfdcff 45%, #ffd1e8 100%); }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none; }
+  #hud { position: fixed; left: 10px; top: 10px; background: rgba(255, 248, 252, .86); padding: 8px 12px; border-radius: 14px; font-size: 14px; pointer-events: none; box-shadow: 0 4px 14px rgba(43, 34, 51, .12); }
+  #hud b { color: var(--pink); }
+  #panel { position: fixed; left: 0; right: 0; bottom: 0; max-height: 46vh; overflow-y: auto; padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    background: rgba(255, 248, 252, .9); box-shadow: 0 -4px 18px rgba(43, 34, 51, .12); }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 4px 0; }
+  .row > span { font-size: 13px; color: #8a6f96; min-width: 64px; text-transform: uppercase; letter-spacing: .04em; }
+  button { font: inherit; font-size: 15px; border: 0; border-radius: 999px; padding: 0 14px; min-height: 40px; background: #fff; color: var(--ink);
+    box-shadow: 0 2px 0 rgba(43, 34, 51, .12); cursor: pointer; }
+  button.on { background: var(--pink); color: #fff; }
+  input[type=range] { width: 160px; }
+  body.noui #panel, body.noui #hud { display: none; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud"><b>CHARACTER LINEUP</b> <span id="what"></span><div id="stats"></div></div>
+<div id="panel"></div>
+<script type="module" src="./character-lineup.js"></script>
+</body>
+</html>
