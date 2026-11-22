@@ -22,8 +22,8 @@ export const NICK_MAX_ANY = 16;
 
 export const NICK_FIRST = Object.freeze([
   'Sparkle', 'Glitter', 'Twinkle', 'Shimmer', 'Dazzle', 'Sunny', 'Rainbow', 'Cosmic',
-  'Starry', 'Peppy', 'Bouncy', 'Fluffy', 'Dreamy', 'Zippy', 'Jazzy', 'Lucky',
-  'Happy', 'Giggly', 'Breezy', 'Twirly', 'Swirly', 'Super', 'Mega', 'Turbo',
+  'Starry', 'Peppy', 'Bouncy', 'Flippy', 'Dreamy', 'Zippy', 'Jazzy', 'Lucky',
+  'Happy', 'Giggly', 'Breezy', 'Twirly', 'Cheery', 'Super', 'Mega', 'Turbo',
   'Pixie', 'Misty', 'Bubbly', 'Cloudy', 'Neon', 'Velvet', 'Lilac', 'Rosy',
   'Golden', 'Silver', 'Crystal', 'Moonlit', 'Jolly', 'Brave', 'Mighty', 'Snappy',
 ]);
