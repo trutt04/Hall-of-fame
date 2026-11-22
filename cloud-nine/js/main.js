@@ -527,6 +527,7 @@ async function boot() {
   let unlocked = false;
   let stageShow = false; // she is up on the stage while Hit Zero runs
   let hitZeroOpen = false;
+  let currentHz = null; // the Hit Zero overlay while it is open (tests read it as world.hitZero)
   const handledStarts = new Set();
 
   const sfx = (name, o) => audio.sfx(name, o);
@@ -911,30 +912,55 @@ async function boot() {
     }
     return Object.keys(out).length ? out : undefined;
   }
-  function stageCamera() {
+  // The camera out front, by the judges: it frames her real character exactly where Hit Zero would
+  // draw its performer (hz.performer: above the runway on a phone, beside it on a tablet), so she
+  // dances on the real stage in the gap the overlay leaves for her.
+  const STAGE_FOV = 50;
+  const stageCam = { pos: new THREE.Vector3(), look: new THREE.Vector3() };
+  function stageFrame() {
     const f = Number.isFinite(stage.facing) ? stage.facing : 0;
-    const fx0 = Math.sin(f);
-    const fz0 = Math.cos(f);
-    const y = Number.isFinite(groundAt(stage.x, stage.z)) ? groundAt(stage.x, stage.z) : 0;
-    const portrait = () => camera.aspect < 0.9;
-    // out front by the judges, a little low: she stands in the top part of the screen, over the lanes
+    const y0 = Number.isFinite(groundAt(stage.x, stage.z)) ? groundAt(stage.x, stage.z) : 0;
+    const W = Math.max(1, window.innerWidth);
+    const H = Math.max(1, window.innerHeight);
+    const K = H / 2 / Math.tan((STAGE_FOV * Math.PI) / 360);
+    let box = null;
+    try {
+      box = currentHz && currentHz.performer;
+    } catch (err) {
+      box = null;
+    }
+    const ok = box && [box.x, box.y, box.size].every(Number.isFinite) && box.size > 20;
+    const px = ok ? box.x : W / 2;
+    const py = ok ? box.y : H * 0.3;
+    const size = ok ? box.size : Math.min(H * 0.16, 130);
+    // far enough that she is as tall on screen as the drawn performer would be (bow included)
+    const dist = clamp((1.55 * K) / Math.max(40, size * 0.95), 3.2, 30);
+    stageCam.pos.set(stage.x + Math.sin(f) * dist, y0 + 1.4 + dist * 0.05, stage.z + Math.cos(f) * dist);
+    // aim so her middle lands on the performer's spot: turn and tilt off her by those angles
+    const ax = Math.atan((px - W / 2) / K);
+    const ay = Math.atan((py - size * 0.47 - H / 2) / K);
+    const dx = stage.x - stageCam.pos.x;
+    const dy = y0 + 0.72 - stageCam.pos.y;
+    const dz = stage.z - stageCam.pos.z;
+    const yaw = Math.atan2(dx, dz) + ax;
+    const pitch = Math.atan2(dy, Math.hypot(dx, dz)) + ay;
+    stageCam.look.set(stageCam.pos.x + Math.sin(yaw) * Math.cos(pitch), stageCam.pos.y + Math.sin(pitch), stageCam.pos.z + Math.cos(yaw) * Math.cos(pitch));
+    return stageCam;
+  }
+  function stageCamera() {
     rig.play([{
-      dur: calm ? 0.01 : 1.2,
+      dur: calm ? 0.01 : 1.1,
       ease: 'inOut',
-      pos: () => {
-        const d = portrait() ? 10.5 : 8.2;
-        return [stage.x + fx0 * d, y + (portrait() ? 1.0 : 1.3), stage.z + fz0 * d];
-      },
-      look: () => [stage.x, y + (portrait() ? 0.05 : 0.35), stage.z],
+      fov: STAGE_FOV,
+      pos: () => stageFrame().pos,
+      look: () => stageCam.look,
     }, {
       dur: 1e7,
       ease: 'linear',
       cut: true,
-      pos: () => {
-        const d = portrait() ? 10.5 : 8.2;
-        return [stage.x + fx0 * d, y + (portrait() ? 1.0 : 1.3), stage.z + fz0 * d];
-      },
-      look: () => [stage.x, y + (portrait() ? 0.05 : 0.35), stage.z],
+      fov: STAGE_FOV,
+      pos: () => stageFrame().pos,
+      look: () => stageCam.look,
     }], { skippable: false, handoff: calm ? 0.01 : 0.8 });
   }
 
@@ -953,17 +979,20 @@ async function boot() {
     const before = mode === 'overlay' ? 'play' : mode;
     let release = null;
     if (stage && before === 'play') {
-      // up onto the mat, facing the judges
-      await player.teleport(stage.x, stage.z, Number.isFinite(stage.facing) ? stage.facing : 0, { silent: true });
+      // up onto the mat, facing the judges (behind a quick fade, the camera already out front)
+      await hud.fade(true, 170);
+      player.place(stage.x, stage.z, Number.isFinite(stage.facing) ? stage.facing : 0);
       release = player.takeControl('hitZero');
       player.setAnim('clasp');
       stageShow = true;
       stageCamera();
+      sfx('whoosh', { volume: 0.5 });
     }
     const container = el('div', 'c9-overlay c9-rhythm-host');
     document.body.appendChild(container);
     setMode('overlay');
     audio.music(null);
+    if (stageShow) hud.fade(false, 260);
     let done = false;
     let inst = null;
     const finish = (result) => {
@@ -975,6 +1004,7 @@ async function boot() {
       container.remove();
       stageShow = false;
       hitZeroOpen = false;
+      currentHz = null;
       if (release) {
         player.setAnim('idle');
         release();
@@ -998,11 +1028,15 @@ async function boot() {
       inst = mod.createHitZero({
         audio, container, level: opts.level || 1, onDone: finish, look: figureLook(),
         seed: Number.isFinite(opts.seed) ? opts.seed : undefined,
+        // on the stage her real character is the performer: the overlay leaves her spot empty
+        performer: !stageShow,
+        autoplay: store.flag('autoplay'), // test switch: a perfect bot plays the routine
         // every motion she hits, her character does on the stage (Contract 3 names)
         onMove: (name) => {
           if (stageShow && typeof name === 'string') player.setAnim(name, { restart: true });
         },
       });
+      if (!done) currentHz = inst;
     } catch (err) {
       console.error('[c9] Hit Zero failed to start', err);
       finish(null);
@@ -1614,6 +1648,7 @@ async function boot() {
 
   Object.defineProperties(world, {
     mode: { get: () => mode, enumerable: true },
+    hitZero: { get: () => currentHz, enumerable: false },
     session: { get: () => session, enumerable: true },
   });
   Object.assign(world, {
