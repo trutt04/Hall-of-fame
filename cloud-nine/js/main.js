@@ -140,7 +140,7 @@ function createNetFacade() {
       }
     },
     get current() { return cur; },
-    get kind() { return cur ? cur.kind || 'net' : 'none'; },
+    get kind() { return cur ? cur.kind || cur.mode || 'net' : 'none'; },
     get status() { return cur ? cur.status : 'offline'; },
     get me() { return cur ? cur.me : null; },
     get room() { return cur ? cur.room : null; },
@@ -1242,7 +1242,7 @@ async function boot() {
     leaveSession();
     menu.busy('Making your room...');
     const n = makeNet(params.get('net') || 'auto');
-    if (n.kind === 'offline') {
+    if ((n.kind || n.mode) === 'offline') {
       roomsUnavailable();
       return;
     }
@@ -1266,7 +1266,7 @@ async function boot() {
       onSubmit: async (code) => {
         leaveSession();
         const n = makeNet(params.get('net') || 'auto');
-        if (n.kind === 'offline') return { ok: false, reason: 'offline' };
+        if ((n.kind || n.mode) === 'offline') return { ok: false, reason: 'offline' };
         net.use(n);
         const res = await withTimeout(n.joinRoom(code, { nick: myNick, look: myLook }), 15000, { ok: false, reason: 'offline' });
         if (!res || !res.ok) {
