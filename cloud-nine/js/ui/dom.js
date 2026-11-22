@@ -136,6 +136,12 @@ if (typeof document !== 'undefined') {
       e.preventDefault();
     }
   }, true);
+  // iOS Safari only shows :active (every button's pressed look) when some touchstart listener exists.
+  document.addEventListener('touchstart', () => {}, { passive: true });
+  // iOS ignores user-scalable=no: these stop a pinch from zooming the menus from the very first
+  // screen (core/input.js does the same for the island once it is built).
+  const noZoom = (e) => e.preventDefault();
+  for (const type of ['gesturestart', 'gesturechange', 'gestureend']) document.addEventListener(type, noZoom, { passive: false });
 }
 
 export function onTap(node, fn) {

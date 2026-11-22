@@ -287,10 +287,6 @@ export function createInput({ canvas, stick = null }) {
   });
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  window.addEventListener('blur', () => {
-    keys.clear();
-    held.clear();
-  });
 
   function resetPointers() {
     pointers.clear();
@@ -299,6 +295,43 @@ export function createInput({ canvas, stick = null }) {
     lookDX = 0;
     lookDY = 0;
     zoom = 1;
+  }
+
+  // Let go of everything when the page loses the player's hands: the window loses focus, the app
+  // goes to the background or the page is put away. A finger still on the glass afterwards is
+  // picked up again by adopt() on its next move, so nothing is lost by dropping too eagerly.
+  function dropEverything() {
+    keys.clear();
+    held.clear();
+    resetPointers();
+  }
+  window.addEventListener('blur', dropEverything);
+  window.addEventListener('pagehide', dropEverything);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) dropEverything();
+  });
+
+  // A finger the browser never reported lifting (a system swipe, a notification, an alert) would
+  // leave the stick pushed forever. When the last finger leaves the glass, give pointerup a moment
+  // to arrive, then forget any touch that is still held.
+  let liftedAt = 0;
+  const onTouchEnd = (e) => {
+    if (e.touches && e.touches.length === 0) liftedAt = now();
+  };
+  document.addEventListener('touchend', onTouchEnd, { capture: true, passive: true });
+  document.addEventListener('touchcancel', onTouchEnd, { capture: true, passive: true });
+  document.addEventListener('touchstart', () => {
+    liftedAt = 0;
+  }, { capture: true, passive: true });
+  function dropLostTouches() {
+    if (!liftedAt || now() - liftedAt < 150) return;
+    liftedAt = 0;
+    for (const p of [...pointers.values()]) {
+      if (p.type === 'mouse') continue;
+      pointers.delete(p.id);
+      if (joy.id === p.id) releaseStick();
+      if (pinch && (pinch.a === p.id || pinch.b === p.id)) pinch = null;
+    }
   }
 
   const api = {
@@ -343,6 +376,7 @@ export function createInput({ canvas, stick = null }) {
     },
     // Call once a frame: promotes a held thumb to a joystick even if it has not moved yet.
     update() {
+      dropLostTouches();
       if (suspended) return;
       const t = now();
       for (const p of pointers.values()) {

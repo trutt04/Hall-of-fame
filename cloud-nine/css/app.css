@@ -36,7 +36,8 @@
 }
 
 *{box-sizing:border-box}
-html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:manipulation}
+/* pan-x pan-y: no pinch zoom and no double-tap zoom anywhere (panels still scroll); the canvas is none */
+html,body{height:100%;margin:0;overflow:hidden;overscroll-behavior:none;-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:pan-x pan-y}
 body{position:fixed;inset:0;background:linear-gradient(to bottom,var(--sky-top),var(--sky-horizon));color:var(--ink);font-family:var(--font);
   font-size:17px;line-height:1.3;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent}
 [hidden]{display:none !important}
