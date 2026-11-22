@@ -809,7 +809,9 @@ export function createHud(root, opts = {}) {
     },
 
     async fade(on, ms = 200) {
-      if (reducedMotion()) ms = Math.min(ms, 80);
+      // Reduced motion gets a slower, gentler fade, never a quicker one: an instant cut to white and
+      // back is a full-screen flash (css/app.css keeps this transition when the others are switched off).
+      if (reducedMotion()) ms = Math.max(ms, 260);
       fadeEl.style.transitionDuration = ms + 'ms';
       fadeEl.classList.toggle('c9-on', !!on);
       await wait(ms + 20);
