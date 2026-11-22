@@ -8,8 +8,8 @@
 //
 // Signing rule (kid safety: never a last name). `from` is one or more parts joined by "and", "&"
 // or a comma. Each part is one word (a first name like "Maya" or a relation like "Grandma"), or a
-// relation and then one first name ("Aunt Kim", "Grandpa Joe", "Great Grandma Rose"). So
-// "Kim Smith" is refused, and "Mom and Dad" or "Nana & Papa" are fine.
+// relation and then one first name ("Aunt Zuzu", "Grandpa Zork", "Great Grandma Fizz"). So
+// "Zuzu Sparkleton" is refused, and "Mom and Dad" or "Nana & Papa" are fine.
 // Text: one paragraph of at most 160 characters (longer text is clipped at a word, with "..."),
 // with no links, emails, @handles or long numbers, and nothing from the blocklist.
 

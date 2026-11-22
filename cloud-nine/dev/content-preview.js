@@ -147,8 +147,8 @@ function notesSection() {
   const samples = [
     { from: 'Grandma', text: 'Happy birthday, sweet flyer! We are so proud of you. Fly high!' },
     { from: 'mom and dad', text: 'Hit zero, superstar! We love you to the clouds and back.' },
-    { from: 'Aunt Kim', text: 'Full out, every day! ' + 'You make every squad better. '.repeat(5) },
-    { from: 'Kim Smith', text: 'Last names are refused.' },
+    { from: 'Aunt Zuzu', text: 'Full out, every day! ' + 'You make every squad better. '.repeat(5) },
+    { from: 'Zuzu Sparkleton', text: 'Last names are refused.' },
     { from: 'Nana', text: 'Links like www.example.com are refused.' },
   ];
   return [el('h2', { id: 'notes' }, 'Family notes'),

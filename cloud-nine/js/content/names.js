@@ -8,7 +8,7 @@
 //   cleanNick(raw)            -> the clean nickname, or null when it can't be used
 //
 // cleanNick rules: letters (accented Latin letters too, so Zoë and José work) and spaces only.
-// Trims, collapses spaces and capitalizes each word's first letter ("bailey  rose" -> "Bailey Rose").
+// Trims, collapses spaces and capitalizes each word's first letter ("zippy  zebra" -> "Zippy Zebra").
 // At most 12 characters, unless it is exactly a generator pair, which may be up to 16 so names like
 // "Glitter Unicorn" survive the network. Anything on the blocklist (js/content/blocklist.js, with
 // leetspeak and spacing tricks folded) returns null. Use it on every nickname that comes from the
