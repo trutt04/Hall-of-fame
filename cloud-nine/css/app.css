@@ -172,13 +172,21 @@ button{font-family:inherit;color:inherit}
   .c9-game-more[hidden]{display:none}
   .c9-game-more .c9-icon{width:22px;height:22px;stroke-width:3;transition:transform .2s}
   .c9-game-open .c9-game-more .c9-icon{transform:rotate(180deg)}
-  .c9-game-role{order:2;flex:0 1 auto;min-width:0;padding:3px 12px;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .c9-game > .c9p-bar{order:3;flex:1 1 auto;width:auto;margin:0;justify-content:flex-end;gap:6px}
+  .c9-game-role{order:2;flex:1 1 0;max-width:max-content;min-width:0;padding:3px 12px;letter-spacing:.05em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .c9-game > .c9p-bar{order:3;flex:0 1 auto;width:auto;margin:0 0 0 auto;justify-content:flex-end;gap:6px}
   .c9-game .c9p-btn{min-height:44px;padding:3px 12px 3px 9px;box-shadow:0 3px 0 var(--black)}
   .c9-game-line{order:4;flex:1 1 100%;text-align:left}
   .c9-game-board{order:5;flex:1 1 100%;justify-content:flex-start}
   .c9-game:not(.c9-game-open):not(.c9-game-peek) .c9-game-line,
   .c9-game:not(.c9-game-open):not(.c9-game-peek) .c9-game-board{display:none}
+}
+/* small Android phones: the role and Leave game still share one row */
+@media (max-width:380px){
+  .c9-game-title{letter-spacing:0}
+  .c9-game-role{padding:3px 8px;letter-spacing:0}
+  .c9-game .c9p-btn{padding:3px 9px}
+  .c9-game{padding-left:10px}
+  .c9-game .c9p-btn .c9-icon{display:none}
 }
 
 /* ---------- the big centre splash ---------- */
