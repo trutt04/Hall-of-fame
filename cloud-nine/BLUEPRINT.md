@@ -209,7 +209,7 @@ export function createNet({ mode = 'auto' } = {})  // 'local' (BroadcastChannel:
 net.status                // 'offline' | 'connecting' | 'online'
 net.me                    // { id, nick, look }
 net.createRoom({ nick, look }) -> Promise<code>
-net.joinRoom(code, { nick, look }) -> Promise<{ ok, reason }>   // reasons: 'not-found' | 'full' | 'offline' | 'bad-code'
+net.joinRoom(code, { nick, look }) -> Promise<{ ok, reason }>   // reasons: 'not-found' | 'full' | 'offline' | 'bad-code' | 'locked'
 net.leaveRoom()
 net.room                  // null | { code, hostId, createdAt }
 net.players               // Map<id, { id, nick, look, bot, joinedAt }>, including me and bots
@@ -232,6 +232,18 @@ Firebase Realtime Database layout under `rooms/{code}/`: `meta`, `players/{id}`,
 device an id so the security rules (`firebase/database.rules.json`) let a device write only its
 own entries. Rules forbid listing rooms. Config is `js/net/firebase-config.js`, with placeholders
 until the owner creates the project; `firebase/SETUP.md` walks the owner through it.
+
+Added in review (safety):
+- **Room lock.** `net.lockRoom(on)` (host only) writes `meta.locked` and an allow list
+  `rooms/{code}/allow/{uid}` of the humans present, in one update. While locked, only listed
+  devices can join or read the room's players, state, events and game (meta stays readable, so a
+  join answers the new reason `'locked'`). A listed device whose connection drops gets back in.
+  Unlocking clears the list.
+- **Send home.** `net.sendHome(id)` (host only) takes a friend off the list and removes their
+  entries; their device leaves by itself with `'leave'` reason `'removed'`. Bots are unaffected.
+- `net.room` carries `locked`; a `'room'` event fires when it changes.
+- **Names in game state go out blank.** Each device fills in the name it already checked for that
+  player id (`V.mapNicks`), so a host can never put free text on anyone's screen.
 
 ## Contract 5: game modes (GAMES)
 
