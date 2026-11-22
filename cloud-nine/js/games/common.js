@@ -338,12 +338,60 @@ export function separate(pos, others, radius) {
   return { x, z };
 }
 
+const LOOK = 1.1; // m: how far ahead a bot checks for something solid
+const TURNS = [0.4, 0.8, 1.2, 1.6, 2.0, 2.4, 2.8]; // radians off the straight line, tried in order
+
+/**
+ * A way around something solid, when the host's view can tell (mem.solid(x, z) -> true for a
+ * hedge, a wall, a tent or open sky): straight on when clear, else the smallest turn that is free,
+ * keeping to the same side of the obstacle until the straight line is clear again (so a bot walks
+ * round a long hedge instead of bumping along it). Returns a velocity, or null to fall back.
+ */
+function steerAround(nav, solid, pos, v, sp, dt, rng) {
+  const ux = v.x / sp;
+  const uz = v.z / sp;
+  const clear = !solid(pos.x + ux * LOOK, pos.z + uz * LOOK);
+  if (clear) {
+    nav.clearT = num(nav.clearT) + dt;
+    if (nav.side && nav.clearT > 0.25) nav.side = 0;
+    if (!nav.side) return v;
+  } else nav.clearT = 0;
+  const sides = nav.side ? [nav.side, -nav.side] : rng() < 0.5 ? [1, -1] : [-1, 1];
+  for (const side of sides) {
+    for (const a of TURNS) {
+      const c = Math.cos(a * side);
+      const s = Math.sin(a * side);
+      const dx = ux * c + uz * s;
+      const dz = -ux * s + uz * c;
+      if (solid(pos.x + dx * LOOK, pos.z + dz * LOOK) || solid(pos.x + dx * 0.5, pos.z + dz * 0.5)) continue;
+      if (side !== nav.side) nav.side = side;
+      return { x: dx * sp, z: dz * sp };
+    }
+  }
+  return null; // boxed in: the sidestep below sorts it out
+}
+
 /**
  * Walk toward a goal, noticing when something solid (a hedge, a tent) is in the way: the bot
- * then sidesteps for a moment, like a kid going around a bush. Returns a velocity.
+ * goes round it (when the host's view can say where solid things are, see steerAround) or else
+ * sidesteps for a moment, like a kid going around a bush. Returns a velocity.
  */
 export function navigate(mem, pos, goal, speed, dt, rng, slowR = 0.6) {
   const nav = mem.nav || (mem.nav = { t: 0, x: pos.x, z: pos.z, want: 0, dx: 0, dz: 0, left: 0 });
+  if (typeof mem.solid === 'function' && !(nav.left > 0)) {
+    const v0 = toward(pos.x, pos.z, goal.x, goal.z, speed, slowR);
+    const sp0 = Math.hypot(v0.x, v0.z);
+    // close to the goal (a hide spot tucked against a hedge) it walks straight in
+    if (sp0 > 0.3 && Math.hypot(goal.x - pos.x, goal.z - pos.z) > 1.2) {
+      let r = null;
+      try {
+        r = steerAround(nav, mem.solid, pos, v0, sp0, dt, rng);
+      } catch (err) {
+        r = null;
+      }
+      if (r) return trackStuck(nav, pos, r, Math.hypot(r.x, r.z), dt, rng);
+    }
+  }
   if (nav.left > 0) {
     nav.left -= dt;
     nav.x = pos.x;
@@ -353,7 +401,12 @@ export function navigate(mem, pos, goal, speed, dt, rng, slowR = 0.6) {
     return { x: nav.dx * speed, z: nav.dz * speed };
   }
   const v = toward(pos.x, pos.z, goal.x, goal.z, speed, slowR);
-  const sp = Math.hypot(v.x, v.z);
+  return trackStuck(nav, pos, v, Math.hypot(v.x, v.z), dt, rng);
+}
+
+// Asked to move but hardly moving for a while: sidestep for a moment (and forget the side we
+// were going round, it didn't work).
+function trackStuck(nav, pos, v, sp, dt, rng) {
   nav.t += dt;
   nav.want += sp * dt;
   if (nav.t >= 0.7) {
@@ -366,6 +419,7 @@ export function navigate(mem, pos, goal, speed, dt, rng, slowR = 0.6) {
       nav.dx = d.x;
       nav.dz = d.z;
       nav.left = 0.45 + rng() * 0.5;
+      nav.side = 0;
     }
     nav.t = 0;
     nav.want = 0;

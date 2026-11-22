@@ -12,6 +12,7 @@
 //   init(g), newPlayer(g, id, now), joined?(g, id, now), leaving?(g, id, now), left?(g, id, now)
 //   setup(g, now) (roles and teams for a new round), enter?(g, phase, now), phaseMs(g, phase)
 //   tick(g, now), claim(g, from, claim, now) -> boolean, timeUp(g, now) -> result, award?(g, result, now),
+//   awards?(g, result) -> [{ id, score(id), many? }] (the end-of-round awards, see awards.js),
 //   reset?(g, now), spawn(g, id), confine(g, id, x, z), bot(g, id, pos, dt, mem),
 //   ui(g, me, now, u), who(g, id, player, w, pos), auto?(g, me, now), press?(g, me, now, aim),
 //   text(g, fx, me), cleanPlayer(raw, st), clean(raw, st, g), cleanWinner(v), extra?(g, game)
@@ -227,6 +228,16 @@ export const hideSeek = {
     for (const id of res.ids) g.st.scores[id] = num(g.st.scores[id]) + 2;
   },
 
+  awards(g) {
+    const P = (id) => g.P(id);
+    return [
+      { id: 'eagle', score: (id) => (P(id).role === 'hider' ? 0 : num(P(id).finds)) },
+      { id: 'sneaky', many: true, score: (id) => (P(id).role === 'hider' ? 1 : 0) },
+      { id: 'helper', score: (id) => (P(id).role === 'found' ? num(P(id).finds) : 0) },
+      { id: 'almost', score: (id) => (P(id).role === 'found' ? num(P(id).foundAt) : 0) }, // found last
+    ];
+  },
+
   reset(g) {
     for (const id of g.st.order) {
       const p = g.P(id);
@@ -299,10 +310,13 @@ export const hideSeek = {
     const st = g.st;
     const p = me ? g.P(me) : null;
     const left = hiders(g).length;
+    // a hider tucked into a hide spot hears so (where I stand: the HUD's own view of me)
+    const myPos = p && p.role === 'hider' && (st.phase === 'hide' || st.phase === 'play') ? g.pos(me) : null;
+    const tucked = !!(myPos && spotAt(g.arena, myPos));
     if (p && st.phase !== 'lobby') {
       if (p.role === 'seeker') u.roleBadge = { text: 'Seeker', color: PALETTE.gold, icon: 'eyes' };
       else if (p.role === 'found') u.roleBadge = { text: 'Seeker team', color: PALETTE.mint, icon: 'sparkle' };
-      else u.roleBadge = { text: 'Hider', color: PALETTE.lilac, icon: 'leaf' };
+      else u.roleBadge = { text: tucked ? 'Hidden!' : 'Hider', color: PALETTE.lilac, icon: 'leaf' };
     }
     const since = now - st.phaseStarted;
     if (st.phase === 'countdown') {
@@ -313,14 +327,15 @@ export const hideSeek = {
         u.blind = true;
         u.big = { text: String(u.timer ?? ''), sub: 'No peeking!' };
       } else {
-        u.line = 'Hide! Find a sneaky spot before the count ends.';
+        u.line = tucked ? "Great spot! You're hidden. Stay still and shh..." : 'Hide! Tuck into a hedge, tent or barrel before the count ends.';
         if (since < 1500) u.big = { text: 'Hide!', sub: 'Quick, find a sneaky spot!' };
       }
     } else if (st.phase === 'play') {
       const hintIn = st.nextHint ? Math.max(0, Math.ceil((st.nextHint - now) / 1000)) : null;
       const hint = hintIn !== null ? ` Sparkles in ${fmtClock(hintIn)}.` : '';
       if (!p || p.role !== 'hider') u.line = `Find the hiders! ${left} still hiding.${hint}`;
-      else u.line = `Shh! Stay hidden. ${left} still hiding.${hint}`;
+      else if (tucked) u.line = `Shh! You're hidden. ${left} still hiding.${hint}`;
+      else u.line = `Find a hiding spot, quick! ${left} still hiding.${hint}`;
       if (since < 1500) u.big = { text: 'Ready or not!', sub: 'Here we come!' };
       if (p && p.role === 'found' && p.foundAt && now - p.foundAt < 2500) u.big = { text: 'Found you!', sub: 'Now help seek!' };
     } else if (st.phase === 'results') {
@@ -596,7 +611,12 @@ function seekerBot(g, id, pos, dt, m) {
   }
   const target = chase ? g.pos(chase) : m.goal;
   if (!target) return { move: { x: 0, z: 0 }, action };
-  if (!chase && dist(pos, target) < 0.9) {
+  if (!chase && m.goal && m.goal !== m.goalFor) {
+    // a fair time to get there; a spot round a corner that takes longer counts as looked at
+    m.goalFor = m.goal;
+    m.goalBy = now + (dist(pos, m.goal) / Math.max(1, L.speed * 0.5)) * 1000 * 1.6 + 2500;
+  }
+  if (!chase && (dist(pos, target) < 0.9 || now > num(m.goalBy))) {
     if (m.goal.i >= 0) hs.checked.set(m.goal.i, now);
     m.goal = null;
     m.pause = 0.6 + g.rng() * 0.9;

@@ -6,6 +6,8 @@
 //   const ui = createOverlay(world, { onLeave, onAgain, onJoin })
 //   ui.setBlind(on, count, line)           the seeker's screen covered, with the count (and a hype line)
 //   ui.setBar({ leave, again, join })      leave: 'Leave game' | 'End game' | null; again, join: booleans
+//   ui.setAwards(awards | null)            the results card: { mine, rows: [{ id, name, title, line, icon, me }] }
+//                                          from game.ui().awards (everybody gets one, bots too)
 //   ui.confirm(copy, onYes)                a "Keep playing / Leave" card (copy from logic.leaveCopy)
 //   ui.confirming                          true while that card is up
 //   ui.reset()                             hide it all
@@ -48,7 +50,24 @@ const CSS = `
 @keyframes c9p-pop{from{transform:scale(.6);opacity:0}to{transform:scale(1);opacity:1}}
 @keyframes c9p-nudge{0%,100%{transform:translateY(0)}50%{transform:translateY(-3px)}}
 @keyframes c9p-twinkle{0%,100%{transform:scale(.6) rotate(0);opacity:.35}50%{transform:scale(1.1) rotate(20deg);opacity:1}}
-@media (prefers-reduced-motion:reduce){.c9p-blind.c9p-in,.c9p-btn-go.c9p-in,.c9p-blind-star{animation:none}}
+.c9p-awards{position:absolute;left:16px;right:16px;margin:0 auto;bottom:calc(112px + env(safe-area-inset-bottom,0px));max-width:460px;
+  max-height:calc(100% - 300px);overflow:hidden;box-sizing:border-box;padding:12px 14px 10px;border-radius:22px;background:#fff8fc;color:var(--ink,#2b2233);
+  border:3px solid #17121c;box-shadow:0 6px 0 #17121c;pointer-events:none;text-align:center}
+.c9p-awards[hidden]{display:none}
+.c9p-awards.c9p-in{animation:c9p-pop .35s cubic-bezier(.2,1.5,.4,1) both}
+.c9p-awards-kicker{font-weight:900;font-size:16px;letter-spacing:.06em;text-transform:uppercase;color:#a96bff}
+.c9p-award-me{display:flex;align-items:center;justify-content:center;gap:10px;margin:4px 0 2px}
+.c9p-award-me .c9-icon{width:34px;height:34px;flex:none;color:#ff2e93;fill:none;stroke:currentColor}
+.c9p-award-title{font-weight:900;font-size:clamp(24px,7vw,30px);line-height:1.05;color:#ff2e93}
+.c9p-award-line{font-weight:800;font-size:17px;margin-bottom:6px}
+.c9p-award-list{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;text-align:left;border-top:2px dashed #e2d6f3;padding-top:8px}
+.c9p-award-row{display:flex;flex-direction:column;min-width:0;font-size:16px;line-height:1.15;padding:2px 4px;border-radius:10px}
+.c9p-award-row.c9p-me{background:#ffe0f0}
+.c9p-award-name{font-weight:900;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c9p-award-what{font-weight:700;color:#7b5cff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+@media (max-height:600px){.c9p-award-list{display:none}.c9p-awards{bottom:12px}}
+.c9-hud.c9-modal .c9p-awards{visibility:hidden}
+@media (prefers-reduced-motion:reduce){.c9p-blind.c9p-in,.c9p-btn-go.c9p-in,.c9p-blind-star,.c9p-awards.c9p-in{animation:none}}
 `;
 
 function injectStyle() {
@@ -128,6 +147,34 @@ export function createOverlay(world, handlers = {}) {
   const join = btn('c9p-btn-go', 'play', COPY.join, 'onJoin');
   const leave = btn('c9p-btn-leave', 'door', COPY.leaveGame, 'onLeave');
   let barKey = '';
+
+  // ---------------------------------------------------------------- the awards card (results)
+  const awards = el('div', 'c9p-awards');
+  awards.hidden = true;
+  awards.setAttribute('aria-live', 'polite');
+  root.appendChild(awards);
+  let awardsKey = '';
+
+  function fillAwards(a) {
+    awards.textContent = '';
+    if (a.mine) {
+      awards.appendChild(el('div', 'c9p-awards-kicker', COPY.yourAward));
+      const me = el('div', 'c9p-award-me');
+      me.appendChild(icon(a.mine.icon || 'star'));
+      me.appendChild(el('div', 'c9p-award-title', a.mine.title));
+      awards.appendChild(me);
+      awards.appendChild(el('div', 'c9p-award-line', a.mine.line));
+    } else awards.appendChild(el('div', 'c9p-awards-kicker', COPY.squadAwards));
+    const list = el('div', 'c9p-award-list');
+    for (const r of a.rows) {
+      if (r.me) continue;
+      const row = el('div', 'c9p-award-row');
+      row.appendChild(el('span', 'c9p-award-name', r.name));
+      row.appendChild(el('span', 'c9p-award-what', r.title));
+      list.appendChild(row);
+    }
+    if (list.childNodes.length) awards.appendChild(list);
+  }
   let confirming = false;
 
   function mountBar() {
@@ -190,6 +237,24 @@ export function createOverlay(world, handlers = {}) {
       show(join, !!showJoin);
       bar.hidden = !(leaveLabel || showAgain || showJoin);
     },
+    setAwards(a) {
+      const rows = a && Array.isArray(a.rows) ? a.rows : null;
+      const key = rows ? rows.map((r) => `${r.id}:${r.award}:${r.name}`).join('|') : '';
+      if (key === awardsKey) return;
+      awardsKey = key;
+      if (!rows || !rows.length) {
+        awards.hidden = true;
+        return;
+      }
+      fillAwards(a);
+      awards.hidden = false;
+      awards.classList.remove('c9p-in');
+      void awards.offsetWidth;
+      awards.classList.add('c9p-in');
+    },
+    get awardsShown() {
+      return !awards.hidden;
+    },
     confirm(copy, onYes) {
       if (!hud || typeof hud.openCard !== 'function') {
         onYes();
@@ -217,6 +282,7 @@ export function createOverlay(world, handlers = {}) {
     reset() {
       this.setBlind(false);
       this.setBar({});
+      this.setAwards(null);
       bar.hidden = true;
     },
     get blind() {
@@ -228,6 +294,7 @@ export function createOverlay(world, handlers = {}) {
     dispose() {
       blind.remove();
       bar.remove();
+      awards.remove();
     },
   };
 }

@@ -180,7 +180,8 @@ test('solo: a game with bot friends, from the countdown to the results and back 
     assert.ok(await pump([world], () => play.info().phase === 'results', 2000), 'results');
     assert.ok(await pump([world], () => log.music.includes('victory'), 1000), 'a victory sting');
     assert.ok(world.player.frozen, 'everyone stands still to celebrate');
-    assert.ok(log.toasts.length > 0, 'hype lines and news');
+    // the win line waits for the big results splash to go (about 4 s), then shows
+    assert.ok(await pump([world], () => log.toasts.length > 0, 6000), 'hype lines and news');
     // Leave game: the card, then free roam
     play.overlay.st.handlers.onLeave();
     assert.equal(play.overlay.st.confirms, 1, 'asked first');

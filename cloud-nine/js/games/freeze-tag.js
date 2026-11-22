@@ -256,6 +256,16 @@ export const freezeTag = {
     for (const id of res.ids) g.st.scores[id] = num(g.st.scores[id]) + 1;
   },
 
+  awards(g) {
+    const P = (id) => g.P(id);
+    return [
+      { id: 'freezer', score: (id) => num(P(id).freezes) },
+      { id: 'saver', score: (id) => num(P(id).rescues) },
+      { id: 'speedy', many: true, score: (id) => (P(id).role === 'runner' && !P(id).frozen ? 1 : 0) },
+      { id: 'poser', score: (id) => (P(id).frozen ? 1 : 0) },
+    ];
+  },
+
   reset(g) {
     for (const id of g.st.order) {
       const p = g.P(id);

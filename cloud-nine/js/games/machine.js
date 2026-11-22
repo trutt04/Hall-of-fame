@@ -8,6 +8,7 @@
 // BREAK_MS, so a game never stalls even when nobody touches anything.
 
 import { mulberry32 } from '../core/util.js';
+import { awardRows, cleanAwards, pickAwards } from './awards.js';
 import {
   BOT_LEVELS, BREAK_MS, COUNTDOWN_MS, COUNT_MS, MAX_PLAYERS, RESULTS_MS,
   capLen, clamp, cleanId, cleanName, cleanSettings, fmtClock, isNum, isObj, normalizePlayers, num, own, r2,
@@ -160,6 +161,8 @@ export function makeGame(mode, opts) {
     res.ids = (Array.isArray(res.ids) ? res.ids : []).filter((id) => g.P(id));
     g.st.result = res;
     if (mode.award) mode.award(g, res, now);
+    // a little award for every player, bots too (only ids travel; the words are in awards.js)
+    res.awards = guard(() => pickAwards(g.st.order, mode.awards ? mode.awards(g, res) : []), null) || pickAwards(g.st.order, []);
     setPhase('results', RESULTS_MS, now);
     g.fx({ type: 'win', winner: res.winner, ids: res.ids.slice(), sfx: res.winner === 'none' ? 'chime' : 'tada', burst: res.ids.length > 0 });
   }
@@ -322,6 +325,8 @@ export function makeGame(mode, opts) {
     if (w.anim) out.anim = w.anim;
     if (!w.canMove && g.st.phase !== 'play' && g.st.phase !== 'hide') return out;
     const m = g.memFor(id);
+    // the host's view may know where hedges and walls are: then bots walk round them (navigate)
+    m.solid = g.view && typeof g.view.solid === 'function' ? g.view.solid : null;
     const r = guard(() => mode.bot(g, id, pos, dt, m), null);
     if (!r) return out;
     if (r.move && isNum(r.move.x) && isNum(r.move.z) && w.canMove) {
@@ -374,6 +379,8 @@ export function makeGame(mode, opts) {
       const ids = Array.isArray(raw.result.ids) ? raw.result.ids.map(cleanId).filter((id) => id && own(st.players, id)) : [];
       const winner = mode.cleanWinner(raw.result.winner);
       st.result = { winner, ids: [...new Set(ids)] };
+      const awards = cleanAwards(raw.result.awards, st.players);
+      if (awards) st.result.awards = awards;
     }
     mode.clean(raw, st, g);
     return st;
@@ -412,6 +419,11 @@ export function makeGame(mode, opts) {
       u.big = { text: COUNTS[beat], sub: beat === 0 ? 'Get ready!' : '' };
     }
     guard(() => mode.ui(g, me, now, u), null);
+    // everybody's award, from the results until the next round's countdown
+    const res = st.result;
+    if ((st.phase === 'results' || st.phase === 'lobby') && res && res.awards) {
+      u.awards = guard(() => awardRows(res.awards, st.order, (id) => g.name(id), me), null);
+    }
     return u;
   }
 

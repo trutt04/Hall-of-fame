@@ -471,6 +471,9 @@ export const COPY = Object.freeze({
   leaveGame: 'Leave game',
   leave: 'Leave',
   endGame: 'End game',
+  yourAward: 'Your award',
+  squadAwards: 'Squad awards',
+  watching: 'Cheering from the sideline!',
 });
 
 /** The words on the leave / end card. Nobody leaves in shame: it is always "see you on the island". */
