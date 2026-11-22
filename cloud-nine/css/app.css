@@ -57,6 +57,8 @@ button{font-family:inherit;color:inherit}
 .c9-hud:not(.c9-playing) .c9-top,.c9-hud:not(.c9-playing) .c9-controls,.c9-hud:not(.c9-playing) .c9-hint,
 .c9-hud:not(.c9-playing) .c9-stick{visibility:hidden}
 .c9-hud.c9-modal .c9-controls,.c9-hud.c9-modal .c9-stick,.c9-hud.c9-modal .c9-hint{visibility:hidden}
+/* a mini game has the screen (the basket toss): its own overlay shows, ours steps aside */
+.c9-hud.c9-busy .c9-buttons,.c9-hud.c9-busy .c9-controls,.c9-hud.c9-busy .c9-hint,.c9-hud.c9-busy .c9-toasts{visibility:hidden}
 
 .c9-top{position:absolute;top:0;left:0;right:0;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;
   padding:calc(10px + var(--sat)) calc(10px + var(--sar)) 0 calc(10px + var(--sal))}
@@ -264,6 +266,13 @@ button{font-family:inherit;color:inherit}
 .c9-game-art .c9-icon{width:32px;height:32px;color:var(--black)}
 .c9-game-name{font-weight:900;font-size:21px;line-height:1.05}
 .c9-game-blurb{font-weight:600;font-size:15px;line-height:1.2;opacity:.8}
+
+/* spirit sticks: the menu row and the card's twelve-dot meter */
+.c9-row-sticks .c9-row-icon{background:var(--lemon)}
+.c9-row-sticks .c9-row-tag{background:var(--purple)}
+.c9-sticks-meter{display:flex;flex-wrap:wrap;gap:8px;margin:4px 0 12px}
+.c9-sticks-dot{width:24px;height:24px;border-radius:50%;background:var(--silver);border:2.5px solid var(--black);opacity:.55}
+.c9-sticks-dot.c9-got{opacity:1;background:radial-gradient(circle at 35% 35%,#fff 0 18%,var(--gold) 19% 55%,var(--pink) 56%)}
 
 /* overlays other parts mount into (Hit Zero) */
 .c9-overlay{position:fixed;inset:0;z-index:40}

@@ -278,6 +278,29 @@
 .c9c-lb { font-size: 16px; line-height: 1.12; text-align: center; font-weight: 800; }
 .c9c-huge .c9c-ic { animation: c9c-wobble 2.4s ease-in-out infinite; }
 
+/* still hidden on the island (a spirit stick unlocks it): softer, with a padlock badge */
+.c9c-sw.c9c-locked { background: #f6eefa; box-shadow: inset 0 0 0 2px #e6d4ee; }
+.c9c-sw.c9c-locked .c9c-ic { opacity: 0.45; filter: grayscale(0.55); }
+.c9c-sw.c9c-locked .c9c-lb { color: var(--c9c-soft); }
+.c9c-sw.c9c-locked.c9c-huge .c9c-ic { animation: none; }
+.c9c-lock {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 28px;
+  height: 28px;
+  padding: 4px;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--c9c-purple);
+  box-shadow: 0 0 0 3px #fff;
+}
+.c9c-lock svg { display: block; width: 100%; height: 100%; }
+.c9c-locknote { margin: 8px 4px 0; font-size: 16px; line-height: 1.3; color: var(--c9c-purple-dk); }
+.c9c-locknote:empty { display: none; }
+.c9c-nope { animation: c9c-nope 0.4s ease; }
+@keyframes c9c-nope { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-5px); } 75% { transform: translateX(5px); } }
+
 .c9c-foot { display: flex; gap: 10px; flex: 0 0 auto; padding-top: 4px; }
 
 /* ---- little joys ---- */

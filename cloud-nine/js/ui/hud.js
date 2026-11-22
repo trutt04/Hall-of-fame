@@ -21,6 +21,7 @@
 //   hud.isModalOpen() / hud.on('modal', fn(open))    main.js suspends world input while one is open
 //   hud.escape() -> boolean                  closes the top-most wheel, card or panel
 //   hud.setPlaying(bool)                     shows or hides the in-world controls (menus hide them)
+//   hud.setBusy(bool)                        a mini game (the toss) has the screen: buttons and hint step aside
 //   hud.showHint(text) / hud.hideHint() / hud.fade(on, ms) -> Promise / hud.setDebug(text)
 //   hud.setLoading(progress01, text) / hud.hideLoading()
 //   hud.stick                                { show, move, hide } for core/input.js
@@ -666,6 +667,11 @@ export function createHud(root, opts = {}) {
         stick.hide();
         jumpBtn.classList.remove('c9-down');
       }
+    },
+    // A mini game has the screen (the basket toss draws its own overlay): the corner buttons, the
+    // big controls and the hint step aside. The joystick stays (it steers the landing).
+    setBusy(on) {
+      root.classList.toggle('c9-busy', !!on);
     },
 
     showHint(text) {

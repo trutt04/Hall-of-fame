@@ -11,7 +11,8 @@
 //   menu.closet({ nick, onNewName, onSurprise, onDone }) -> { setNick(n) }     (no creator.js yet)
 //   menu.message({ title, lines, icon, actions: [{ label, onClick, primary }] })
 //   menu.busy(text) / menu.hide() / menu.current / menu.setSound(on)
-//   buildPauseMenu({ code, isHost, canPick, places, sound, quality, onClose, onTravel, onPick, onCheerleader, onSound, onQuality, onLeave, leaveLabel }) -> element
+//   buildPauseMenu({ code, isHost, canPick, places, sound, quality, sticks: { count, total }, onClose, onTravel, onPick,
+//                    onCheerleader, onSticks, onSound, onQuality, onLeave, leaveLabel }) -> element
 //   buildPicker({ games, onPick }) -> element
 //   JOIN_REASONS      friendly words for every joinRoom failure
 
@@ -458,6 +459,12 @@ export function buildPauseMenu(o = {}) {
   list.appendChild(row('Keep playing', null, 'play', () => o.onClose && o.onClose(), { className: 'c9-row-primary' }));
   if (o.canPick) list.appendChild(row('Pick a game', o.isHost ? 'Everyone plays together' : 'Play with bot friends', 'games', () => o.onPick && o.onPick()));
   list.appendChild(row('My cheerleader', 'Change your look', 'bow', () => o.onCheerleader && o.onCheerleader()));
+  if (o.sticks && o.sticks.total) {
+    const s = o.sticks;
+    const all = s.count >= s.total;
+    list.appendChild(row('Spirit sticks', all ? 'You found every one!' : s.count + ' of ' + s.total + ' found. Tap for a hint!', 'star',
+      () => o.onSticks && o.onSticks(), { tag: s.count + '/' + s.total, className: 'c9-row-sticks' }));
+  }
   list.appendChild(row(o.sound ? 'Sound is on' : 'Sound is off', 'Tap to turn it ' + (o.sound ? 'off' : 'on'), o.sound ? 'sound' : 'mute', () => o.onSound && o.onSound()));
   list.appendChild(row('Graphics', o.quality === 'low' ? 'Battery saver. Tap for automatic.' : 'Automatic. Tap for battery saver.', 'sparkle', () => o.onQuality && o.onQuality(), { tag: o.quality === 'low' ? 'SAVER' : 'AUTO' }));
   list.appendChild(row(o.leaveLabel || 'Back to the menu', null, 'door', () => o.onLeave && o.onLeave()));
