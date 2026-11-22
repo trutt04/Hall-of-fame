@@ -53,12 +53,30 @@ function el(tag, cls, text) {
 }
 
 // Activate on the element's own pointerup (taps while another finger is down still work), and
-// swallow the click that follows. Keyboard clicks still activate.
+// swallow the click that follows. Keyboard clicks still activate. The browser sends that click after
+// the pointerup, to whatever is under the finger by then: when the tap closed the overlay (the X,
+// Done) that is the world's HUD, so it is swallowed on the way down too, or closing Hit Zero would
+// press the button underneath ("Pick a game" sits under the X).
+let ghostUntil = 0;
+let ghostX = 0;
+let ghostY = 0;
+let ghostGuard = false;
+function guardGhostClicks() {
+  if (ghostGuard || typeof document === 'undefined') return;
+  ghostGuard = true;
+  document.addEventListener('click', (e) => {
+    if (e.detail !== 0 && performance.now() < ghostUntil && Math.hypot(e.clientX - ghostX, e.clientY - ghostY) < 44) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+  }, true);
+}
 function onTap(node, fn) {
   let id = null;
   let sx = 0;
   let sy = 0;
   let last = -1e9;
+  guardGhostClicks();
   node.addEventListener('pointerdown', (e) => {
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     id = e.pointerId;
@@ -70,6 +88,9 @@ function onTap(node, fn) {
     id = null;
     if (Math.hypot(e.clientX - sx, e.clientY - sy) > 18) return;
     last = performance.now();
+    ghostUntil = last + 650;
+    ghostX = e.clientX;
+    ghostY = e.clientY;
     fn(e);
   });
   node.addEventListener('pointercancel', () => {
