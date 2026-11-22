@@ -338,6 +338,17 @@ button{font-family:inherit;color:inherit}
 .c9-fade{position:fixed;inset:0;z-index:60;background:var(--white);opacity:0;pointer-events:none;transition:opacity .2s linear}
 .c9-fade.c9-on{opacity:1}
 
+/* the sky took a nap: the 3D view's WebGL context is gone (hud.skyLost) */
+.c9-nap{position:fixed;inset:0;z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;
+  padding:calc(24px + var(--sat)) calc(24px + var(--sar)) calc(24px + var(--sab)) calc(24px + var(--sal));color:var(--ink);font-family:var(--font);
+  background:radial-gradient(ellipse at 50% 30%,#fff4fa,var(--sky-horizon) 45%,var(--lilac) 100%);-webkit-user-select:none;user-select:none;cursor:pointer}
+.c9-nap-bow{width:min(46vw,200px);height:auto;animation:c9-bob 2.4s ease-in-out infinite}
+.c9-nap-title{margin:0;font-weight:900;font-size:clamp(30px,8vw,48px);line-height:1.05;color:var(--black)}
+.c9-nap-line{margin:0 0 6px;font-weight:800;font-size:20px}
+.c9-nap-btn{flex:0 0 auto;min-width:min(80vw,300px)}
+.c9-nap button:focus-visible{outline:4px solid var(--purple);outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.c9-nap-bow{animation:none}}
+
 #fallback{position:fixed;inset:0;z-index:80;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;background:var(--pink-pale)}
 #fallback h1{margin:0;font-weight:900;font-size:clamp(40px,12vw,72px);color:var(--pink);-webkit-text-stroke:.05em var(--black);paint-order:stroke fill}
 #fallback p{max-width:480px;font-weight:700;font-size:19px}

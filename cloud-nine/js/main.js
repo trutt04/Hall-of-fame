@@ -270,7 +270,8 @@ async function boot() {
     return;
   }
   const { scene, camera, renderer } = engine;
-  engine.on('contextlost', () => hud.toast('Taking a quick breather... the sky will be right back!', { icon: 'sparkle', ms: 4000 }));
+  engine.on('contextlost', () => hud.skyLost(true));
+  engine.on('contextrestored', () => hud.skyLost(false));
 
   const [islandMod, skyMod, charMod0, audioMod, netMod, emotesMod, namesMod, hypeMod, birthdayMod, howtoMod, notesMod, glossaryMod, collectiblesMod, tossMod, gamesMod] = await parts;
   hud.setLoading(0.3, 'Building the island');
