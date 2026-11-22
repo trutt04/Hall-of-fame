@@ -91,7 +91,7 @@ export function spline(ctrl, step = 1.5) {
 export const CENTER = { x: 0, z: -2 };
 const RIM = [
   62, 63, 60, 66, 64, 61, //   0 .. 75   gym, a bay, the stage headland, the bridge cape
-  57, 55, 64, 67, 71, 72, //  90 .. 165  a bay, the court, the Capture the Bow field
+  60, 61, 65, 67, 71, 72, //  90 .. 165  a little bay, the court, the Capture the Bow field
   71, 68, 66, 70, 68, 71, // 180 .. 255  the field, the lawn, the garden
   73, 73, 66, 61, 61, 62, // 270 .. 345  the garden, the toss headland, back to the gym
 ];
@@ -244,7 +244,7 @@ export function makeIslandPlan() {
   const hideGarden = makeGarden(garden);
 
   // ---------------------------------------------------------------- waterfalls (rim springs)
-  const waterfalls = [302, 102, 214].map((deg, i) => {
+  const waterfalls = [302, 92, 214].map((deg, i) => {
     const b = (deg + (i === 0 ? -9 : 0)) * DEG;
     const r = main.radiusAt(b);
     const [dx, dz] = [Math.sin(b), -Math.cos(b)];
@@ -257,7 +257,7 @@ export function makeIslandPlan() {
     { kind: 'disc', x: fountain.x, z: fountain.z, r: fountain.court + 1, blend: 5 },
     { kind: 'rect', x: gym.x, z: gym.z + 1, w: gym.w + 6, d: gym.d + 8, facing: 0, blend: 6 },
     { kind: 'rect', x: stage.x, z: stage.z, w: 30, d: 25, facing: stage.facing, blend: 6 },
-    { kind: 'rect', x: court.x, z: court.z, w: court.w + 9, d: court.d + 6, facing: court.facing, blend: 6 },
+    { kind: 'rect', x: court.x, z: court.z, w: court.w + 13, d: court.d + 6, facing: court.facing, blend: 6 },
     { kind: 'rect', x: bowField.x, z: bowField.z, w: bowField.w + 4, d: bowField.d + 4, facing: bowField.facing, blend: 6 },
     { kind: 'rect', x: (tag.x0 + tag.x1) / 2, z: (tag.z0 + tag.z1) / 2, w: tag.x1 - tag.x0 + 3, d: tag.z1 - tag.z0 + 3, facing: 0, blend: 6 },
     { kind: 'rect', x: (garden.x0 + garden.x1) / 2, z: (garden.z0 + garden.z1) / 2, w: garden.x1 - garden.x0 + 3, d: garden.z1 - garden.z0 + 3, facing: 0, blend: 6 },
@@ -456,7 +456,7 @@ function makeGarden(g) {
 
 // Little nooks worth hiding a collectible in (content and the app decide what goes there).
 function secretSpots(plan) {
-  const { gym, platforms, isle, boutique, gardenPlan, knolls } = plan;
+  const { gym, platforms, boutique, gardenPlan, knolls } = plan;
   const behindGym = toWorld(gym, -9, -gym.d / 2 - 1.6);
   const behindShop = toWorld(boutique, 3.5, -boutique.d / 2 - 1.4);
   const spots = [
@@ -467,7 +467,6 @@ function secretSpots(plan) {
     { id: 'garden', x: gardenPlan.objects[9].x - 1.6, z: gardenPlan.objects[9].z + 1.8, note: 'by the garden tent' },
     { id: 'lawnHill', x: knolls[2].x, z: knolls[2].z, note: 'on the hill behind the lawn' },
   ];
-  void isle;
   return spots;
 }
 

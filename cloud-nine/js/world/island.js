@@ -13,9 +13,20 @@
 //   island.setBirthday({ isBirthday, age, name })
 //   island.dispose()
 //
+//   spotFor(where) -> { x, y, z, place, treasure? } | null      (a module export; island.spotFor too)
+//     Turns a content `where` ({ place, index?, spot? }, see js/content/collectibles.js) into a spot
+//     on walkable ground, clear of colliders: 'plaza' (round the back of the cake), 'gym' (behind
+//     it), 'stage' (by the judges' table), 'tossPads' + index + spot 'target' (on that pad's cloud),
+//     'slides' + index + spot 'bottom' (just past its end), 'hideGarden', 'court' (on the midline),
+//     'bowField' (beside a base), 'tagZone', 'photoBooth', 'fountain', 'isle', 'bridge', and 'edge'
+//     (index picks one of four scenic rim spots). The same answer on every device.
+//     treasure: 'spiritStick' when the spot is the highest cloud's own spirit stick (hide it with
+//     setTreasureVisible('spiritStick', false) if a collectible stands there instead).
+//
 // Extras, not in the contract (safe to ignore):
 //   island.setTreasureVisible(id, on)   hide a platform treasure once it is collected
 //                                       ids: 'poms' (cloud1), 'trophy' (cloud2), 'spiritStick' (cloud3)
+//   island.bounds                       { minX, maxX, minZ, maxZ } round everything walkable
 //   island.stats                        { triangles, meshes, colliders }
 //   island.group                        the root Object3D
 //
@@ -24,7 +35,7 @@
 
 import * as THREE from '../../lib/three.module.min.js';
 import { makeIslandPlan } from '../art/island-layout.js';
-import { planDecor } from '../art/island-decor.js';
+import { planDecor, spotFor as spotIn } from '../art/island-decor.js';
 import { buildGround } from '../art/island-ground.js';
 import { createBatch } from '../art/island-kit.js';
 import { drawPlaces } from '../art/island-places.js';
@@ -35,6 +46,16 @@ import { flatMat, glowMat, makeAddMaterial } from '../art/materials.js';
 import { motion } from '../art/util.js';
 
 const TAG = 'island';
+
+// The plan is deterministic, so a spot asked for before (or without) a built island is the same.
+let shared = null;
+export function spotFor(where) {
+  if (!shared) {
+    const plan = makeIslandPlan();
+    shared = { plan, decor: planDecor(plan) };
+  }
+  return spotIn(shared.plan, shared.decor, where);
+}
 
 export function buildIsland({ scene, quality = 'high', colliders = null } = {}) {
   const q = quality === 'low' ? 'low' : 'high';
@@ -147,14 +168,29 @@ export function buildIsland({ scene, quality = 'high', colliders = null } = {}) 
   update(0, 0, {});
 
   const triangles = ground.triangles + built.triangles;
+  // the box everything walkable fits in (the island, the isle and the clouds)
+  const bounds = { minX: Infinity, maxX: -Infinity, minZ: Infinity, maxZ: -Infinity };
+  const grow = (x, z, r) => {
+    bounds.minX = Math.min(bounds.minX, x - r);
+    bounds.maxX = Math.max(bounds.maxX, x + r);
+    bounds.minZ = Math.min(bounds.minZ, z - r);
+    bounds.maxZ = Math.max(bounds.maxZ, z + r);
+  };
+  grow(plan.main.cx, plan.main.cz, plan.main.maxR);
+  grow(plan.isle.x, plan.isle.z, plan.isleOutline.maxR);
+  for (const p of plan.platforms) grow(p.x, p.z, p.r);
   return {
     group,
     groundAt,
+    bounds,
     platforms: plan.platforms.map((p) => ({ id: p.id, x: p.x, z: p.z, y: p.y, r: p.r })),
     places: plan.places,
     update,
     setBirthday(info = {}) {
       corner.set(info || {});
+    },
+    spotFor(where) {
+      return spotIn(plan, decor, where);
     },
     setTreasureVisible(id, on) {
       const tr = treasures.find((x) => x.id === id);

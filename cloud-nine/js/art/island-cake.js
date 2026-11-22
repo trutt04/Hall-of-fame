@@ -74,10 +74,10 @@ function candles(g, glow, add, spots, baseY, scale = 1.35) {
     glow.lathe(x, baseY + h + 0.04 * scale, z, [[0.0, 0], [0.055 * scale, 0.05 * scale, 0xffb340], [0.045 * scale, 0.12 * scale, 0xffe27a], [0, 0.22 * scale]], 0xffb340, { seg: 5 });
     flames.push([x, baseY + h + 0.14 * scale, z]);
     const sa = add.a;
-    add.a = 0.45;
-    add.ico(x, baseY + h + 0.13 * scale, z, 0.17 * scale, 0xffd27a, { detail: 0 });
-    add.a = 0.18;
-    add.ico(x, baseY + h + 0.14 * scale, z, 0.36 * scale, 0xffb0d8, { detail: 1 });
+    add.a = 0.42;
+    add.ico(x, baseY + h + 0.13 * scale, z, 0.15 * scale, 0xffd27a, { detail: 0 });
+    add.a = 0.12;
+    add.ico(x, baseY + h + 0.14 * scale, z, 0.24 * scale, 0xffb0d8, { detail: 0 });
     add.a = sa;
   });
   return flames;
@@ -226,6 +226,10 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
   party.name = 'birthdayParty';
   party.visible = false;
   group.add(party);
+  // banner, bunting and balloon arches: rebuilt when the name changes (the fireworks stay put)
+  const deco = new THREE.Group();
+  deco.name = 'partyDeco';
+  party.add(deco);
   let own = [];
   let partyOwn = [];
   let flames = [];
@@ -254,7 +258,7 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
   function buildParty(name) {
     for (const o of partyOwn) o.dispose();
     partyOwn = [];
-    while (party.children.length) party.remove(party.children[0]);
+    while (deco.children.length) deco.remove(deco.children[0]);
     if (bannerTex) bannerTex.dispose();
     bannerTex = null;
     const g = new Geo();
@@ -280,7 +284,7 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
       bannerMesh.position.set((x0 + x1) / 2, y + 0.35, (z0 + z1) / 2);
       bannerMesh.rotation.y = Math.atan2(z0 - z1, x1 - x0);
       bannerMesh.name = 'birthdayBanner';
-      party.add(bannerMesh);
+      deco.add(bannerMesh);
     }
     // bunting: little pennants strung between points round the plaza
     const cols = [K.pink, K.white, K.black, K.rPurple, 0xffe066, K.pinkSoft];
@@ -311,9 +315,9 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
         g.sphere(bx, by + 0.3, bz, 0.34 + r() * 0.06, [K.pink, K.white, K.rPurple, K.pinkSoft, 0xffe066][(i + (side > 0 ? 2 : 0)) % 5], { seg: 6, rings: 4 });
       }
     }
-    burst(add, x, 6.2, z, 1.2, 0xffffff, 0.5);
-    mesh(g, flatMat, party, partyOwn);
-    const am = mesh(add, partyAdd, party, partyOwn);
+    burst(add, x, 6.6, z, 0.8, 0xffffff, 0.5);
+    mesh(g, flatMat, deco, partyOwn);
+    const am = mesh(add, partyAdd, deco, partyOwn);
     if (am) am.renderOrder = 3;
   }
 
@@ -340,7 +344,7 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
     pts.renderOrder = 7;
     party.add(pts);
     const parts = [];
-    for (let i = 0; i < FW_N; i++) parts.push({ life: 0, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: 1, g: 1, b: 1, s: 1 });
+    for (let i = 0; i < FW_N; i++) parts.push({ life: 1, max: 1, x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, r: 1, g: 1, b: 1, s: 1 });
     return { geo, mat, tex, pts, parts, pos, col, size, next: 1.2, cursor: 0 };
   })();
   const PALETTES = [[0xff2e93, 0xffd6ea], [0xa96bff, 0xe7d6ff], [0xffd36e, 0xfff3c4], [0x9fd8ff, 0xffffff], [0xff7ad1, 0xa96bff]];
@@ -352,7 +356,7 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
     const cy = 34 + rnd() * 22;
     const pal = PALETTES[Math.floor(rnd() * PALETTES.length)];
     const n = isReducedMotion() ? 18 : low ? 34 : 52;
-    const speed = 7 + rnd() * 4;
+    const speed = 9 + rnd() * 5;
     for (let k = 0; k < n; k++) {
       const p = fw.parts[fw.cursor];
       fw.cursor = (fw.cursor + 1) % FW_N;
@@ -372,7 +376,7 @@ export function createCakeCorner({ x = 0, z = 0, quality = 'high', banner = null
       p.r = fc.r;
       p.g = fc.g;
       p.b = fc.b;
-      p.s = 1.1 + rnd() * 0.8;
+      p.s = 1.3 + rnd() * 1.1;
     }
     return { x: cx, y: cy, z: cz };
   }

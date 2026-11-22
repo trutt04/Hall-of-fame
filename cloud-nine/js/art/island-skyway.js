@@ -8,8 +8,8 @@
 
 import { Geo, TAU } from './geo.js';
 import { rng } from './util.js';
-import { slideProfile, bridgeProfile, toWorld } from './island-layout.js';
-import { K, shade, star, heart, bow, burst, puff, text2, zoneKey } from './island-kit.js';
+import { slideProfile, bridgeProfile } from './island-layout.js';
+import { K, shade, star, heart, bow, burst, puff, zoneKey } from './island-kit.js';
 
 // pastel rainbow, outside to inside
 export const RAINBOW = [0xff8fb3, 0xffb58a, 0xffe27a, 0x9be7a8, 0x8fd0ff, 0xb59cff, 0xe39cff];
@@ -261,9 +261,6 @@ export function drawSkyway(plan, batch, o) {
     for (let i = 0; i < 11; i++) g.ico(pts[i + 1][0], pts[i + 1][1] + 0.08, 0.05, 0.2, RAINBOW[i % RAINBOW.length], { detail: 0 });
     g.restore();
   }
-  void toWorld;
-  void text2;
-  void star;
   return { treasures };
 }
 

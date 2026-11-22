@@ -13,6 +13,14 @@ import { mulberry32, TAU } from '../core/util.js';
 import { toWorld, rectDistance } from './island-layout.js';
 
 // trunk and post sizes, shared with the art so colliders match what is drawn
+// Width of an arena sign board for a label (block letters, 0.06 m per font pixel).
+export function signWidth(label) {
+  return (label.length * 4 - 1) * 0.06 + 0.5;
+}
+
+// Free, flat, walkable deck beside each dodgeball sideline (the games seat players who are out there).
+export const COURT_SIDE = 3.4;
+
 export const SOLID = {
   tree: 0.45, bigTree: 1.1, lamp: 0.22, post: 0.22, sign: 0.3,
   bench: { w: 1.9, d: 0.7 }, boothW: 2.6, flagPole: 0.32, planter: 1.05, bush: 0.85,
@@ -83,7 +91,7 @@ export function planDecor(plan, { quality = 'high' } = {}) {
     const c = plan.court;
     for (const side of [-1, 1]) {
       for (const lz of [-6, 6]) {
-        const [x, z] = toWorld(c, side * (c.w / 2 + 2.2), lz);
+        const [x, z] = toWorld(c, side * (c.w / 2 + COURT_SIDE + 0.45), lz);
         box(x, z, 0.7, 3.2, c.facing, 'court');
         prop('courtBench', x, z, c.facing + (side > 0 ? -Math.PI / 2 : Math.PI / 2), 1, side > 0 ? 1 : 0);
       }
@@ -213,13 +221,34 @@ export function planDecor(plan, { quality = 'high' } = {}) {
     box((f.x0 + f.x1) / 2, (f.z0 + f.z1) / 2, 0.24, len + 0.1, Math.atan2(f.x1 - f.x0, f.z1 - f.z0), 'fence');
   }
 
+  // ---------------------------------------------------------------- arena signs
+  {
+    const t = plan.tag;
+    const tossPath = plan.paths.find((p) => p.id === 'toToss');
+    const tp = tossPath.pts;
+    const [ax, az] = tp[Math.max(0, tp.length - 7)];
+    const [bx, bz] = tp[tp.length - 4];
+    const tl = Math.hypot(bx - ax, bz - az) || 1;
+    const signs = [
+      ['FREEZE TAG', t.x1 + 1.7, t.z0 + 6.8, Math.PI / 2 - 0.25, 0x9fd8ff],
+      ['DODGEBALL', ...toWorld(plan.court, -plan.court.w / 2 - 1.6, -plan.court.d / 2 - 2.6), plan.court.facing + Math.PI + 0.6, 0xffb3d9],
+      ['CAPTURE THE BOW', plan.bowField.x - 6, plan.bowField.z - plan.bowField.w / 2 - 1.8, Math.PI, 0xffd0b0],
+      ['HIDE AND SEEK', plan.gardenPlan.gate.x + 1.6, plan.gardenPlan.gate.z + 3.4, Math.PI / 2, 0xa9ecd0],
+      ['BASKET TOSS', bx - ((bz - az) / tl) * (tossPath.w / 2 + 1.6), bz + ((bx - ax) / tl) * (tossPath.w / 2 + 1.6), Math.atan2(-(bx - ax), -(bz - az)), 0xffe08a],
+    ];
+    for (const [label, x, z, ry, color] of signs) {
+      prop('sign', x, z, ry, 1, 0, { label, color });
+      box(x, z, signWidth(label), 0.3, ry, 'sign');
+    }
+  }
+
   // ---------------------------------------------------------------- what scatter must keep clear of
   const areas = [
     { kind: 'disc', x: plan.plazaC.x, z: plan.plazaC.z, r: plan.plazaC.r + 1.5 },
     { kind: 'disc', x: plan.fountain.x, z: plan.fountain.z, r: plan.fountain.court + 0.5 },
     { kind: 'rect', x: plan.gym.x, z: plan.gym.z + 2, w: plan.gym.w + 4, d: plan.gym.d + 8, facing: 0 },
     { kind: 'rect', x: plan.stage.x, z: plan.stage.z, w: 29, d: 24, facing: plan.stage.facing },
-    { kind: 'rect', x: plan.court.x, z: plan.court.z, w: plan.court.w + 7, d: plan.court.d + 3, facing: plan.court.facing },
+    { kind: 'rect', x: plan.court.x, z: plan.court.z, w: plan.court.w + 2 * COURT_SIDE + 3, d: plan.court.d + 3, facing: plan.court.facing },
     { kind: 'rect', x: plan.bowField.x, z: plan.bowField.z, w: plan.bowField.w + 2, d: plan.bowField.d + 2, facing: plan.bowField.facing },
     { kind: 'rect', x: (plan.tag.x0 + plan.tag.x1) / 2, z: (plan.tag.z0 + plan.tag.z1) / 2, w: plan.tag.x1 - plan.tag.x0 + 1, d: plan.tag.z1 - plan.tag.z0 + 1, facing: 0 },
     { kind: 'rect', x: (plan.garden.x0 + plan.garden.x1) / 2, z: (plan.garden.z0 + plan.garden.z1) / 2, w: plan.garden.x1 - plan.garden.x0 + 2.5, d: plan.garden.z1 - plan.garden.z0 + 2.5, facing: 0 },
@@ -398,4 +427,122 @@ export function planDecor(plan, { quality = 'high' } = {}) {
   }
 
   return { props, fences, colliders, garden, areas, onPath, inArea };
+}
+
+// ------------------------------------------------------------------------------------- spots for things
+// Where a small collectible (a spirit stick) can stand, for a content `where`:
+//   { place, index?, spot? } -> { x, y, z, place, treasure? } | null
+// place is a Contract 1 places id ('plaza', 'gym', 'stage', 'tossPads', 'slides', 'hideGarden',
+// 'court', 'bowField', 'tagZone', 'photoBooth') or one of the extras ('fountain', 'isle', 'bridge'),
+// or 'edge' (a scenic spot on the island's rim; index picks one of several). index picks from list
+// places; spot narrows it: 'target' = on that toss pad's cloud, 'bottom' = just past the slide's end,
+// 'top' = the slide's start on its cloud. Every spot is on walkable ground and clear of colliders.
+// treasure: set when the spot is where an island treasure already stands (hide it with
+// island.setTreasureVisible(treasure, false) if the collectible takes its place).
+export const EDGE_BEARINGS = [203, 138, 252, 24];
+
+export function spotFor(plan, decor, where) {
+  if (!where || typeof where !== 'object') return null;
+  const place = typeof where.place === 'string' ? where.place : null;
+  const index = Number.isInteger(where.index) && where.index >= 0 ? where.index : 0;
+  const P = plan.places;
+  const G = plan.ground;
+  let x = NaN;
+  let z = NaN;
+  let y = null; // fixed height (clouds) or null for the ground there
+  let treasure;
+  const at = (p) => {
+    x = p[0];
+    z = p[1];
+  };
+  switch (place) {
+    case 'plaza': at([plan.cake.x, plan.cake.z - plan.cake.r - 0.9]); break; // round the back of the cake
+    case 'gym': at(toWorld(plan.gym, -9, -plan.gym.d / 2 - 1.6)); break; // behind the gym
+    case 'stage': at(toWorld(plan.stage, 3.95, 9.4)); break; // at the end of the judges' table
+    case 'photoBooth': at(toWorld(plan.photoBooth, 1.9, 1.6)); break;
+    case 'fountain': at([plan.fountain.x + plan.fountain.court - 2, plan.fountain.z + 2]); break;
+    case 'isle':
+    case 'boutique': at(toWorld(plan.boutique, 3.5, -plan.boutique.d / 2 - 1.4)); break;
+    case 'bridge': at([(plan.bridge.x0 + plan.bridge.x1) / 2, (plan.bridge.z0 + plan.bridge.z1) / 2]); break;
+    case 'hideGarden': {
+      const tent = plan.gardenPlan.objects.find((o) => o.kind === 'tent');
+      at([tent.x - 1.6, tent.z + 1.9]);
+      break;
+    }
+    case 'court': at(toWorld(plan.court, -plan.court.w / 2 + 0.9, 0)); break; // on the midline
+    case 'bowField': {
+      const b = P.bowField.bases[index % 2];
+      const dx = plan.bowField.x - b.x;
+      const dz = plan.bowField.z - b.z;
+      const l = Math.hypot(dx, dz) || 1;
+      at([b.x + (dx / l) * 1.3, b.z + (dz / l) * 1.3]); // beside the base's pole
+      break;
+    }
+    case 'tagZone': {
+      const t = P.tagZone.bounds;
+      at([t.x0 + 3, t.z1 - 3]);
+      break;
+    }
+    case 'tossPads':
+    case 'slides': {
+      const list = place === 'tossPads' ? P.tossPads : P.slides;
+      const item = list[index];
+      if (!item) return null;
+      const spot = where.spot || (place === 'tossPads' ? 'target' : 'bottom');
+      const slide = place === 'slides' ? plan.slides[index] : plan.slides.find((s) => s.fromPlatformId === item.targetPlatformId);
+      const cloud = plan.platforms.find((p) => p.id === (place === 'slides' ? item.fromPlatformId : item.targetPlatformId));
+      if (spot === 'target' || spot === 'top') {
+        // on the cloud: beside the landing spot, never on the treasure (except the highest
+        // cloud, whose treasure is the spirit stick itself)
+        const away = Math.atan2(slide.x0 - cloud.x, slide.z0 - cloud.z);
+        const k = plan.platforms.indexOf(cloud);
+        if (k === 2) {
+          at([cloud.x + Math.sin(away + Math.PI) * cloud.r * 0.48, cloud.z + Math.cos(away + Math.PI) * cloud.r * 0.48]);
+          treasure = 'spiritStick';
+        } else at([cloud.x + Math.sin(away + Math.PI / 2) * cloud.r * 0.5, cloud.z + Math.cos(away + Math.PI / 2) * cloud.r * 0.5]);
+        y = cloud.y;
+      } else if (spot === 'bottom') {
+        const len = Math.hypot(slide.x1 - slide.x0, slide.z1 - slide.z0);
+        at([slide.x1 + ((slide.x1 - slide.x0) / len) * 1.8, slide.z1 + ((slide.z1 - slide.z0) / len) * 1.8]);
+      } else if (place === 'tossPads') at(toWorld(item, 2.8, -0.5)); // beside the pad
+      else return null;
+      break;
+    }
+    case 'edge': {
+      const b = (EDGE_BEARINGS[index % EDGE_BEARINGS.length] * Math.PI) / 180;
+      const m = plan.main;
+      const r = m.radiusAt(b) - 2.2;
+      at([m.cx + Math.sin(b) * r, m.cz - Math.cos(b) * r]);
+      break;
+    }
+    default:
+      return null;
+  }
+  // nudge off anything solid (spiral out up to 3 m), staying on walkable ground
+  const blocked = (px, pz) => {
+    if (y !== null) return false;
+    if (!(G.groundAt(px, pz) > -1e9)) return true;
+    if (plan.main.margin(px, pz) < 1.2 && !G.insideIsle(px, pz)) return true;
+    for (const c of decor.colliders) {
+      if (c.kind === 'circle' ? Math.hypot(px - c.x, pz - c.z) < c.r + 0.55 : rectDistance(px, pz, { x: c.x, z: c.z, w: c.w, d: c.d, facing: c.rot }) < 0.55) return true;
+    }
+    return false;
+  };
+  if (blocked(x, z)) {
+    let found = false;
+    for (let r = 0.5; r <= 3 && !found; r += 0.5) {
+      for (let k = 0; k < 12 && !found; k++) {
+        const a = (k / 12) * Math.PI * 2;
+        if (!blocked(x + Math.sin(a) * r, z + Math.cos(a) * r)) {
+          x += Math.sin(a) * r;
+          z += Math.cos(a) * r;
+          found = true;
+        }
+      }
+    }
+    if (!found) return null;
+  }
+  const out = { x, y: y === null ? G.groundAt(x, z) : y, z, place };
+  if (treasure) out.treasure = treasure;
+  return out;
 }

@@ -86,6 +86,23 @@ const presets = {
   })(),
   underside: { pos: [62, -36, 84], look: [0, -24, 0] },
   photo: { pos: [P.photoBooth.x + 7, 3.2, P.photoBooth.z + 4], look: [P.photoBooth.x, 1.6, P.photoBooth.z] },
+  boutique: (() => {
+    const [fx, fz] = W(P.boutique, 1.5, 13);
+    return { pos: [fx, 3.4, fz], look: [P.boutique.x, 2.4, P.boutique.z] };
+  })(),
+  rack: (() => {
+    const spot = P.hideGarden.hideSpots.find((s) => s.kind === 'rack');
+    return { pos: [spot.x + 3.5, 2.2, spot.z + 3.2], look: [spot.x - 0.6, 1.1, spot.z - 0.6] };
+  })(),
+  cake: { pos: [-5.2, 3.8, 8.4], look: [0, 2.3, 0] },
+  edge: { pos: [38, 3.2, 44], look: [70, -6, 78] },
+  gymBack: { pos: [-14, 5, -70], look: [0, 3, -52] },
+  fireworks: { pos: [0, 2.2, 12], look: [0, 30, -50] },
+  bleachers: (() => {
+    const [fx, fz] = W(P.stage, 6, 6);
+    const [lx, lz] = W(P.stage, -11, 1);
+    return { pos: [fx, 2.6, fz], look: [lx, 0.8, lz] };
+  })(),
 };
 
 // ---------------------------------------------------------------- orbit camera
@@ -113,14 +130,30 @@ addEventListener('keydown', (e) => {
   if (e.code === 'Space' && mode === 'walk' && me.grounded) me.vy = 5.2;
 });
 addEventListener('keyup', (e) => keys.delete(e.code));
-let drag = null;
 const pointers = new Map();
+// touch walking: in walk mode a finger that lands on the left of the screen is a joystick
+const stick = { id: null, x: 0, y: 0, ox: 0, oy: 0 };
 canvas.addEventListener('pointerdown', (e) => {
   canvas.setPointerCapture(e.pointerId);
+  if (mode === 'walk' && stick.id === null && e.clientX < innerWidth * 0.45 && e.pointerType !== 'mouse') {
+    stick.id = e.pointerId;
+    stick.ox = e.clientX;
+    stick.oy = e.clientY;
+    stick.x = 0;
+    stick.y = 0;
+    return;
+  }
   pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
-  drag = { x: e.clientX, y: e.clientY };
 });
 canvas.addEventListener('pointermove', (e) => {
+  if (e.pointerId === stick.id) {
+    const dx = (e.clientX - stick.ox) / 60;
+    const dy = (e.clientY - stick.oy) / 60;
+    const l = Math.max(1, Math.hypot(dx, dy));
+    stick.x = dx / l;
+    stick.y = -dy / l;
+    return;
+  }
   const prev = pointers.get(e.pointerId);
   if (!prev) return;
   if (pointers.size === 2) {
@@ -139,8 +172,12 @@ canvas.addEventListener('pointermove', (e) => {
   orbit.pitch = Math.max(-1.45, Math.min(1.5, orbit.pitch + dy * 0.005));
 });
 const up = (e) => {
+  if (e.pointerId === stick.id) {
+    stick.id = null;
+    stick.x = 0;
+    stick.y = 0;
+  }
   pointers.delete(e.pointerId);
-  drag = null;
 };
 canvas.addEventListener('pointerup', up);
 canvas.addEventListener('pointercancel', up);
@@ -148,7 +185,6 @@ canvas.addEventListener('wheel', (e) => {
   e.preventDefault();
   orbit.dist = Math.max(3, Math.min(400, orbit.dist * Math.exp(e.deltaY * 0.001)));
 }, { passive: false });
-void drag;
 
 // ---------------------------------------------------------------- walking
 function startWalk(x, z, h) {
@@ -179,7 +215,9 @@ function walk(dt) {
   if (keys.has('KeyS') || keys.has('ArrowDown')) fz -= 1;
   if (keys.has('KeyA') || keys.has('ArrowLeft')) fx -= 1;
   if (keys.has('KeyD') || keys.has('ArrowRight')) fx += 1;
-  const speed = keys.has('ShiftLeft') ? 2.7 : 7.8;
+  fx += stick.x;
+  fz += stick.y;
+  const speed = keys.has('ShiftLeft') || Math.hypot(stick.x, stick.y) < 0.5 && stick.id !== null ? 2.7 : 7.8;
   const yaw = orbit.yaw;
   const dirX = (-Math.sin(yaw) * fz + Math.cos(yaw) * fx);
   const dirZ = (-Math.cos(yaw) * fz - Math.sin(yaw) * fx);

@@ -9,7 +9,6 @@
 
 import * as THREE from '../../lib/three.module.min.js';
 import { Geo, TAU } from './geo.js';
-import { flatMat } from './materials.js';
 import { rng, motion, isReducedMotion } from './util.js';
 import { K, puff, zoneKey } from './island-kit.js';
 

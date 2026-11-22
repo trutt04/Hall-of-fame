@@ -13,8 +13,8 @@ import * as THREE from '../../lib/three.module.min.js';
 import { lin, Geo, hash, shade } from './geo.js';
 import { flatMat, blobMat } from './materials.js';
 import { rng, motion } from './util.js';
-import { valueNoise2, smoothstep, clamp, TAU } from '../core/util.js';
-import { toWorld, toLocal } from './island-layout.js';
+import { valueNoise2, smoothstep, TAU } from '../core/util.js';
+import { toWorld } from './island-layout.js';
 import { K } from './island-kit.js';
 
 // ------------------------------------------------------------------------------------- soup
@@ -485,7 +485,7 @@ export function buildGround(plan, { quality = 'high' } = {}) {
     const PURP2 = L(0xb39aff);
     const LINE = L(0xffffff);
     const SURR = L(0xf6eaff);
-    rectPaint(soup, c, -hw - 1.6, -hd - 1.6, hw + 1.6, hd + 1.6, yAt, 0.02, SURR, 3);
+    rectPaint(soup, c, -hw - 3.6, -hd - 1.6, hw + 3.6, hd + 1.6, yAt, 0.02, SURR, 3);
     rectPaint(soup, c, -hw, -hd, hw, 0, yAt, 0.04, (i, j) => ((i + j) % 2 ? PINK : PINK2), 1.5);
     rectPaint(soup, c, -hw, 0, hw, hd, yAt, 0.04, (i, j) => ((i + j) % 2 ? PURP : PURP2), 1.5);
     const line = (x0, z0, x1, z1) => rectPaint(soup, c, x0, z0, x1, z1, yAt, 0.055, LINE, 4);
@@ -678,8 +678,9 @@ export function buildGround(plan, { quality = 'high' } = {}) {
       m4.compose(v3, q, s3);
       f.mesh.setMatrixAt(f.i, m4);
     }
-    for (const mesh of new Set(floaters.map((f) => f.mesh))) mesh.instanceMatrix.needsUpdate = true;
+    for (let i = 0; i < floaterMeshes.length; i++) floaterMeshes[i].instanceMatrix.needsUpdate = true;
   }
+  const floaterMeshes = [...new Set(floaters.map((f) => f.mesh))];
   placeFloaters(0);
 
   return {
@@ -711,5 +712,3 @@ export function buildGround(plan, { quality = 'high' } = {}) {
 }
 
 const STRATA_HEX = [0xe9b6c6, 0xd4bdf0, 0xf4c9b4, 0xbfa7e4, 0xe7aac4, 0xa993d6, 0xc7b4ee, 0x9c88cc];
-void clamp;
-void toLocal;

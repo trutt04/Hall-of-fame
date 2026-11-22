@@ -10,9 +10,10 @@
 import { Geo, TAU } from './geo.js';
 import { rng } from './util.js';
 import { toWorld } from './island-layout.js';
+import { signWidth } from './island-decor.js';
 import {
-  K, CANOPY, FLOWER, shade, star, heart, bow, burst, puff, cottonTree, bigTree, lamp, bench, fence, flowerBed, bushy,
-  planter, rock, crystal, text2, shadeRange, zoneKey,
+  K, FLOWER, shade, star, heart, bow, burst, puff, cottonTree, bigTree, lamp, bench, fence, flowerBed, bushy,
+  planter, rock, crystal, text2, zoneKey,
 } from './island-kit.js';
 
 const tileKey = zoneKey;
@@ -84,6 +85,16 @@ export function drawPlaces(plan, decor, batch, o) {
         signpost(batch.geo(zoneKey(p.x, p.z)), plan, p.x, y, p.z);
         blob(p.x, p.z, 0.6, 0.6, 0.2);
         break;
+      case 'sign': {
+        // a little arena sign on two posts, readable from both sides
+        const w = signWidth(p.label);
+        g.at(p.x, y, p.z, p.ry);
+        for (const sx of [-1, 1]) g.cyl(sx * (w / 2 - 0.15), 0, 0, 0.06, 1.25, K.white, { seg: 4 });
+        g.box(0, 1.0, 0, w, 0.55, 0.1, p.color, { bottom: true, side: shade(p.color, 0.85) });
+        text2(g, p.label, 0, 1.12, 0, 0.06, K.ink, { gap: 0.055 });
+        g.restore();
+        break;
+      }
       default:
         break;
     }
@@ -517,7 +528,7 @@ function drawCourtDeco(batch, c, yAt) {
     }
   }
   // scoreboard on the far side
-  const [sx, sz] = toWorld(c, -(c.w / 2 + 3.6), 0);
+  const [sx, sz] = toWorld(c, -(c.w / 2 + 5.4), 0);
   const sy = yAt(sx, sz);
   g.at(sx, sy, sz, c.facing + Math.PI / 2);
   for (const lx of [-1.4, 1.4]) g.cyl(lx, 0, 0, 0.08, 2.2, K.white, { seg: 4 });
@@ -530,7 +541,7 @@ function drawCourtDeco(batch, c, yAt) {
   star(g, 0.85, 2.27, 0.13, 0.12, 0.05, K.white);
   g.restore();
   // a ball cart
-  const [bx, bz] = toWorld(c, c.w / 2 + 2.4, 0);
+  const [bx, bz] = toWorld(c, c.w / 2 - 1.4, c.d / 2 + 2.4);
   const by = yAt(bx, bz);
   g.box(bx, by + 0.15, bz, 1.4, 0.5, 0.8, K.white, { side: K.rSilver });
   for (let i = 0; i < 6; i++) g.sphere(bx - 0.5 + (i % 3) * 0.5, by + 0.82 + Math.floor(i / 3) * 0.2, bz + (i % 2 ? 0.15 : -0.15), 0.22, i % 2 ? K.teamA : K.teamB, { seg: 6, rings: 4 });
@@ -575,22 +586,6 @@ function drawLawnDeco(batch, plan, yAt) {
     planter(g, x, yAt(x, z), z, r, Math.round(x) % 3);
   }
   // little signs at the arena entrances
-  const signs = [
-    ['FREEZE TAG', t.x1 + 1.4, t.z0 + 2.6, -Math.PI / 2 + 0.35, 0x9fd8ff],
-    ['DODGEBALL', ...toWorld(plan.court, -plan.court.w / 2 - 1.6, -plan.court.d / 2 - 1.2), plan.court.facing + Math.PI + 0.6, 0xffb3d9],
-    ['CAPTURE THE BOW', plan.bowField.x - 6, plan.bowField.z - plan.bowField.w / 2 - 1.8, Math.PI, 0xffd0b0],
-    ['HIDE AND SEEK', plan.gardenPlan.gate.x + 1.6, plan.gardenPlan.gate.z + 3.4, Math.PI / 2, 0xa9ecd0],
-  ];
-  for (const [label, x, z, ry, col] of signs) {
-    const y = yAt(x, z);
-    const w = (label.length * 4 - 1) * 0.06 + 0.5;
-    const gg = batch.geo(zoneKey(x, z));
-    gg.at(x, y, z, ry);
-    for (const sx of [-1, 1]) gg.cyl(sx * (w / 2 - 0.15), 0, 0, 0.06, 1.25, K.white, { seg: 4 });
-    gg.box(0, 1.0, 0, w, 0.55, 0.1, col, { bottom: true, side: shade(col, 0.85) });
-    text2(gg, label, 0, 1.12, 0, 0.06, K.ink, { gap: 0.055 });
-    gg.restore();
-  }
 }
 
 // ------------------------------------------------------------------------------------- garden
@@ -770,6 +765,4 @@ function drawGarden(batch, plan, yAt, blob, low) {
     const sh = o.kind === 'hedge' ? [o.size / 2 + 0.3, 0.9] : o.kind === 'slide' ? [0.9, 2.4] : o.kind === 'rack' || o.kind === 'curtain' ? [1.5, 0.5] : [1.2 * (o.size || 1), 1.2 * (o.size || 1)];
     blob(o.x, o.z, sh[0], sh[1], 0.2, o.ry + (o.kind === 'slide' ? 0 : 0));
   }
-  void CANOPY;
-  void shadeRange;
 }
