@@ -355,7 +355,21 @@ async function perf(browser) {
     mems.push(await t.ev(() => ({ ...window.__c9.renderer.info.memory })));
   }
   console.log('# memory after each game', JSON.stringify(mems));
-  const [a, b] = [mems[2], mems[5]];
+  let [a, b] = [mems[2], mems[5]];
+  if (b.geometries - a.geometries > 3) {
+    // a part of the island seen for the first time uploads its geometry once (the garden when the
+    // camera only got there in the second round): one more round must then add nothing
+    for (const kind of ['dodgeball', 'captureBow', 'hideSeek']) {
+      await t.ev((k) => window.__c9.hostStartGame(k), kind);
+      await t.until(async () => ['play', 'hide'].includes((await t.info())?.phase), 30000, kind + ' play');
+      await t.page.waitForTimeout(2500);
+      await t.ev(() => window.__c9.play.end());
+      await t.page.waitForTimeout(1500);
+    }
+    a = b;
+    b = await t.ev(() => ({ ...window.__c9.renderer.info.memory }));
+    console.log('# one more round', JSON.stringify(b));
+  }
   check(b.geometries - a.geometries <= 3 && b.textures <= a.textures + 1, `perf: three more games leave nothing behind (geometries ${a.geometries} -> ${b.geometries}, textures ${a.textures} -> ${b.textures})`);
   await ctx.close();
 }
