@@ -348,7 +348,7 @@ async function boot() {
   // What the camera treats as ground: the walkable surface, open sky clamped to a floor, and each
   // cloud platform's puffy body (wider than its walkable top), so riding a slide down off a cloud
   // the camera rises over the puffs instead of looking through them.
-  const camFocus = { y: 0 }; // her height, from the last frame (only clouds near her height count)
+  const camFocus = { x: 0, y: 0, z: 0 }; // where she is, from the last frame (for the camera's ground and blockers)
   const camGround = (x, z) => {
     let g = groundAt(x, z);
     for (let i = 0; i < platforms.length; i++) {
@@ -367,7 +367,40 @@ async function boot() {
   // ---------------------------------------------------------------- input, camera, audio, net
   const input = createInput({ canvas, stick: hud.stick });
   const rig = createCameraRig({ camera, engine, terrain, input });
-  rig.setBlocker((x, z) => colliders.insideBox(x, z, 1.6));
+  // The camera never sits inside a building, nor in a tree's canopy (trees only have a thin trunk
+  // collider): it slides in toward her and rises instead. Canopies go in a coarse grid.
+  const canopies = new Map();
+  const CANOPY_CELL = 8;
+  const cellKey = (ix, iz) => ix * 4096 + iz;
+  for (const p of island.decor && Array.isArray(island.decor.props) ? island.decor.props : []) {
+    if (!p || (p.type !== 'tree' && p.type !== 'bigTree') || !Number.isFinite(p.x) || !Number.isFinite(p.z)) continue;
+    const r = (p.type === 'bigTree' ? 4.2 : 2.1) * (Number(p.s) || 1);
+    const c = { x: p.x, z: p.z, r2: r * r };
+    for (let ix = Math.floor((p.x - r) / CANOPY_CELL); ix <= Math.floor((p.x + r) / CANOPY_CELL); ix++) {
+      for (let iz = Math.floor((p.z - r) / CANOPY_CELL); iz <= Math.floor((p.z + r) / CANOPY_CELL); iz++) {
+        const k = cellKey(ix, iz);
+        if (!canopies.has(k)) canopies.set(k, []);
+        canopies.get(k).push(c);
+      }
+    }
+  }
+  const inCanopy = (x, z) => {
+    const list = canopies.get(cellKey(Math.floor(x / CANOPY_CELL), Math.floor(z / CANOPY_CELL)));
+    if (!list) return false;
+    for (let i = 0; i < list.length; i++) {
+      const c = list[i];
+      const dx = x - c.x;
+      const dz = z - c.z;
+      if (dx * dx + dz * dz >= c.r2) continue;
+      // the tree she stands under does not count: there is no getting out of that one
+      const px = camFocus.x - c.x;
+      const pz = camFocus.z - c.z;
+      if (px * px + pz * pz < c.r2) continue;
+      return true;
+    }
+    return false;
+  };
+  rig.setBlocker((x, z) => colliders.insideBox(x, z, 1.6) || inCanopy(x, z));
 
   let audioReal = null;
   if (audioMod && typeof audioMod.createAudio === 'function') {
@@ -1614,7 +1647,9 @@ async function boot() {
     update() {
       listener.x = player.position.x;
       listener.z = player.position.z;
+      camFocus.x = player.position.x;
       camFocus.y = player.position.y;
+      camFocus.z = player.position.z;
       // the rig's yaw points from the player back to the camera; the ears face the other way (Contract 6)
       audio.setListener(listener.x, listener.z, rig.yaw + Math.PI);
     },
