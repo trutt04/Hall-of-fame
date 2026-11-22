@@ -6,7 +6,7 @@
   --c9c-purple: #7b5cff;
   --c9c-purple-dk: #5636d6;
   --c9c-ink: #2b2233;
-  --c9c-soft: #8a6f96;
+  --c9c-soft: #735a82; /* 5.6:1 on the card: the small grey-purple words stay readable */
   --c9c-card: #fff8fc;
   --c9c-line: #f1dcef;
   position: fixed;
@@ -167,7 +167,7 @@
   -webkit-user-select: text;
   user-select: text;
 }
-.c9c-nick::placeholder { color: #c9b6d4; font-weight: 700; }
+.c9c-nick::placeholder { color: #8f7a9c; font-weight: 700; }
 .c9c-nick:focus { outline: none; border-color: var(--c9c-pink); }
 .c9c-note { margin: 0; min-height: 0; font-size: 16px; color: var(--c9c-pink-dk); padding-left: 6px; }
 .c9c-note:empty { display: none; }

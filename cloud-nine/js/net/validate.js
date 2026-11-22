@@ -13,6 +13,7 @@
 //   shapeLook(raw), cleanLookWith(raw, cleanLook), encodeLook(look), decodeLook(json, cleanLook)
 //   encodeData(value, limits) -> json | null      decodeData(json, limits) -> value | INVALID
 //   cleanMeta(raw), cleanPlayerEntry(id, raw, helpers), cleanEventRecord(raw), cleanGameRecord(raw)
+//   mapNicks(value, fn)              every `nick` in the game state through fn(nick, playerId)
 //   createLimiter({ capacity, perSecond, now })   token buckets per sender: allow(key) -> boolean
 //
 // Wire shapes (Firebase paths under rooms/{code}/, the same in the local transport):
@@ -162,12 +163,13 @@ export function fallbackNick(id, randomNick) {
 
 const EMOTE_ID_RE = /^[A-Za-z0-9_-]{1,32}$/;
 
-// Emote data is { id, ... } (or just the id). With the content module's cleanEmote(id) -> emote | null,
-// only preset emotes pass and the id comes back in its canonical form; without it, any id-like string.
+// Emote data is { id } (or just the id); any other field is dropped. With the content module's
+// cleanEmote(id) -> emote | null, only preset emotes pass and the id comes back in its canonical form;
+// without it, any id-like string.
 export function cleanEmoteData(data, cleanEmote) {
   const id = typeof data === 'string' ? data : isPlainObject(data) ? data.id : null;
   if (typeof id !== 'string' || !EMOTE_ID_RE.test(id)) return INVALID;
-  if (typeof cleanEmote !== 'function') return data;
+  if (typeof cleanEmote !== 'function') return typeof data === 'string' ? data : { id };
   let e;
   try {
     e = cleanEmote(id);
@@ -176,7 +178,7 @@ export function cleanEmoteData(data, cleanEmote) {
   }
   const canon = e && typeof e === 'object' ? e.id : typeof e === 'string' ? e : null;
   if (typeof canon !== 'string' || !EMOTE_ID_RE.test(canon)) return INVALID;
-  return typeof data === 'string' ? canon : { ...data, id: canon };
+  return typeof data === 'string' ? canon : { id: canon }; // nothing else rides along (no text)
 }
 
 // ---- looks -------------------------------------------------------------------------------------
@@ -293,6 +295,25 @@ export function decodeData(json, lim) {
     return INVALID;
   }
   return cleanData(v, lim);
+}
+
+// ---- nicknames inside the game state ------------------------------------------------------------
+
+// The shared game state names its players ({ players: { id: { nick, ... } } }). Those names are
+// never taken from the wire: the host blanks them before sending (so a room nobody is in keeps no
+// names in the database), and every device puts back the checked name it already has for that id.
+// mapNicks returns a copy of plain JSON with each string `nick` replaced by fn(nick, key), where key
+// is the property holding the object that has the nick (the player id), or null inside an array.
+export function mapNicks(value, fn, depth = 0, key = null) {
+  if (value === null || typeof value !== 'object' || depth > 32) return value;
+  if (Array.isArray(value)) return value.map((v) => mapNicks(v, fn, depth + 1, null));
+  const out = {};
+  for (const k of Object.keys(value)) {
+    if (FORBIDDEN_KEYS.has(k)) continue;
+    const v = value[k];
+    out[k] = k === 'nick' && typeof v === 'string' ? fn(v, key) : mapNicks(v, fn, depth + 1, k);
+  }
+  return out;
 }
 
 // ---- records -----------------------------------------------------------------------------------

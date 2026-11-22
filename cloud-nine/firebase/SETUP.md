@@ -18,7 +18,9 @@ You need a Google account. You do **not** need a credit card.
   until the next month. Solo play keeps working.
 - **What it keeps:** for each room, the 4-character room code, each player's nickname, their
   character's look (preset choices like "big pink bow"), where they are standing while they play,
-  which quick-cheer they tapped, and the game's score. Nothing else.
+  which quick-cheer they tapped, and the game's score. Nothing else. A player's nickname, look and
+  position are removed when they leave or close the game; an empty room keeps only its code,
+  anonymous IDs, the last score and the last minute of quick-cheers.
 - **What it never keeps:** no emails, no passwords, no real names (unless a kid types her first
   name as her nickname), no photos, no messages, no locations, no ads, no tracking. There is no chat
   in the game at all.
@@ -40,7 +42,8 @@ list, and **five values** pasted into `cloud-nine/js/net/firebase-config.js`.
 2. Click **Create a project** (it may say **Add project**, or **Get started with a Firebase
    project**).
 3. For the name, type `cloud-nine` (or anything you like; the kids never see it). Firebase may add
-   a few letters and numbers to make it unique. That is fine. Tick the box to accept the terms if
+   a few letters and numbers to make it unique. That is fine. Keep names, towns and dates out of
+   it: the project name becomes part of the database address, which goes into this public repo. Tick the box to accept the terms if
    it asks, then click **Continue**.
 4. If it offers **Gemini in Firebase** or other extras, you can skip them.
 5. On the page about **Google Analytics**, turn it **off** (the switch next to "Enable Google

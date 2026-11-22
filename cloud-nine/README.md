@@ -68,12 +68,19 @@ export const BIRTHDAY = { name: 'Bailey', month: 12, day: 3, year: 2015 };
 While the numbers are `null`, birthday mode stays off. To see it any day, add `?birthday=1` to the
 address.
 
+**Privacy: this repo is public.** Everything in it, and in its history, can be read by anyone:
+her birthday in `js/config.js`, the family notes in `js/content/notes.js`, the Firebase project
+name. Use first names or relations only ("Grandma", "Aunt Kim"), never last names, towns, schools,
+gyms or team names. To keep her birthday off the internet, leave the date `null` and send her the
+link with `?birthday=1` on the end on the day, and the party turns on. A detail
+committed by mistake stays in the history even after it is deleted, so check before you commit.
+
 ## Changing things
 
 | To change... | Edit |
 |---|---|
 | Her birthday | `BIRTHDAY` in `js/config.js` (above) |
-| Notes from the family | `FAMILY_NOTES` in `js/content/notes.js`. One line each, like `{ from: 'Grandma', text: 'Happy birthday, sweet flyer!' }`. Sign with first names or relations only, never last names. They show up in the menu as "Notes from your family", and she gets a nudge when she arrives. |
+| Notes from the family | `FAMILY_NOTES` in `js/content/notes.js`. One line each, like `{ from: 'Grandma', text: 'Happy birthday, sweet flyer!' }`. Sign with first names or relations only, never last names. They show up in the menu as "Notes from your family", and she gets a nudge when she arrives. The notes are public on the site and in the repo, so keep them to things you'd put on a birthday card in a shop window. |
 | Her starting look (the skin tone is a guess) | `DEFAULT_LOOK` in `js/art/character-looks.js` |
 | The colors | `PALETTE` in `js/config.js` |
 | What the game says when things happen | the `js/content/hype-lines-*.js` files |
@@ -94,7 +101,7 @@ Add these to the end of the address (start with `?`, join more with `&`):
 | Switch | What it does |
 |---|---|
 | `?solo=1` | Skip the menus, straight onto the island |
-| `?room=ABCD&nick=Sam` | Join (or make) room ABCD as "Sam" with the same-browser test link: open it in several tabs to see each other |
+| `?room=PLZ7&nick=Sam` | Join (or make) room PLZ7 as "Sam" with the same-browser test link: open it in several tabs to see each other |
 | `?birthday=1` | Birthday mode, any day |
 | `?quality=low` | Battery saver graphics (also in the menu) |
 | `?noaudio=1` | No sound at all |

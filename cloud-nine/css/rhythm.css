@@ -88,7 +88,7 @@
 .c9-hz-lvl b{font-size:19px;font-weight:900;line-height:1.1}
 .c9-hz-lvl-tag{font-size:16px;font-weight:800;color:var(--hz-purple)}
 .c9-hz-lvl small{display:none}
-.c9-hz-lvl-best{font-style:normal;font-size:15px;font-weight:800;color:var(--hz-muted);white-space:nowrap}
+.c9-hz-lvl-best{font-style:normal;font-size:16px;font-weight:800;color:var(--hz-muted);white-space:nowrap}
 .c9-hz-lvl-best:empty{display:none}
 .c9-hz-lvl.c9-on{background:var(--hz-pink);color:#fff;transform:translateY(-3px);box-shadow:0 7px 0 var(--hz-ink)}
 .c9-hz-lvl.c9-on .c9-hz-lvl-tag,.c9-hz-lvl.c9-on .c9-hz-lvl-best{color:var(--hz-pale)}
@@ -205,6 +205,13 @@
   .c9-hz-cells i{width:25px;height:25px}
   .c9-hz-sec{min-width:3.6em}
   .c9-hz-how-item span{display:none}
+}
+
+/* iOS Safari's vh is the height with its toolbars hidden; dvh is what is really visible */
+@supports (height:1dvh){
+  .c9-hz-panel{height:clamp(170px,27dvh,320px)}
+  @media (min-width:900px) and (min-aspect-ratio:5/4){.c9-hz-panel{height:min(52dvh,420px)}}
+  @media (max-height:520px){.c9-hz-panel{height:clamp(150px,44dvh,220px)}}
 }
 
 /* ---------- reduced motion: no bouncing, no flashing; everything still shows ---------- */

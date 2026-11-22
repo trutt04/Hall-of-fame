@@ -270,7 +270,8 @@ async function boot() {
     return;
   }
   const { scene, camera, renderer } = engine;
-  engine.on('contextlost', () => hud.toast('Taking a quick breather... the sky will be right back!', { icon: 'sparkle', ms: 4000 }));
+  engine.on('contextlost', () => hud.skyLost(true));
+  engine.on('contextrestored', () => hud.skyLost(false));
 
   const [islandMod, skyMod, charMod0, audioMod, netMod, emotesMod, namesMod, hypeMod, birthdayMod, howtoMod, notesMod, glossaryMod, collectiblesMod, tossMod, gamesMod] = await parts;
   hud.setLoading(0.3, 'Building the island');
@@ -1042,6 +1043,8 @@ async function boot() {
       return;
     }
     await loadCss('css/rhythm.css');
+    // a friend still dressing up when the host starts Hit Zero: the creator closes first (as Cancel)
+    if (cheerClose) cheerClose();
     hud.closeAll();
     hud.hideHint();
     const before = mode === 'overlay' ? 'play' : mode;
@@ -1137,10 +1140,21 @@ async function boot() {
     sfx('pop');
     return myNick;
   }
+  // One creator at a time: a double tap on "My cheerleader" must not stack two (each with its own
+  // renderer). And if she moved on while it loaded (tapped "Play by myself"), it does not open.
+  let cheerOpening = false;
+  let cheerClose = null; // shuts an open creator, like Cancel (the host started Hit Zero for everyone)
   async function openCheerleader(back) {
+    if (cheerOpening) return;
+    cheerOpening = true;
+    const from = mode;
     const mod = await optional('./ui/creator.js');
     if (mod && typeof mod.openCreator === 'function') {
       await loadCss('css/creator.css');
+      if (mode !== from) {
+        cheerOpening = false;
+        return;
+      }
       const before = mode;
       setMode('overlay');
       menu.hide();
@@ -1148,10 +1162,12 @@ async function boot() {
       const close = () => {
         if (closed) return;
         closed = true;
+        cheerOpening = false;
+        cheerClose = null;
         back();
       };
       try {
-        mod.openCreator({
+        const handle = mod.openCreator({
           look: myLook,
           nick: myNick,
           audio,
@@ -1166,6 +1182,14 @@ async function boot() {
           },
           onCancel: close,
         });
+        cheerClose = () => {
+          try {
+            if (handle && typeof handle.close === 'function') handle.close();
+          } catch (err) {
+            /* already closing */
+          }
+          close();
+        };
       } catch (err) {
         console.error('[c9] the creator failed to open', err);
         setMode(before);
@@ -1173,7 +1197,9 @@ async function boot() {
       }
       return;
     }
-    // the placeholder closet
+    // the placeholder closet (a menu screen: opening it again just replaces it)
+    cheerOpening = false;
+    if (mode !== from) return;
     setMode('closet');
     menuCamera();
     const ui = menu.closet({
@@ -1228,7 +1254,14 @@ async function boot() {
     refreshPeople();
   }
 
-  async function startSolo(opts = {}) {
+  // A double tap on "Play by myself" starts one solo session, not two (the first would be left
+  // running underneath, never left).
+  let soloStarting = null;
+  function startSolo(opts = {}) {
+    if (!soloStarting) soloStarting = startSoloNow(opts).finally(() => { soloStarting = null; });
+    return soloStarting;
+  }
+  async function startSoloNow(opts) {
     leaveSession();
     const n = makeNet('offline');
     net.use(n);
