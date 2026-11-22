@@ -15,6 +15,7 @@
 import * as THREE from '../../lib/three.module.min.js';
 import { PERF, PALETTE } from '../config.js';
 import { clamp, emitter } from './util.js';
+import { useWebGL1Skinning } from './webgl1.js';
 
 export function createEngine({ canvas, quality = 'auto' }) {
   const events = emitter();
@@ -29,6 +30,7 @@ export function createEngine({ canvas, quality = 'auto' }) {
     stencil: false,
     powerPreference: 'high-performance',
   });
+  useWebGL1Skinning(THREE, renderer); // no-op on WebGL 2
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = false;
   renderer.setClearColor(PALETTE.skyHorizon, 1); // the sky shows through before the dome is up
