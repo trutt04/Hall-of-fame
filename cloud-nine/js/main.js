@@ -1137,10 +1137,20 @@ async function boot() {
     sfx('pop');
     return myNick;
   }
+  // One creator at a time: a double tap on "My cheerleader" must not stack two (each with its own
+  // renderer). And if she moved on while it loaded (tapped "Play by myself"), it does not open.
+  let cheerOpening = false;
   async function openCheerleader(back) {
+    if (cheerOpening) return;
+    cheerOpening = true;
+    const from = mode;
     const mod = await optional('./ui/creator.js');
     if (mod && typeof mod.openCreator === 'function') {
       await loadCss('css/creator.css');
+      if (mode !== from) {
+        cheerOpening = false;
+        return;
+      }
       const before = mode;
       setMode('overlay');
       menu.hide();
@@ -1148,6 +1158,7 @@ async function boot() {
       const close = () => {
         if (closed) return;
         closed = true;
+        cheerOpening = false;
         back();
       };
       try {
@@ -1173,7 +1184,9 @@ async function boot() {
       }
       return;
     }
-    // the placeholder closet
+    // the placeholder closet (a menu screen: opening it again just replaces it)
+    cheerOpening = false;
+    if (mode !== from) return;
     setMode('closet');
     menuCamera();
     const ui = menu.closet({
@@ -1228,7 +1241,14 @@ async function boot() {
     refreshPeople();
   }
 
-  async function startSolo(opts = {}) {
+  // A double tap on "Play by myself" starts one solo session, not two (the first would be left
+  // running underneath, never left).
+  let soloStarting = null;
+  function startSolo(opts = {}) {
+    if (!soloStarting) soloStarting = startSoloNow(opts).finally(() => { soloStarting = null; });
+    return soloStarting;
+  }
+  async function startSoloNow(opts) {
     leaveSession();
     const n = makeNet('offline');
     net.use(n);
