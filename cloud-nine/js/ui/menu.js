@@ -15,7 +15,8 @@
 //   menu.message({ title, lines, icon, actions: [{ label, onClick, primary }] })
 //   menu.busy(text) / menu.hide() / menu.current / menu.setSound(on)
 //   buildPauseMenu({ code, isHost, canPick, places, sound, quality, sticks: { count, total }, notes (count), onClose,
-//                    onTravel, onPick, onCheerleader, onSticks, onNotes, onSound, onQuality, onLeave, leaveLabel }) -> element
+//                    onTravel, onPick, onCheerleader, onSticks, onNotes, onSound, onQuality, onLeave, leaveLabel,
+//                    todo: { done, total }, onTodo }) -> element
 //   buildPicker({ games, onPick }) -> element
 //   JOIN_REASONS      friendly words for every joinRoom failure
 
@@ -509,6 +510,11 @@ export function buildPauseMenu(o = {}) {
   const list = el('div', 'c9-list');
   list.appendChild(row('Keep playing', null, 'play', () => o.onClose && o.onClose(), { className: 'c9-row-primary' }));
   if (o.canPick) list.appendChild(row('Pick a game', o.isHost ? 'Everyone plays together' : 'Play with bot friends', 'games', () => o.onPick && o.onPick()));
+  if (o.todo && o.todo.total) {
+    const t = o.todo;
+    list.appendChild(row('Things to do', t.done >= t.total ? 'All done. You are an all star!' : 'Fun things to try on Cloud Nine', 'check',
+      () => o.onTodo && o.onTodo(), { tag: t.done + '/' + t.total, className: 'c9-row-todo' }));
+  }
   if (o.code && o.isHost && o.onLock) {
     list.appendChild(o.locked
       ? row('Room is locked', 'Only the friends here can play. Tap to unlock.', 'key', () => o.onLock(false), { tag: 'LOCKED', className: 'c9-row-locked' })

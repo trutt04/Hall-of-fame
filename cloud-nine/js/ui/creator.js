@@ -1,6 +1,6 @@
 // The character creator (Contract 3): a full-screen, kid-friendly dress-up screen.
 //
-//   openCreator({ look, nick, onDone(look, nick), onCancel, audio, locked, onChange }) -> { el, close() }
+//   openCreator({ look, nick, onDone(look, nick), onCancel, audio, locked, onChange, intro }) -> { el, close() }
 //
 //   look, nick   where to start (the look is cleaned; a missing nick starts empty)
 //   onDone       gets a clean look and a nickname that passed cleanNick()
@@ -8,8 +8,10 @@
 //   audio        optional Contract 6 audio object, for little taps and cheers
 //   locked       optional { [slot]: { [optionId]: { name, hint, label } } }: options still to be
 //                won (spirit sticks). They show a lock; tapping one shows its hint instead, and
-//                "Surprise me!" never picks one. An option already worn is never locked.
+//                "Surprise me!" never picks one. An option already worn is never locked. A lock with
+//                its own `line` shows that line instead (the Gold bow: "Do all 8 Things to do...").
 //   onChange     optional fn(look) on every change, for a live preview elsewhere
+//   intro        optional short line under the title (her first time: "You can change it any time...")
 //   close()      closes without calling either callback
 //
 // It saves nothing itself; the caller does. Tabs: Hair, Bow, Outfit, Shoes, Sparkle, Skin. The live
@@ -143,7 +145,7 @@ function makeCloud() {
 const LOCK_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.5 10.5V8a4.5 4.5 0 0 1 9 0v2.5" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>'
   + '<rect x="5" y="10.5" width="14" height="10" rx="3" fill="currentColor"/><circle cx="12" cy="15.5" r="1.7" fill="#fff"/></svg>';
 
-export function openCreator({ look, nick, onDone, onCancel, audio, locked, onChange } = {}) {
+export function openCreator({ look, nick, onDone, onCancel, audio, locked, onChange, intro } = {}) {
   let state = cleanLook(look);
   const reduced = prefersReduced();
   const sfx = (name, o) => { try { if (audio && audio.sfx) audio.sfx(name, o); } catch (err) { /* sound is optional */ } };
@@ -176,6 +178,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
   cancel.type = 'button';
   const hint = el('div', 'c9c-hint', 'Drag to spin her. Tap her for a trick!');
   stage.append(canvas, fx, title, cancel, hint);
+  if (typeof intro === 'string' && intro) stage.appendChild(el('p', 'c9c-intro', intro.slice(0, 120)));
 
   const panel = el('div', 'c9c-panel');
   const nameRow = el('div', 'c9c-name');
@@ -271,7 +274,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
         b.dataset.slot = slot;
         b.dataset.id = o.id;
         const lock = lockOf(slot, o.id);
-        b.setAttribute('aria-label', lock ? o.label + ', locked. Find the ' + lock.name + ' to unlock it.' : o.label);
+        b.setAttribute('aria-label', lock ? o.label + ', locked. ' + (lock.line || 'Find the ' + lock.name + ' to unlock it.') : o.label);
         b.setAttribute('aria-pressed', String(state[slot] === o.id));
         if (o.id === 'ridiculous' || o.id === 'mega') b.classList.add('c9c-huge');
         const ic = el('span', 'c9c-ic');
@@ -326,7 +329,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
       b.classList.add('c9c-nope');
       for (const n of body.querySelectorAll('.c9c-locknote')) n.textContent = '';
       const tip = body.querySelector('[data-tip="' + slot + '"]');
-      if (tip) tip.textContent = 'Find the ' + lock.name + ' to unlock this! Hint: ' + lock.hint;
+      if (tip) tip.textContent = lock.line || 'Find the ' + lock.name + ' to unlock this! Hint: ' + lock.hint;
       sfx('tap', { volume: 0.5, pitch: 0.8 });
       return;
     }

@@ -1,0 +1,77 @@
+/* The first-time welcome (js/ui/welcome.js), the Things to do chip and card (js/ui/todo.js) and the
+   creator's intro line. Loaded by main.js. Same sticker style as the HUD: white, black edge, hot pink. */
+
+/* ---------- the "To do 2/8" chip, in the HUD's top-left column ---------- */
+.c9do-chip{position:relative;display:inline-flex;align-items:center;gap:7px;min-height:48px;padding:5px 7px 5px 6px;font-weight:900;font-size:18px;
+  color:var(--ink);background:var(--white);border:var(--line);border-radius:999px;box-shadow:0 3px 0 var(--black);pointer-events:auto}
+.c9do-chip:active{transform:translateY(3px);box-shadow:0 1px 0 var(--black)}
+.c9do-chip-icon{width:30px;height:30px;padding:5px;color:var(--white);background:var(--pink);border:2.5px solid var(--black);border-radius:50%;stroke-width:3.4}
+.c9do-chip-count{display:inline-grid;place-items:center;min-width:44px;height:30px;padding:0 9px;font-size:17px;color:var(--white);background:var(--black);border-radius:999px}
+/* not opened yet: a soft lemon glow that breathes */
+.c9do-chip.c9do-new{animation:c9do-breathe 1.8s ease-in-out infinite}
+@keyframes c9do-breathe{0%,100%{box-shadow:0 3px 0 var(--black),0 0 0 0 rgba(255,211,110,.0)}50%{box-shadow:0 3px 0 var(--black),0 0 0 7px rgba(255,211,110,.75)}}
+.c9do-chip.c9do-pop{animation:c9do-pop .55s cubic-bezier(.2,1.6,.4,1) both}
+@keyframes c9do-pop{0%{transform:scale(1)}35%{transform:scale(1.22) rotate(-3deg)}100%{transform:scale(1)}}
+.c9do-chip.c9do-bye{transition:opacity .8s ease,transform .8s ease;opacity:0;transform:scale(.6)}
+.c9do-spark{position:absolute;left:24px;top:50%;width:14px;height:14px;margin:-7px 0 0 -7px;pointer-events:none;background:var(--gold);
+  clip-path:polygon(50% 0,62% 38%,100% 50%,62% 62%,50% 100%,38% 62%,0 50%,38% 38%);animation:c9do-spark .8s ease-out var(--d,0s) both}
+.c9do-spark:nth-child(even){background:var(--pink)}
+@keyframes c9do-spark{0%{transform:rotate(var(--a)) translateX(0) scale(.4);opacity:1}100%{transform:rotate(var(--a)) translateX(46px) scale(1.1);opacity:0}}
+/* a mini game or a squad game has the corner: the chip waits */
+.c9-hud.c9-busy .c9do-chip,.c9-hud.c9-gaming .c9do-chip{display:none}
+
+/* ---------- the card's list ---------- */
+.c9do-list{margin:2px 0 0;padding:0;list-style:none;display:grid;gap:5px}
+.c9do-item{display:flex;align-items:center;gap:10px;padding:4px 10px 4px 5px;border-radius:16px;background:#fbf3fa}
+.c9do-mark{display:grid;place-items:center;flex:0 0 auto;width:32px;height:32px;border:3px solid var(--black);border-radius:50%;background:var(--white)}
+.c9do-mark .c9-icon{width:22px;height:22px;stroke-width:3.6;color:var(--white)}
+.c9do-done .c9do-mark{background:var(--pink)}
+.c9do-done{background:var(--pink-pale)}
+.c9do-main{display:flex;flex-direction:column;min-width:0;line-height:1.2}
+.c9do-label{font-weight:900;font-size:17px}
+/* wide screens: a roomier card, the list in two columns */
+@media (min-width:760px){
+  .c9-card:has(.c9do-card){width:min(660px,calc(100% - 40px))}
+  .c9do-list{grid-template-columns:1fr 1fr}
+}
+.c9do-tip{font-weight:700;font-size:16px;opacity:.8}
+.c9do-prize{display:flex;align-items:center;gap:10px;margin:10px 0 0;padding:8px 12px;font-weight:800;font-size:16px;line-height:1.25;
+  background:#fff3c9;border:2.5px dashed #c8902a;border-radius:16px}
+.c9do-prize.c9do-won{border-style:solid;background:var(--lemon)}
+.c9do-prize-icon{width:34px;height:34px;flex:0 0 auto;color:#b5790f;fill:var(--gold);stroke-width:1.8}
+
+/* ---------- the menu row ---------- */
+.c9-row-todo .c9-row-icon{background:var(--lemon)}
+.c9-row-todo .c9-row-icon .c9-icon{stroke-width:3.2}
+.c9-row-todo .c9-row-tag{background:var(--pink)}
+
+/* ---------- "Games!" and "Menu": word bubbles by the icon-only buttons until each is used once ---------- */
+.c9-round.c9w-has-tip{position:relative;overflow:visible}
+.c9w-tip{position:absolute;right:calc(100% + 12px);top:50%;transform:translate(0,-50%);white-space:nowrap;padding:6px 13px;font-weight:900;font-size:17px;line-height:1.15;
+  color:var(--white);background:var(--black);border-radius:999px;box-shadow:0 0 0 3px var(--pink);animation:c9w-nudge-x 1.6s ease-in-out infinite;transition:opacity .25s}
+.c9w-tip::after{content:"";position:absolute;right:-8px;top:50%;margin-top:-7px;border:7px solid transparent;border-right:0;border-left:9px solid var(--black)}
+.c9w-tip.c9w-out{opacity:0}
+@keyframes c9w-nudge-x{0%,100%{transform:translate(0,-50%)}50%{transform:translate(-5px,-50%)}}
+/* wide screens: the buttons sit in a row, so the words hang underneath */
+@media (min-width:560px){
+  .c9w-tip{right:auto;left:50%;top:calc(100% + 13px);transform:translate(-50%,0);animation-name:c9w-nudge-y}
+  .c9w-tip::after{right:auto;left:50%;top:-8px;margin:0 0 0 -7px;border:7px solid transparent;border-top:0;border-bottom:9px solid var(--black)}
+  .c9w-tip-games{left:auto;right:-6px;transform:none;animation-name:c9w-nudge-y0}
+  .c9w-tip-games::after{left:auto;right:18px;margin:0}
+  @keyframes c9w-nudge-y{0%,100%{transform:translate(-50%,0)}50%{transform:translate(-50%,4px)}}
+  @keyframes c9w-nudge-y0{0%,100%{transform:translate(0,0)}50%{transform:translate(0,4px)}}
+}
+.c9-hud.c9-gaming .c9w-tip{display:none}
+
+/* ---------- the creator's intro line, under its title ---------- */
+.c9c-intro{position:absolute;left:50%;top:calc(58px + env(safe-area-inset-top));transform:translateX(-50%);width:max-content;max-width:calc(100% - 24px);margin:0;
+  padding:6px 14px;font-size:16px;font-weight:800;line-height:1.25;text-align:center;color:#2b2233;background:rgba(255,255,255,.9);border-radius:18px;
+  box-shadow:0 3px 0 rgba(43,34,51,.14);pointer-events:none}
+@media (max-width:520px){.c9c-intro{top:calc(68px + env(safe-area-inset-top))}}
+@media (orientation:landscape) and (min-width:640px){.c9c-intro{top:calc(118px + env(safe-area-inset-top))}}
+@media (orientation:landscape) and (max-height:500px){.c9c-intro{top:calc(60px + env(safe-area-inset-top))}}
+
+@media (prefers-reduced-motion:reduce){
+  .c9do-chip.c9do-new,.c9do-chip.c9do-pop,.c9w-tip{animation:none}
+  .c9do-spark{display:none}
+}
