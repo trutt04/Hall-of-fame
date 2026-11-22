@@ -1,14 +1,19 @@
-// Renderer, scene, main loop, adaptive quality and stats.
+// Renderer, scene, main loop, adaptive quality and stats. Copied from League World; Cloud Nine
+// adds onFrame() and a pastel clear color. Signatures are unchanged.
 //
 //   const engine = createEngine({ canvas, quality })     quality: 'auto' | 'low' | 'high'
 //   engine.addSystem({ update(dt, t) }, order?)          systems run in ascending order each frame
-//   engine.start() / engine.stop()
-//   engine.stats() -> { fps, frameMs, drawCalls, triangles, pixelRatio }
+//   engine.removeSystem(system)
+//   engine.onFrame(fn(dt, t), order = 25)                -> unsubscribe (world.onUpdate uses this)
+//   engine.start() / engine.stop()                       the loop also pauses itself while the tab is hidden
+//   engine.renderOnce() / engine.resize() / engine.setQuality(q)
+//   engine.stats() -> { fps, frameMs, drawCalls, triangles, pixelRatio, geometries, textures }
+//   engine.on('resize' | 'quality' | 'visibility' | 'contextlost' | 'contextrestored', fn)
 //
 // Throws if WebGL cannot be created, so the caller can show the DOM fallback.
 
 import * as THREE from '../../lib/three.module.min.js';
-import { PERF } from '../config.js'; // Cloud Nine config
+import { PERF, PALETTE } from '../config.js';
 import { clamp, emitter } from './util.js';
 
 export function createEngine({ canvas, quality = 'auto' }) {
@@ -26,7 +31,7 @@ export function createEngine({ canvas, quality = 'auto' }) {
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.shadowMap.enabled = false;
-  renderer.setClearColor(0x0a1022, 1);
+  renderer.setClearColor(PALETTE.skyHorizon, 1); // the sky shows through before the dome is up
   renderer.info.autoReset = true;
 
   const scene = new THREE.Scene();
@@ -76,6 +81,12 @@ export function createEngine({ canvas, quality = 'auto' }) {
   function removeSystem(system) {
     const i = systems.findIndex((s) => s.system === system);
     if (i >= 0) systems.splice(i, 1);
+  }
+  function onFrame(fn, order = 25) {
+    if (typeof fn !== 'function') return () => {};
+    const system = { update: fn };
+    addSystem(system, order);
+    return () => removeSystem(system);
   }
 
   let running = false;
@@ -154,7 +165,7 @@ export function createEngine({ canvas, quality = 'auto' }) {
       try {
         systems[i].system.update(dt, time);
       } catch (err) {
-        if (!systems[i].failed) console.error('[lw] system update failed', err);
+        if (!systems[i].failed) console.error('[c9] system update failed', err);
         systems[i].failed = true;
       }
     }
@@ -221,6 +232,7 @@ export function createEngine({ canvas, quality = 'auto' }) {
     on: events.on.bind(events),
     addSystem,
     removeSystem,
+    onFrame,
     start() {
       wanted = true;
       reallyStart();

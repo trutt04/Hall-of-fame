@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Nine dev: HUD and screens</title>
+<link rel="stylesheet" href="../css/app.css">
+<link rel="stylesheet" href="../css/menu.css">
+<style>
+  /* the gallery's own controls, out of the way of the HUD */
+  #dev{position:fixed;left:8px;bottom:8px;z-index:90;display:flex;flex-wrap:wrap;gap:6px;max-width:min(560px,calc(100% - 16px));padding:8px;
+    background:rgba(23,18,28,.82);border-radius:14px;font:700 13px/1.2 system-ui,sans-serif}
+  #dev button{min-height:32px;padding:4px 10px;border:0;border-radius:999px;background:#fff8fc;color:#2b2233;font:inherit;cursor:pointer}
+  #dev b{width:100%;color:#ffd6ea;letter-spacing:.08em;text-transform:uppercase;font-size:11px}
+  #dev.min button:not(#devmin){display:none}
+  #dev.min b{display:none}
+  #devmin{background:#ff2e93 !important;color:#fff !important}
+  body{background:radial-gradient(ellipse at 50% 20%,#fff4fa,#ffd1e8 50%,#cdb4ff)}
+</style>
+</head>
+<body data-mode="play">
+<div id="hud"></div>
+<div id="screens" hidden></div>
+<div id="dev"></div>
+<script type="module">
+  // A gallery of every HUD state and screen, with no WebGL: for checking layouts on phones and
+  // tablets, and for other parts to preview what their game.ui() payloads and prompts look like.
+  import { createHud } from '../js/ui/hud.js';
+  import { createMenu, buildPauseMenu, buildPicker } from '../js/ui/menu.js';
+  import { STANDIN_CONTENT } from '../js/ui/standins.js';
+  import { GAME_CHOICES } from '../js/ui/gameui.js';
+
+  const hud = createHud(document.getElementById('hud'));
+  const menu = createMenu(document.getElementById('screens'));
+  menu.hide();
+  hud.setPlaying(true);
+  window.hud = hud;
+  window.menu = menu;
+  addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') hud.escape();
+  });
+  const players = [
+    { id: 'a', nick: 'Bailey', color: '#ff2e93', host: true, me: true },
+    { id: 'b', nick: 'Sister', color: '#9fd8ff' },
+    { id: 'c', nick: 'Sparkle Comet', color: '#9be7c4' },
+    { id: 'd', nick: 'Glitter Gem', color: '#cdb4ff', bot: true },
+  ];
+  const dev = document.getElementById('dev');
+  const group = (t) => dev.appendChild(Object.assign(document.createElement('b'), { textContent: t }));
+  const add = (label, fn, id) => {
+    const b = document.createElement('button');
+    b.textContent = label;
+    if (id) b.id = id;
+    b.addEventListener('click', fn);
+    dev.appendChild(b);
+  };
+  add('hide panel', () => dev.classList.toggle('min'), 'devmin');
+  group('In the world');
+  add('toast', () => hud.toast(STANDIN_CONTENT.hype('cloudCatch'), { icon: 'sparkle' }));
+  add('big', () => hud.big('Nice toss!', 'Full twist into a stuck landing!', { ms: 2400 }));
+  add('prompt', () => hud.prompt('Basket toss!', () => hud.toast('Up you go!'), { icon: 'jump' }));
+  add('clear prompt', () => hud.clearPrompt());
+  add('hint', () => hud.showHint('Drag on the left to walk. Tap the big button to jump!'));
+  add('room + people', () => {
+    hud.setRoom('KJ7P');
+    hud.setPlayers(players);
+  });
+  add('solo', () => {
+    hud.setRoom(null);
+    hud.setPlayers([]);
+  });
+  add('games btn', () => hud.setButton('games', { hidden: false }));
+  add('emote wheel', () => hud.openWheel(STANDIN_CONTENT.EMOTES, (e) => hud.toast(e.text, { icon: e.icon })));
+  add('debug', () => hud.setDebug('60 fps  16.7 ms  pr 1.5  auto\n42 calls  61457 tris'));
+  group('Game panel (hud.setGameUI)');
+  add('hide and seek', () => hud.setGameUI({ title: 'Hide and seek', line: 'Find 3 more hiders!', timer: 74, roleBadge: { text: 'Seeker', color: '#ff2e93' }, scoreboard: [{ name: 'Bailey', score: 2, me: true }, { name: 'Sister', score: 1 }, { name: 'Glitter Gem', score: 0 }] }));
+  add('dodgeball', () => hud.setGameUI({ title: 'Dodgeball', timer: 9, roleBadge: { text: 'Team Purple', color: 1 }, scoreboard: [{ team: 0, score: 3 }, { team: 1, score: 4, me: true }] }));
+  add('countdown big', () => hud.setGameUI({ title: 'Freeze tag', big: '3', line: 'Get ready!' }));
+  add('no game', () => hud.setGameUI(null));
+  group('Cards and panels');
+  add('how-to', () => {
+    const c = STANDIN_CONTENT.HOWTO.dodgeball;
+    hud.openCard({ icon: 'ball', kicker: 'How to play', title: c.title, steps: c.steps, accent: '#ff8a8a', actions: [{ label: "Let's go!", icon: 'play', primary: true }, { label: 'Back' }] });
+  });
+  add('game picker', () => hud.openPanel({ title: 'Pick a game!', contentEl: buildPicker({ games: GAME_CHOICES, note: 'Everyone in the room plays together.', onPick: (g) => hud.toast(g.title) }) }));
+  add('menu panel', () => hud.openPanel({ title: 'Menu', contentEl: buildPauseMenu({ code: 'KJ7P', canPick: true, isHost: true, sound: true, quality: 'auto', places: [{ name: 'The plaza', icon: 'home' }, { name: 'Basket toss', icon: 'jump' }, { name: 'Cheer gym', icon: 'bow' }], onClose: () => hud.closePanel() }) }));
+  group('Screens');
+  const back = () => menu.hide();
+  add('title', () => menu.title({ onPlay: back, onSound: () => {}, sound: true }));
+  add('main', () => menu.main({ nick: 'Sparkle Comet', onSolo: back, onNewName: () => {}, onSound: () => {}, sound: false }));
+  add('join', () => menu.join({ onBack: back, onSubmit: async (code) => (code === 'KJ7P' ? { ok: true } : { ok: false, reason: 'not-found' }) }));
+  add('lobby host', () => menu.lobby({ code: 'KJ7P', onLeave: back }).update({ players, isHost: true }));
+  add('lobby guest', () => menu.lobby({ code: 'KJ7P', onLeave: back, onExplore: back }).update({ players: players.map((p) => Object.assign({}, p, { me: p.id === 'b' })), isHost: false, hostNick: 'Bailey' }));
+  add('closet', () => menu.closet({ nick: 'Bailey', onDone: back }));
+  add('message', () => menu.message({ title: "Rooms aren't ready yet", lines: ['You can still explore and play by yourself!'], actions: [{ label: 'Play by myself', icon: 'star', onClick: back }, { label: 'Back', onClick: back }] }));
+  add('busy', () => menu.busy('Making your room...'));
+  add('close screen', back);
+  hud.setRoom('KJ7P');
+  hud.setPlayers(players);
+  hud.setButton('games', { hidden: false });
+  hud.prompt('Basket toss!', () => hud.toast('Up you go!'), { icon: 'jump' });
+</script>
+</body>
+</html>

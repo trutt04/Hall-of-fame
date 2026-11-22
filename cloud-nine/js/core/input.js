@@ -1,19 +1,24 @@
-// Touch, mouse and keyboard input for the world.
+// Touch, mouse and keyboard input for the world. Copied from League World; Cloud Nine adds the jump
+// key and the emote keys. Existing signatures and events are unchanged.
 //
 // Touch (primary):
 //   - a floating virtual joystick appears where the left thumb lands in the lower-left of the screen
 //   - dragging anywhere else orbits the camera, two fingers pinch to zoom
 //   - a quick tap (anywhere on the 3D view) is reported as 'tap' so the world can walk there
-// Mouse/keyboard: WASD/arrows move (Shift walks), drag orbits, wheel zooms, E/Enter/Space uses,
-//   M opens the map, Esc closes cards.
+//   (the jump, use and emote buttons are DOM buttons in ui/hud.js, not part of this module)
+// Mouse/keyboard: WASD/arrows move (Shift walks), Space jumps (or does the prompt when one is up:
+//   main.js decides), E/Enter uses, Q/T opens the emote wheel, 1-9 pick an emote while it is open,
+//   drag orbits, wheel zooms, M opens the menu, Esc closes things.
 //
 //   const input = createInput({ canvas, stick })     stick: { show(x, y), move(ox, oy, dx, dy), hide() }
 //   input.getMove(out)        -> out { x, y } camera-relative, x right, y forward, length <= 1
 //   input.consumeLook()       -> { dx, dy } pixels dragged since the last call
 //   input.consumeZoom()       -> multiplier for the camera distance since the last call
-//   input.on('tap' | 'use' | 'map' | 'escape' | 'any' | 'firstmove', fn)
+//   input.on('tap' | 'use' | 'jump' | 'emote' | 'digit' | 'map' | 'escape' | 'any' | 'firstmove', fn)
+//        'digit' gets the number 1..9; 'escape', 'map', 'emote' and 'digit' also arrive while suspended
 //   input.setSuspended(bool)  world input off while a card or panel is open
 //   input.release()           let go of held keys and pointers without changing suspended
+//   input.isDown(code)        -> true while that key (KeyboardEvent.code) is held
 
 import { clamp, emitter } from './util.js';
 
@@ -236,9 +241,18 @@ export function createInput({ canvas, stick = null }) {
       events.emit('escape');
       return;
     }
-    // M toggles the map, so it must also arrive while a panel has world input suspended.
+    // M toggles the menu, so it must also arrive while a panel has world input suspended.
     if (e.code === 'KeyM') {
       if (!e.repeat) events.emit('map');
+      return;
+    }
+    // The emote wheel is a panel of its own: Q/T toggle it and digits pick from it.
+    if (e.code === 'KeyQ' || e.code === 'KeyT') {
+      if (!e.repeat) events.emit('emote');
+      return;
+    }
+    if (/^Digit[1-9]$/.test(e.code) || /^Numpad[1-9]$/.test(e.code)) {
+      if (!e.repeat) events.emit('digit', Number(e.code.slice(-1)));
       return;
     }
     if (suspended) return;
@@ -247,20 +261,36 @@ export function createInput({ canvas, stick = null }) {
       if (e.code.startsWith('Arrow')) e.preventDefault();
       return;
     }
+    if (e.code === 'Space') {
+      // Space is held down in play, so the page must never scroll or click a focused button with it.
+      const a = document.activeElement;
+      if (a && a !== document.body && a.closest && a.closest('button, a, [role="button"]')) return;
+      e.preventDefault();
+      if (!e.repeat) events.emit('jump');
+      return;
+    }
     if (e.repeat) return;
-    if (e.code === 'KeyE' || e.code === 'Enter' || e.code === 'Space') {
+    if (e.code === 'KeyE' || e.code === 'Enter') {
       const a = document.activeElement;
       if (a && a !== document.body && a.closest && a.closest('button, a, [role="button"]') && e.code !== 'KeyE') return;
       e.preventDefault();
       events.emit('use');
     }
   }
+  const held = new Set(); // every key, for input.isDown (mini games poll arrows and Space)
   function onKeyUp(e) {
     keys.delete(e.code);
+    held.delete(e.code);
   }
+  window.addEventListener('keydown', (e) => {
+    if (!e.metaKey && !e.ctrlKey && !e.altKey) held.add(e.code);
+  });
   window.addEventListener('keydown', onKeyDown);
   window.addEventListener('keyup', onKeyUp);
-  window.addEventListener('blur', () => keys.clear());
+  window.addEventListener('blur', () => {
+    keys.clear();
+    held.clear();
+  });
 
   function resetPointers() {
     pointers.clear();
@@ -332,6 +362,9 @@ export function createInput({ canvas, stick = null }) {
     release() {
       keys.clear();
       resetPointers();
+    },
+    isDown(code) {
+      return held.has(code);
     },
     get suspended() { return suspended; },
     get usingTouch() { return usingTouch; },
