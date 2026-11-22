@@ -14,10 +14,10 @@
 //   intro        optional short line under the title (her first time: "You can change it any time...")
 //   close()      closes without calling either callback
 //
-// It saves nothing itself; the caller does. Tabs: Hair, Bow, Outfit, Shoes, Sparkle, Skin. The live
+// It saves nothing itself; the caller does. Tabs: Hair, Bow, Outfit, Shoes, Sparkle, Skin, Pet. The live
 // 3D preview runs on its own small renderer, disposed on close: she turns slowly, you can drag to
 // spin her, tap her for a trick, and she shows off every change (turning round for the bow, kicking
-// up for the shoes). Nicknames come from "Pick for me" (js/content/names.js, loaded on demand, with a
+// up for the shoes). Her cloud puppy (js/art/pet.js), once won, sits beside her and spins when chosen. Nicknames come from "Pick for me" (js/content/names.js, loaded on demand, with a
 // fallback list) or are typed: letters and spaces, at most 12, and they must pass cleanNick().
 // Loads css/creator.css itself. Works in a portrait phone and a landscape tablet.
 import * as THREE from '../../lib/three.module.min.js';
@@ -25,6 +25,7 @@ import { createCharacter, LOOK_OPTIONS, cleanLook, randomLook, lookOption, ANIM_
 import { optionIcon, tabIcon } from '../art/character-icons.js';
 import { Geo } from '../art/geo.js';
 import { glowMat } from '../art/materials.js';
+import { createPuppy, petIcon, petTabIcon, PIVOT_Y } from '../art/pet.js';
 import { FONT_STACK } from '../config.js';
 
 const TABS = [
@@ -34,6 +35,7 @@ const TABS = [
   { id: 'shoes', label: 'Shoes', frame: 'feet', sections: [['shoes', 'Shoes', 'tiles'], ['socks', 'Socks', 'tiles']] },
   { id: 'sparkle', label: 'Sparkle', frame: 'body', sections: [['sparkle', 'Sparkle', 'big']] },
   { id: 'skin', label: 'Skin', frame: 'face', sections: [['skin', 'Skin tone', 'dots']] },
+  { id: 'pet', label: 'Pet', frame: 'pet', sections: [['pet', 'Pet', 'big']] },
 ];
 // Where the camera looks for each tab: target height, distance, elevation.
 const FRAMES = {
@@ -42,6 +44,7 @@ const FRAMES = {
   face: { y: 1.02, dist: 2.5, el: 0.06 },
   bow: { y: 1.14, dist: 2.35, el: 0.3 },
   feet: { y: 0.62, dist: 3.3, el: 0.16 },
+  pet: { x: 0.3, y: 0.62, dist: 3.5, el: 0.14 }, // her and the puppy beside her
 };
 // How she shows off a change: the move, and whether she turns round to show her back.
 const REACT = {
@@ -56,6 +59,7 @@ const REACT = {
   socks: { anim: 'liberty', hold: 1.6 },
   sparkle: { anim: 'touchdown', hold: 1.4, burst: 2 },
   skin: { anim: 'wave', hold: 1.6 },
+  pet: { anim: 'clap', hold: 1.4 },
 };
 const TRICKS = ['toeTouch', 'pike', 'kickDouble', 'twist', 'heelStretch', 'liberty', 'scorpion', 'bowArrow', 'arabesque'];
 
@@ -253,7 +257,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     b.type = 'button';
     b.setAttribute('role', 'tab');
     b.dataset.tab = t.id;
-    b.innerHTML = `<span class="c9c-ti">${tabIcon(t.id)}</span><span>${t.label}</span>`;
+    b.innerHTML = `<span class="c9c-ti">${t.id === 'pet' ? petTabIcon() : tabIcon(t.id)}</span><span>${t.label}</span>`;
     b.addEventListener('click', () => selectTab(t.id));
     tabs.appendChild(b);
     return b;
@@ -278,7 +282,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
         b.setAttribute('aria-pressed', String(state[slot] === o.id));
         if (o.id === 'ridiculous' || o.id === 'mega') b.classList.add('c9c-huge');
         const ic = el('span', 'c9c-ic');
-        ic.innerHTML = optionIcon(slot, o, state);
+        ic.innerHTML = slot === 'pet' ? petIcon(o.id) : optionIcon(slot, o, state);
         b.appendChild(ic);
         if (kind !== 'dots') b.appendChild(el('span', 'c9c-lb', o.label));
         if (lock) {
@@ -301,7 +305,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     for (const b of body.querySelectorAll('.c9c-sw')) {
       const slot = b.dataset.slot, o = lookOption(slot, b.dataset.id);
       b.setAttribute('aria-pressed', String(state[slot] === o.id));
-      b.querySelector('.c9c-ic').innerHTML = optionIcon(slot, o, state);
+      b.querySelector('.c9c-ic').innerHTML = slot === 'pet' ? petIcon(o.id) : optionIcon(slot, o, state);
     }
     for (const v of body.querySelectorAll('[data-val]')) v.textContent = lookOption(v.dataset.val, state[v.dataset.val]).label;
   }
@@ -354,8 +358,9 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
   });
   surprise.addEventListener('click', () => {
     const next = randomLook(Math.random);
-    // never a locked option: keep what she has in that slot instead
+    // never a locked option: keep what she has in that slot instead. Her pet stays too.
     for (const slot of Object.keys(next)) if (lockOf(slot, next[slot])) next[slot] = state[slot];
+    next.pet = state.pet;
     state = cleanLook(next);
     refreshBody();
     if (preview) preview.character.setLook(state);
@@ -367,7 +372,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
 
   // ---- the 3D preview ----
   let preview = null;
-  const view = { yaw: 0.45, vel: 0, back: 0, frame: FRAMES.head, cam: { y: 1.06, dist: 2.45, el: 0.1 }, dragging: false };
+  const view = { yaw: 0.45, vel: 0, back: 0, frame: FRAMES.head, cam: { x: 0, y: 1.06, dist: 2.45, el: 0.1 }, dragging: false };
   let returnAt = 0, clock = 0;
   try {
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: 'low-power' });
@@ -385,7 +390,18 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     const character = createCharacter(state, { quality: 'high' });
     character.shadow.visible = false;
     scene.add(character.group);
-    preview = { renderer, scene, camera, character, cloud };
+    // her cloud puppy sits beside her on the cloud (when she has one)
+    let pet = null;
+    try {
+      pet = createPuppy({ shadow: false });
+      pet.body.rotation.order = 'YXZ';
+      pet.group.position.set(0.7, 0, 0.32);
+      pet.group.visible = state.pet === 'cloudPuppy';
+      scene.add(pet.group);
+    } catch (err) {
+      pet = null; // the pet is a bonus
+    }
+    preview = { renderer, scene, camera, character, cloud, pet };
   } catch (err) {
     stage.classList.add('c9c-no3d');
     const msg = el('p', 'c9c-no3d-msg', 'Your cheerleader will be waiting for you on the island!');
@@ -404,15 +420,55 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     const r = REACT[slot] || { anim: 'cheer' };
     if (r.back) view.back = 2.4;
     if (!reduced) play(r.anim, r.hold);
+    if (slot === 'pet' && preview && preview.pet) {
+      // the puppy says hello with a poof of sparkles and a happy spin (or poofs off for a nap)
+      if (state.pet !== 'none') {
+        petView.spin = PET_SPIN;
+        petView.happy = 2.2;
+      }
+      preview.pet.body.getWorldPosition(petAt);
+      petAt.y += 0.25;
+      burst(1, petAt);
+      return;
+    }
     burst(r.burst || 1);
+  }
+  // the preview puppy: sitting, wagging, looking at us, a curious head tilt now and then
+  const PET_SPIN = 0.75;
+  const petView = { spin: 0, happy: 0, tiltT: 2.5, tilt: 0 };
+  const petAt = new THREE.Vector3();
+  function updatePet(dt) {
+    const p = preview && preview.pet;
+    if (!p) return;
+    p.group.visible = state.pet === 'cloudPuppy';
+    if (!p.group.visible) return;
+    petView.spin = Math.max(0, petView.spin - dt);
+    petView.happy = Math.max(0, petView.happy - dt);
+    const u = petView.spin > 0 ? 1 - petView.spin / PET_SPIN : 0;
+    const yaw = petView.spin > 0 && !reduced ? Math.PI * 2 * u * u * (3 - 2 * u) : 0;
+    const hop = petView.spin > 0 ? Math.sin(Math.PI * u) * 0.3 : 0;
+    p.body.position.y = PIVOT_Y + 0.07 + (reduced ? 0 : Math.sin(clock * 2.3) * 0.03) + hop;
+    p.body.rotation.set(-0.3, -0.45 + yaw, 0, 'YXZ');
+    if ((petView.tiltT -= dt) <= 0) {
+      petView.tiltT = 2.5 + Math.random() * 3;
+      petView.tilt = Math.random() < 0.6 ? (Math.random() < 0.5 ? -0.32 : 0.32) : 0;
+    }
+    p.mood.sit = 1;
+    p.mood.happy = petView.happy > 0 ? 1 : 0;
+    p.mood.look = petView.spin > 0 ? 0 : 0.45;
+    p.mood.tilt = petView.happy > 0 ? 0 : petView.tilt;
+    p.update(dt, clock);
   }
   // A rhinestone burst over her, in DOM (cheap, crisp on any screen).
   const SPARK_COLORS = ['#ff2e93', '#ff7ad1', '#a96bff', '#ffffff', '#ffd36e'];
-  function burst(power = 1) {
+  function burst(power = 1, at = null) {
     if (reduced || !preview) return;
     const v = new THREE.Vector3();
-    preview.character.anchors.head.getWorldPosition(v);
-    v.y -= 0.25;
+    if (at) v.copy(at);
+    else {
+      preview.character.anchors.head.getWorldPosition(v);
+      v.y -= 0.25;
+    }
     v.project(preview.camera);
     const r = canvas.getBoundingClientRect(), sr = stage.getBoundingClientRect();
     const x = ((v.x + 1) / 2) * r.width + (r.left - sr.left), y = ((1 - v.y) / 2) * r.height + (r.top - sr.top);
@@ -507,14 +563,16 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     c.group.rotation.y = view.yaw + turn;
     c.lookAt(preview.camera.position);
     c.update(dt, clock);
+    updatePet(dt);
     // camera framing for the tab; tall, narrow stages pull back a little so a T motion fits
     const f = view.frame, aspect = w / Math.max(1, h), fit = aspect < 0.75 ? 0.75 / aspect : 1;
+    view.cam.x = damp(view.cam.x, f.x || 0, 4, dt);
     view.cam.y = damp(view.cam.y, f.y, 4, dt);
     view.cam.dist = damp(view.cam.dist, f.dist * Math.min(1.6, fit), 4, dt);
     view.cam.el = damp(view.cam.el, f.el, 4, dt);
     const cam = preview.camera;
-    cam.position.set(0, view.cam.y + Math.sin(view.cam.el) * view.cam.dist, Math.cos(view.cam.el) * view.cam.dist);
-    cam.lookAt(0, view.cam.y, 0);
+    cam.position.set(view.cam.x, view.cam.y + Math.sin(view.cam.el) * view.cam.dist, Math.cos(view.cam.el) * view.cam.dist);
+    cam.lookAt(view.cam.x, view.cam.y, 0);
     preview.renderer.render(preview.scene, cam);
   }
 
@@ -564,6 +622,7 @@ export function openCreator({ look, nick, onDone, onCancel, audio, locked, onCha
     window.removeEventListener('keydown', onKey);
     if (preview) {
       preview.character.dispose();
+      if (preview.pet) preview.pet.dispose();
       preview.cloud.geometry.dispose();
       preview.renderer.dispose();
       try { preview.renderer.forceContextLoss(); } catch (err) { /* already gone */ }

@@ -32,7 +32,7 @@ export function lockedLooks(list, found) {
   const out = {};
   for (const s of Array.isArray(list) ? list : []) {
     const u = s && s.unlock;
-    if (!u || u.later || u.slot === 'pet' || have.has(s.id)) continue;
+    if (!u || u.later || have.has(s.id)) continue; // the pet slot locks like any other
     if (typeof u.slot !== 'string' || typeof u.id !== 'string') continue;
     (out[u.slot] = out[u.slot] || {})[u.id] = { stick: s.id, name: s.name, hint: s.hint, label: u.label };
   }

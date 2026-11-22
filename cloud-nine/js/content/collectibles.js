@@ -7,8 +7,9 @@
 //                           'court', 'bowField', 'tagZone') or 'edge' (a scenic spot on the island's
 //                           rim, ISLAND's pick). index picks from a list place; spot narrows it:
 //                           'target' = on that toss pad's target cloud, 'bottom' = the slide's end.
-//     unlock                { slot, id, label, later? }: slot is a look slot (Contract 3) or 'pet';
-//                           CHARACTER maps the ids to its LOOK_OPTIONS. later: true = phase 2.
+//     unlock                { slot, id, label, later? }: slot is a look slot (Contract 3), 'pet' included
+//                           (the cloud puppy, js/art/pet.js); CHARACTER maps the ids to its LOOK_OPTIONS.
+//                           later: true = not built yet (nothing is, any more).
 //   SPIRIT_STICK_IDS        the ids in order
 //   stickById(id)           -> the stick or null
 //   cleanFoundSticks(raw)   -> known, unique ids in SPIRIT_STICKS order (for saved progress)
@@ -54,7 +55,7 @@ export const SPIRIT_STICKS = Object.freeze([
     { slot: 'sparkle', id: 'gold', label: 'Gold rhinestones' }),
   stick('rainbowEnd', "Rainbow's End Stick", 'white', { place: 'edge' },
     'Walk all the way to the edge of the island, where it meets the clouds.',
-    { slot: 'pet', id: 'cloudPuppy', label: 'Cloud puppy pet', later: true }),
+    { slot: 'pet', id: 'cloudPuppy', label: 'Cloud puppy pet' }),
 ]);
 
 export const SPIRIT_STICK_IDS = Object.freeze(SPIRIT_STICKS.map((s) => s.id));

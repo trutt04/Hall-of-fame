@@ -10,6 +10,7 @@
 //   ./content/*.js                      -> tiny built-in lines (ui/standins.js)
 //   ./world/toss.js, ./games/index.js   -> no basket toss, no game rules yet
 //   ./world/photobooth.js               -> the photo booth stays scenery
+//   ./world/pets.js                     -> no cloud puppy (the look's pet slot is kept, just not drawn)
 //   ./ui/creator.js, ./rhythm/index.js  -> loaded when first opened; a friendly placeholder if missing
 //
 // URL switches (for testing):
@@ -517,6 +518,7 @@ async function boot() {
 
   // ---------------------------------------------------------------- the basket toss (and other parts that need the world)
   let toss = null;
+  let pets = null; // js/world/pets.js: her cloud puppy and her friends' (below)
   if (tossMod && typeof tossMod.createToss === 'function') {
     try {
       toss = tossMod.createToss(world);
@@ -529,6 +531,7 @@ async function boot() {
           }
           const best = Number(store.progress.bestToss) || 0;
           if (r && Number(r.height) > best) store.patchProgress({ bestToss: Math.round(Number(r.height) * 10) / 10 });
+          if (pets) pets.cheer('me'); // her puppy, waiting at the pad, spins for joy
         });
         // while she flies, the toss's own overlay has the screen
         toss.on('start', () => {
@@ -613,6 +616,17 @@ async function boot() {
     console.warn('[c9] the beacons failed to start', err);
   }
   world.beacons = beacons;
+  // the cloud puppy (the 12th spirit stick's prize): one for her and one for each friend wearing one
+  const petsMod = await optional('./world/pets.js');
+  if (petsMod && typeof petsMod.createPets === 'function') {
+    try {
+      pets = petsMod.createPets(world, { myLook: () => myLook });
+    } catch (err) {
+      console.warn('[c9] the pets failed to start', err);
+      pets = null;
+    }
+  }
+  world.pets = pets;
 
   // ---------------------------------------------------------------- state of the app
   let mode = 'boot'; // 'title' | 'menu' | 'closet' | 'lobby' | 'play' | 'overlay'
@@ -869,6 +883,7 @@ async function boot() {
     showMyBubble(e);
     player.emote(animForEmote(e), 1.8);
     sfx(emoteSound(e), { volume: 0.7 });
+    if (pets) pets.cheer('me');
     if (session) net.send('emote', { id: e.id });
     if (todo) todo.tick('cheer');
   }
@@ -898,6 +913,7 @@ async function boot() {
       const e = content.cleanEmote(ev.data && ev.data.id);
       if (!e) return;
       peers.emote(from, { text: e.text || e.id, icon: e.icon, anim: animForEmote(e) });
+      if (pets) pets.cheer(from);
       const pos = peers.positionOf(from);
       sfx(emoteSound(e), pos ? { volume: 0.55, x: pos.x, z: pos.z } : { volume: 0.4 });
     } else if (ev.type === 'game-start') {
@@ -1201,11 +1217,12 @@ async function boot() {
   }
 
   // ---------------------------------------------------------------- my cheerleader
-  function applyLook(look) {
+  function applyLook(look, o = {}) {
     const before = JSON.stringify(myLook);
     const clean = store.setLook(look) || cleanLook(look);
     myLook = clean;
-    if (todo && JSON.stringify(clean) !== before) todo.tick('look');
+    if (pets) pets.sync(); // her puppy comes or goes with the look
+    if (todo && !o.quiet && JSON.stringify(clean) !== before) todo.tick('look');
     if (player.avatar && typeof player.avatar.setLook === 'function') {
       try {
         player.avatar.setLook(clean);
@@ -1879,9 +1896,22 @@ async function boot() {
     player.emote('cheer', 1.6);
     hud.big('Spirit stick\n' + count + ' of ' + total + '!', content.hype(all ? 'collectAll' : 'collect', { name: myNick, stick: hit.id, count, total }), { ms: 2800 });
     const u = hit.stick && hit.stick.unlock;
-    if (u && !u.later && typeof u.label === 'string') {
+    if (u && !u.later && u.slot === 'pet' && pets) petUnlocked(u);
+    else if (u && !u.later && typeof u.label === 'string') {
       setTimeout(() => hud.toast('Unlocked: ' + u.label + '! Try it on in My cheerleader.', { icon: 'bow', ms: 4600 }), 900);
     }
+  }
+  // The last stick's prize is special: once the splash is over, the cloud puppy poofs in right beside
+  // her with a happy bark and a spin, and it's hers from then on ("No pet" in My cheerleader sends it
+  // for a nap). Friends in a room see it too.
+  function petUnlocked(u) {
+    setTimeout(() => hud.toast('Unlocked: ' + u.label + '!', { icon: '\u{1F436}', ms: 3400 }), 900);
+    setTimeout(() => {
+      applyLook(Object.assign({}, myLook, { [u.slot]: u.id }), { quiet: true });
+      if (session) net.updateMe({ nick: myNick, look: myLook });
+      pets.arrive('me');
+      setTimeout(() => hud.toast('Your cloud puppy follows you everywhere! Find it in My cheerleader, under Pet.', { icon: 'bow', ms: 5200 }), 1500);
+    }, 2900);
   }
   function sticksRow() {
     const total = STICKS.length;
@@ -1906,6 +1936,7 @@ async function boot() {
   // the toss drives the player and aims the camera: after the player's own update, before the rig's (Contract 9)
   if (toss) engine.addSystem({ update: (dt, t) => toss.update(dt, t) }, 12);
   engine.addSystem({ update: (dt, t) => peers.update(dt, t) }, 14);
+  if (pets) engine.addSystem({ update: (dt, t) => pets.update(dt, t) }, 15); // after her, the toss and her friends
   engine.addSystem(interact, 16);
   if (sticks) {
     engine.addSystem({

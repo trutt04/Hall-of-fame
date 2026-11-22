@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LOOK_OPTIONS, LOOK_SLOTS, DEFAULT_LOOK, cleanLook, randomLook, lookOption, lookKey } from '../js/art/character-looks.js';
 
-const SLOTS = ['skin', 'hair', 'hairStyle', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle'];
+const SLOTS = ['skin', 'hair', 'hairStyle', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'pet'];
 const isValid = (look) => SLOTS.every((s) => LOOK_OPTIONS[s].some((o) => o.id === look[s]));
 
 function seeded(seed) {
@@ -21,7 +21,7 @@ test('every slot has preset options with unique ids, labels and colors', () => {
   assert.deepEqual([...LOOK_SLOTS].sort(), [...SLOTS].sort());
   for (const slot of SLOTS) {
     const list = LOOK_OPTIONS[slot];
-    assert.ok(Array.isArray(list) && list.length >= 3, slot);
+    assert.ok(Array.isArray(list) && list.length >= (slot === 'pet' ? 2 : 3), slot); // a pet or none
     const ids = new Set();
     for (const o of list) {
       assert.equal(typeof o.id, 'string');
@@ -86,7 +86,7 @@ test("DEFAULT_LOOK is Bailey's real outfit", () => {
 });
 
 test('cleanLook keeps a valid look and returns a fresh object', () => {
-  const look = { skin: 'tone6', hair: 'lilac', hairStyle: 'spaceBuns', bow: 'rainbow', bowPattern: 'hearts', bowSize: 'ridiculous', top: 'hoodie-pink', bottom: 'skirt-purple', shoes: 'sneakers-pink', socks: 'rainbow', sparkle: 'max' };
+  const look = { skin: 'tone6', hair: 'lilac', hairStyle: 'spaceBuns', bow: 'rainbow', bowPattern: 'hearts', bowSize: 'ridiculous', top: 'hoodie-pink', bottom: 'skirt-purple', shoes: 'sneakers-pink', socks: 'rainbow', sparkle: 'max', pet: 'cloudPuppy' };
   const out = cleanLook(look);
   assert.deepEqual(out, look);
   assert.notEqual(out, look);
@@ -168,7 +168,9 @@ test('randomLook reaches every option', () => {
     const l = randomLook(r);
     for (const s of SLOTS) seen[s].add(l[s]);
   }
-  for (const s of SLOTS) assert.equal(seen[s].size, LOOK_OPTIONS[s].length, s);
+  // every option but a pet: pets are won, never random (bots don't get one)
+  for (const s of SLOTS) assert.equal(seen[s].size, s === 'pet' ? 1 : LOOK_OPTIONS[s].length, s);
+  assert.deepEqual([...seen.pet], ['none']);
 });
 
 test('randomLook copes with broken random functions', () => {
