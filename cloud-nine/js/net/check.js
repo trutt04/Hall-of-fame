@@ -67,15 +67,15 @@ export const SAY = Object.freeze({
   signinBusy: 'Firebase saw a lot of sign-ins from this network just now. Wait a few minutes, then run the check again.',
   signinNet: "Couldn't reach Google's sign-in. Check the internet. Some school networks block it; try home Wi-Fi.",
   signinOther: "Sign-in didn't work. Check steps 4 and 7.",
-  databaseOk: 'Made a test room and read it back.',
+  databaseOk: 'Made a test room, read it back.',
   rulesMissing: "The database said no: the rules weren't pasted. See step 3.",
   noAnswer: "The database didn't answer. Check the databaseURL: it's the address at the top of the Realtime Database page. See steps 2 and 7.",
   readBack: "The test room didn't read back right. Paste the rules again: see step 3.",
-  safetyOk: 'Rooms stay private: no list, no changing other players.',
+  safetyOk: 'Nobody can list rooms or change other players.',
   safetyUnsure: "Couldn't finish this check: the database stopped answering. Run the check again.",
-  cleanupOk: 'Left and removed the test room. Nothing is left behind.',
-  nothingToTidy: 'Nothing was written, so there is nothing to tidy.',
-  skipped: 'Not checked: fix the line above first.',
+  cleanupOk: 'Left and removed the test room.',
+  nothingToTidy: 'Nothing to tidy up.',
+  skipped: 'Not checked yet: fix the line above first.',
 });
 
 export function tooOpenText(listed, wrote) {
@@ -338,8 +338,10 @@ export async function runOnlineCheck({ config = FIREBASE_CONFIG, sdk = null, loa
     const at = lines.find((l) => l.state === 'running');
     if (at && at.id !== 'cleanup') fail(at.id, { text: 'Something unexpected went wrong. Run the check again.', step: null });
   }
-  for (const l of lines) if (l.id !== 'cleanup' && l.state === 'waiting') l.state = 'skip';
-  for (const l of lines) if (l.state === 'skip' && !l.text) l.text = SAY.skipped;
+  // the lines not tried: the first one says why, the others stay quiet
+  const untried = lines.filter((l) => l.id !== 'cleanup' && l.state === 'waiting');
+  for (const l of untried) l.state = 'skip';
+  if (untried.length) untried[0].text = SAY.skipped;
   try {
     await tidy();
   } catch (err) {

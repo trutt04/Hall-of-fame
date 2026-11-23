@@ -17,31 +17,32 @@
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-<link rel="modulepreload" href="lib/three.module.min.js">
-<link rel="modulepreload" href="js/main.js">
-<link rel="modulepreload" href="js/config.js">
-<link rel="modulepreload" href="js/core/engine.js">
-<link rel="modulepreload" href="js/core/webgl1.js">
-<link rel="modulepreload" href="js/core/store.js">
-<link rel="modulepreload" href="js/core/input.js">
-<link rel="modulepreload" href="js/core/camera.js">
-<link rel="modulepreload" href="js/core/colliders.js">
-<link rel="modulepreload" href="js/core/util.js">
-<link rel="modulepreload" href="js/art/geo.js">
-<link rel="modulepreload" href="js/art/materials.js">
-<link rel="modulepreload" href="js/art/util.js">
-<link rel="modulepreload" href="js/world/player.js">
-<link rel="modulepreload" href="js/world/interact.js">
-<link rel="modulepreload" href="js/world/placeholder-avatar.js">
-<link rel="modulepreload" href="js/ui/hud.js">
-<link rel="modulepreload" href="js/ui/menu.js">
-<link rel="modulepreload" href="js/ui/dom.js">
-<link rel="modulepreload" href="js/ui/codepad.js">
-<link rel="modulepreload" href="js/ui/gameui.js">
-<link rel="modulepreload" href="js/ui/labels.js">
-<link rel="modulepreload" href="js/ui/fx.js">
-<link rel="modulepreload" href="js/ui/standins.js">
-<link rel="modulepreload" href="js/ui/silent-tip.js">
+<script>
+  // The modules the page needs, fetched early. The address picks the page (js/start.js): the game,
+  // or with ?check=online the online-play check for grown-ups, which loads none of the game.
+  (function () {
+    var check = false;
+    try {
+      check = new URLSearchParams(location.search).get('check') === 'online';
+    } catch (e) {}
+    var game = ['lib/three.module.min.js', 'js/main.js', 'js/config.js', 'js/core/engine.js', 'js/core/webgl1.js', 'js/core/store.js',
+      'js/core/input.js', 'js/core/camera.js', 'js/core/colliders.js', 'js/core/util.js', 'js/art/geo.js', 'js/art/materials.js',
+      'js/art/util.js', 'js/world/player.js', 'js/world/interact.js', 'js/world/placeholder-avatar.js', 'js/ui/hud.js', 'js/ui/menu.js',
+      'js/ui/dom.js', 'js/ui/codepad.js', 'js/ui/gameui.js', 'js/ui/labels.js', 'js/ui/fx.js', 'js/ui/standins.js', 'js/ui/silent-tip.js'];
+    var online = ['js/ui/netcheck.js', 'js/ui/dom.js', 'js/net/check.js', 'js/net/firebase-config.js', 'js/net/transport-firebase.js',
+      'js/net/codes.js', 'js/net/validate.js', 'js/core/util.js', 'js/config.js', 'css/netcheck.css'];
+    var list = check ? online : game;
+    for (var i = 0; i < list.length; i++) {
+      var link = document.createElement('link');
+      if (/\.css$/.test(list[i])) {
+        link.rel = 'preload';
+        link.as = 'style';
+      } else link.rel = 'modulepreload';
+      link.href = list[i];
+      document.head.appendChild(link);
+    }
+  })();
+</script>
 <link rel="stylesheet" href="css/app.css">
 <link rel="stylesheet" href="css/menu.css">
 </head>
@@ -77,6 +78,6 @@
   </div>
 </noscript>
 
-<script type="module" src="js/main.js"></script>
+<script type="module" src="js/start.js"></script>
 </body>
 </html>
