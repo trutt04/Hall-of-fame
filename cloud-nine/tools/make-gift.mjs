@@ -17,7 +17,8 @@
 //     "birthday": { "month": 12, "day": 3, "year": 2015 },
 //     "notes": [{ "from": "Grandpa Zork", "text": "Happy birthday, superstar flyer! 💖" }],
 //     "friends": ["Pip", "Grandpa Zork", "Mary-Kate"],
-//     "petNames": { "cloudPuppy": "Biscuit" }
+//     "petNames": { "cloudPuppy": "Biscuit" },
+//     "pondName": "Zuzu's Duck Pond"
 //   }
 //
 // Exit codes: 0 the link was printed (maybe with some parts left out), 1 no link (the file can't be
@@ -83,6 +84,7 @@ function main(argv) {
   if (gift.notes) say('  notes: ' + gift.notes.length + ' (from ' + gift.notes.map((n) => n.from).join(', ') + ')');
   if (gift.friends) say('  bot friends: ' + gift.friends.join(', '));
   if (gift.petNames) say('  pet names: ' + Object.keys(gift.petNames).map((k) => k + ' ' + gift.petNames[k]).join(', '));
+  if (gift.pondName) say('  duck pond sign: ' + gift.pondName);
 
   if (dropped.length) {
     say('');
