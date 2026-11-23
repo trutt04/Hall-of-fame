@@ -10,6 +10,7 @@
 //   ./content/*.js                      -> tiny built-in lines (ui/standins.js)
 //   ./world/toss.js, ./games/index.js   -> no basket toss, no game rules yet
 //   ./world/photobooth.js               -> the photo booth stays scenery
+//   ./world/pond.js                     -> no duck pond (the island has no place for it either)
 //   ./world/pets.js                     -> no cloud puppy (the look's pet slot is kept, just not drawn)
 //   ./ui/creator.js, ./rhythm/index.js  -> loaded when first opened; a friendly placeholder if missing
 //   ./core/gift.js                      -> no family touches (the gift link's notes, birthday, bot friends)
@@ -620,6 +621,15 @@ async function boot() {
   }
   function closeBooth(why) {
     if (world.booth) world.booth.close(why);
+  }
+  // the duck pond on the east lawn (js/world/pond.js): its sign wears the gift link's pondName on this device
+  const pondMod = await optional('./world/pond.js');
+  if (pondMod && typeof pondMod.installPond === 'function') {
+    try {
+      world.pond = pondMod.installPond(world, { name: gift && typeof gift.pondName === 'string' ? gift.pondName : null });
+    } catch (err) {
+      console.warn('[c9] the duck pond failed to start', err);
+    }
   }
   function boothBusy() {
     return !!(world.booth && world.booth.active);
@@ -1677,6 +1687,7 @@ async function boot() {
   const PLACE_LIST = [
     ['plaza', 'The plaza', 'home'], ['tossPads', 'Basket toss', 'jump'], ['gym', 'Cheer gym', 'bow'], ['stage', 'Hit Zero stage', 'music'],
     ['court', 'Dodgeball court', 'ball'], ['bowField', 'Capture the Bow', 'flag'], ['hideGarden', 'Hide-and-seek garden', 'eyes'],
+    ['pond', 'Duck pond', 'sparkle'],
   ];
   function travelSpots() {
     const out = [];
@@ -1689,8 +1700,8 @@ async function boot() {
       let x = p.x;
       let z = p.z;
       let facing = Number.isFinite(p.facing) ? p.facing : 0;
-      if (key === 'gym' || key === 'stage') {
-        const back = key === 'gym' ? (p.d || 12) / 2 + 4 : 10;
+      if (key === 'gym' || key === 'stage' || key === 'pond') {
+        const back = key === 'gym' ? (p.d || 12) / 2 + 4 : key === 'pond' ? (p.r || 4) + 2.3 : 10;
         x = p.x + Math.sin(facing) * back;
         z = p.z + Math.cos(facing) * back;
         facing += Math.PI;
@@ -2062,7 +2073,7 @@ async function boot() {
   engine.addSystem({
     update(dt, t) {
       if (todo) todo.update(dt);
-      if (beacons) beacons.update(dt, t, camera, player.position, mode === 'play' && !world.activeGame && !(toss && toss.active) && !boothBusy() && !player.controller);
+      if (beacons) beacons.update(dt, t, camera, player.position, mode === 'play' && !world.activeGame && !(toss && toss.active) && !boothBusy() && !player.controller && !(world.pond && world.pond.active));
     },
   }, 42);
   engine.addSystem({

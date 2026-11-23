@@ -1,5 +1,5 @@
 // Hype lines for being on the island: arriving, wandering, friends coming and going, spirit
-// sticks, and the start of a game. Data only; hype.js picks and fills them (house rules there).
+// sticks, the start of a game, and the ducks at the pond. Data only; hype.js picks and fills them (house rules there).
 
 export const WORLD_LINES = {
   welcome: [
@@ -135,5 +135,21 @@ export const WORLD_LINES = {
     "The sky is ready. Are you? Let's go!",
     'Hands in! 1, 2, 3, team!',
     'New game! May the sparkliest squad win.',
+  ],
+  // the duck pond: a big feed (several tosses in a row) makes the mama duck flap for joy
+  ducks: [
+    'The ducks say thank you! Quack quack!',
+    'Crumb time at the pond!',
+    'Quack-tastic! The ducks love you, {name}!',
+    'Happy quacks all around!',
+    'Waddle squad, assemble!',
+    'Best duck friend ever!',
+    'The ducklings are doing happy spins!',
+    'Mama duck says: quack you very much!',
+    'Splish, splash, quack!',
+    'Duck party at the pond!',
+    'You made the whole pond happy!',
+    'The ducks give that toss a perfect ten!',
+    'Quack quack! That means thank you in duck.',
   ],
 };
