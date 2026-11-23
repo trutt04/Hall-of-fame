@@ -512,16 +512,16 @@ async function boot() {
 
   // ---------------------------------------------------------------- birthday
   // the gift link's date and name win over js/config.js, so the party starts by itself on the day
-  const bday = giftMod ? giftMod.giftBirthday(gift, BIRTHDAY) : BIRTHDAY;
-  const bInfo = FEATURES.birthdayMode ? content.birthdayInfo(new Date(), bday) || {} : {};
+  const herBirthday = giftMod ? giftMod.giftBirthday(gift, BIRTHDAY) : BIRTHDAY;
+  const bInfo = FEATURES.birthdayMode ? content.birthdayInfo(new Date(), herBirthday) || {} : {};
   const isBirthday = !!(bInfo.isBirthday || store.flag('birthday'));
-  const age = Number.isFinite(bInfo.age) && bInfo.age > 0 ? bInfo.age : bday.year ? new Date().getFullYear() - bday.year : 11;
+  const age = Number.isFinite(bInfo.age) && bInfo.age > 0 ? bInfo.age : herBirthday.year ? new Date().getFullYear() - herBirthday.year : 11;
   try {
-    if (island.setBirthday) island.setBirthday({ isBirthday, age, name: bday.name });
+    if (island.setBirthday) island.setBirthday({ isBirthday, age, name: herBirthday.name });
   } catch (err) {
     console.warn('[c9] setBirthday failed', err);
   }
-  world.birthday = { isBirthday, age, name: bday.name, info: bInfo };
+  world.birthday = { isBirthday, age, name: herBirthday.name, info: bInfo };
   // a soft pop for the birthday fireworks while she is on the island (not under every menu)
   if (isBirthday && typeof island.onFirework === 'function') {
     let pops = 0;
@@ -1352,7 +1352,7 @@ async function boot() {
     titleCamera();
     const screen = menu.message({
       icon: 'bow',
-      title: bday.name ? 'A gift for you, ' + bday.name + '!' : 'A gift for you!',
+      title: herBirthday.name ? 'A gift for you, ' + herBirthday.name + '!' : 'A gift for you!',
       lines: [gift.from ? 'From ' + gift.from : '', 'Cloud Nine was made just for you. Happy birthday!'].filter(Boolean),
       actions: [{
         label: 'Open it!',
@@ -1607,7 +1607,7 @@ async function boot() {
       player.position.y += 7;
       player.velocity.y = -2;
       if (isBirthday) {
-        hud.big('Happy Birthday,\n' + bday.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
+        hud.big('Happy Birthday,\n' + herBirthday.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
         // a burst of birthday sparkle over the cake as she lands
         const c = places.cake || places.plaza;
         setTimeout(() => {
