@@ -13,6 +13,8 @@
 //   }
 //   isLeapYear(year), celebrationDay(year, month, day)
 //
+// The private gift link can carry the date instead of js/config.js (js/core/gift.js giftBirthday,
+// which main.js passes here), so her birthday never has to go in the public repo.
 // Dates are read on the device's local calendar (getFullYear, getMonth, getDate), so the party
 // starts at local midnight wherever the family plays. Day counts use calendar days, so daylight
 // saving changes never shift them. A Feb 29 birthday is celebrated on Feb 28 in other years.
