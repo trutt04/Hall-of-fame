@@ -126,6 +126,7 @@ Add these to the end of the address (start with `?`, join more with `&`):
 | `?debug=1` | Frame rate, draw calls and position on screen |
 | `?autoplay=1` | Hit Zero plays itself, perfectly (for checking the routine) |
 | `?net=local` | Rooms between tabs of one browser, instead of Firebase |
+| `?check=online` | The online-play check for grown-ups: tries each step of `firebase/SETUP.md` from this device and says which one to fix (none of the game loads) |
 
 ## For grown-ups who code
 

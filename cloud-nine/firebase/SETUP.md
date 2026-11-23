@@ -142,6 +142,24 @@ sometimes up to ten.
 
 ## Step 8: check it works
 
+### Quick check from one device
+
+Open the game's address with `?check=online` added to the end:
+`https://trutt04.github.io/Hall-of-fame/cloud-nine/?check=online`. A card tries each step on that
+device and turns each line into a check mark or a cross. It takes a few seconds and leaves nothing
+behind. The first cross is the thing to fix:
+
+| Cross on... | What it means |
+|---|---|
+| Settings pasted | Step 7: a `PASTE-...` value is still there, or one is missing. Right after step 7, GitHub may still be publishing: wait a few minutes and tap **Run again**. |
+| The Firebase code loads | The device can't reach Google. Check the internet; some school networks block it, so try home Wi-Fi. |
+| Anonymous sign-in works | Usually step 4: Anonymous is switched off. The card says when it's the key (step 7) or the web address (step 5) instead. |
+| The database answers | "Said no": the rules from step 3 aren't pasted. "Didn't answer": the `databaseURL` is wrong (steps 2 and 7). |
+| The safety rules hold | The rules are too open: anyone could see every room or change other players. Paste them again (step 3), then run the check again. This is the one that matters most. |
+| Clean up | The test room couldn't be removed. Nothing personal is in it; the card gives its code, and you can delete it in the **Data** tab. |
+
+When every line has a check mark, try it for real with two devices:
+
 1. On one phone or tablet, open the game, choose to play with friends and make a room. A
    4-character code appears.
 2. On a second device (a different phone, tablet or computer), choose to join and type that code.
@@ -154,6 +172,7 @@ publishing, then reload the page on both devices.
 
 | Situation | What to do |
 |---|---|
+| You're not sure which step went wrong | Open the game with `?check=online` on the end of its address (step 8). It tries each step from one device and says which one to fix. |
 | Every device says it can't reach the clouds | Check the internet first. Then look at step 7 again: all five values pasted, each in quote marks, commas kept, and the site has had a few minutes to update. Then check steps 4 and 5. |
 | One device can't join but the others can | That device may be offline, or on a network that blocks Google's services (some school networks do). Try it on home Wi-Fi. |
 | "No room with that code" | Check the letters: codes never use vowels, or `0`, `1` or `5`. A room also ends when everybody has left it (a link with that code then simply starts it again), and it is forgotten 12 hours after anyone last played in it. |
