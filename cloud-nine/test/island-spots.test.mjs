@@ -1,7 +1,7 @@
 // Spots asked for by other parts: collectibles (CONTENT), hide spots and the court's bench space (GAMES).
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeIslandPlan, rectDistance, toWorld } from '../js/art/island-layout.js';
+import { makeIslandPlan, rectDistance, toWorld, photoWallColliders } from '../js/art/island-layout.js';
 import { planDecor, spotFor, COURT_SIDE } from '../js/art/island-decor.js';
 
 const plan = makeIslandPlan();
@@ -127,3 +127,61 @@ test('each dodgeball sideline has 3 m of free, flat deck beside it for the bench
     }
   }
 });
+
+test('the photo wall: from the plaza she can walk onto its patio, its stones and round behind it', () => {
+  const W = plan.photoWall;
+  const solid = [...decor.colliders, ...photoWallColliders(W)];
+  const blocked = (x, z) => solid.some((c) => (c.kind === 'circle'
+    ? Math.hypot(x - c.x, z - c.z) < c.r + R
+    : rectDistance(x, z, { x: c.x, z: c.z, w: c.w, d: c.d, facing: c.rot }) < R));
+  // a grid from the plaza's west edge out past the wall
+  const STEP = 0.25;
+  const x0 = -40;
+  const z0 = -6;
+  const nx = Math.ceil(32 / STEP);
+  const nz = Math.ceil(30 / STEP);
+  const free = new Uint8Array(nx * nz);
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const x = x0 + i * STEP;
+      const z = z0 + j * STEP;
+      free[j * nx + i] = groundAt(x, z) > -1e9 && !blocked(x, z) ? 1 : 0;
+    }
+  }
+  const cell = (x, z) => Math.round((z - z0) / STEP) * nx + Math.round((x - x0) / STEP);
+  // flood fill from where the garden path leaves the plaza
+  const seen = new Uint8Array(nx * nz);
+  const start = cell(-12, 2.5);
+  assert.equal(free[start], 1, 'the garden path at the plaza is free');
+  const queue = [start];
+  seen[start] = 1;
+  while (queue.length) {
+    const k = queue.pop();
+    const i = k % nx;
+    const j = (k - i) / nx;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const a = i + di;
+      const c = j + dj;
+      if (a < 0 || c < 0 || a >= nx || c >= nz) continue;
+      const n = c * nx + a;
+      if (free[n] && !seen[n]) {
+        seen[n] = 1;
+        queue.push(n);
+      }
+    }
+  }
+  const reach = (x, z, what) => assert.equal(seen[cell(x, z)], 1, what + ' can be reached at ' + x.toFixed(1) + ',' + z.toFixed(1));
+  reach(W.spot.x, W.spot.z, 'the prompt spot on the patio');
+  reach(W.travel.x, W.travel.z, 'the Go to spot');
+  for (const st of W.stones) reach(st.x, st.z, 'a stepping stone');
+  const [bx, bz] = toWorld(W, 0, -3.2);
+  reach(bx, bz, 'the lawn behind the wall');
+  const [fx, fz] = toWorld(W.bench, 0, 0.9);
+  reach(fx, fz, 'the front of the bench');
+  // the wall, its legs, its stakes and the whole patio stand on one level floor
+  for (const [lx, lz] of [[0, 1], [-1.5, 1.4], [1.5, 1.4], [0, 3.5], [0, 5.1], [2.6, 0.9], [-2.6, 0.9], [0, -1.3], [3.05, 0.3], [-3.05, 0.3]]) {
+    const [x, z] = toWorld(W, lx, lz);
+    assert.ok(Math.abs(groundAt(x, z) - W.y) < 1e-6, 'level ground under the wall and its patio at ' + lx + ',' + lz);
+  }
+});
+

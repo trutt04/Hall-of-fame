@@ -11,6 +11,7 @@
 //   ./world/toss.js, ./games/index.js   -> no basket toss, no game rules yet
 //   ./world/photobooth.js               -> the photo booth stays scenery
 //   ./world/pond.js                     -> no duck pond (the island has no place for it either)
+//   ./world/photowall.js                -> no photo wall (its beacon and "Go to" stay away too)
 //   ./world/pets.js                     -> no cloud puppy (the look's pet slot is kept, just not drawn)
 //   ./ui/creator.js, ./rhythm/index.js  -> loaded when first opened; a friendly placeholder if missing
 //   ./core/gift.js                      -> no family touches (the gift link's notes, birthday, bot friends)
@@ -631,8 +632,37 @@ async function boot() {
       console.warn('[c9] the duck pond failed to start', err);
     }
   }
+  // the photo wall in the west lawn (js/world/photowall.js): photos added on this device stay on it, and
+  // nothing about them goes over the network. Its banner wears her name from the gift link on this
+  // device, and the caption chips the link's names. It reads the photos after the first frame.
+  const wallMod = await optional('./world/photowall.js');
+  if (wallMod && typeof wallMod.installPhotoWall === 'function') {
+    try {
+      world.photoWall = wallMod.installPhotoWall(world, {
+        name: gift ? herBirthday.name : null,
+        gift,
+        petName: giftMod ? giftMod.petName : null,
+        notes: () => {
+          try {
+            return familyNotes; // set further down, before anyone can play the slideshow
+          } catch (err) {
+            return [];
+          }
+        },
+        birthday: () => world.birthday,
+      });
+    } catch (err) {
+      console.warn('[c9] the photo wall failed to start', err);
+    }
+  }
+  function closePhotoWall(why) {
+    if (world.photoWall) world.photoWall.close(why);
+  }
   function boothBusy() {
     return !!(world.booth && world.booth.active);
+  }
+  function photoBusy() {
+    return !!(world.photoWall && world.photoWall.active);
   }
 
   // ---------------------------------------------------------------- first-time welcome, things to do, beacons
@@ -650,7 +680,7 @@ async function boot() {
   world.todo = todo;
   let beacons = null; // js/world/beacons.js: a badge over each place with something to do
   try {
-    beacons = createBeacons({ scene, places, groundAt });
+    beacons = createBeacons({ scene, places: world.photoWall ? places : Object.assign({}, places, { photoWall: null }), groundAt });
   } catch (err) {
     console.warn('[c9] the beacons failed to start', err);
   }
@@ -939,7 +969,7 @@ async function boot() {
       hud.closeWheel();
       return;
     }
-    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy()) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || photoBusy()) return;
     sfx('open', { volume: 0.5 });
     hud.openWheel(wheelEmotes(), sendEmote);
   }
@@ -1023,6 +1053,7 @@ async function boot() {
     }
     if (!GAME_CHOICES.some((g) => g.id === kind)) return;
     closeBooth('game');
+    closePhotoWall('game');
     // a friend in the quick-cheer wheel or the menu when the host starts: the game has the screen now
     hud.closeWheel();
     if (hud.panelOpen) hud.closePanel();
@@ -1171,6 +1202,7 @@ async function boot() {
     if (hitZeroOpen) return;
     hitZeroOpen = true;
     closeBooth('routine');
+    closePhotoWall('routine');
     // the host started it for everyone: a flyer in the air lands softly on her cloud first
     if (toss && toss.active) toss.cancel();
     const mod = await optional('./rhythm/index.js');
@@ -1416,6 +1448,7 @@ async function boot() {
   function leaveSession() {
     lobbyUI = null;
     closeBooth();
+    closePhotoWall();
     if (toss && toss.active) toss.cancel();
     if (world.activeGame) onGameEnd();
     if (session) net.leaveRoom();
@@ -1646,7 +1679,7 @@ async function boot() {
       const creatorFirst = !testRun && welcome.creatorDue(!!store.look);
       if (creatorFirst) {
         setTimeout(() => {
-          if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || world.activeGame || hitZeroOpen) return;
+          if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || photoBusy() || world.activeGame || hitZeroOpen) return;
           welcome.creatorShown();
           openCheerleader(() => {
             backToPlay();
@@ -1687,7 +1720,7 @@ async function boot() {
   const PLACE_LIST = [
     ['plaza', 'The plaza', 'home'], ['tossPads', 'Basket toss', 'jump'], ['gym', 'Cheer gym', 'bow'], ['stage', 'Hit Zero stage', 'music'],
     ['court', 'Dodgeball court', 'ball'], ['bowField', 'Capture the Bow', 'flag'], ['hideGarden', 'Hide-and-seek garden', 'eyes'],
-    ['pond', 'Duck pond', 'sparkle'],
+    ['pond', 'Duck pond', 'sparkle'], ['photoWall', 'Photo wall', 'heart'],
   ];
   function travelSpots() {
     const out = [];
@@ -1695,7 +1728,13 @@ async function boot() {
       let p = key === 'plaza' ? arrival : places[key];
       if (Array.isArray(p)) p = p[0];
       if (key === 'hideGarden' && p) p = p.seekerStart;
+      // the photo wall: on its patio, looking at the heart (and only when the wall is there)
+      if (key === 'photoWall') p = world.photoWall && world.photoWall.plan ? world.photoWall.plan.travel : null;
       if (!p || !Number.isFinite(p.x) || !Number.isFinite(p.z)) continue;
+      if (key === 'photoWall') {
+        out.push({ id: key, name, icon: ic, x: p.x, z: p.z, facing: p.facing });
+        continue;
+      }
       // stand just in front of it, facing it
       let x = p.x;
       let z = p.z;
@@ -1768,7 +1807,8 @@ async function boot() {
         'Names are letters only, and every device checks them against a word filter.',
         'Rooms are private. There is no list of rooms: only someone with the 4-letter code can join, and the host can lock the room or send anyone home.',
         'Online, a room holds only nicknames, looks and where players are, while they play. A room is forgotten 12 hours after anyone last played in it.',
-        'Looks, spirit sticks and booth photos stay on this device. Photos never show names, and they are only shared if you choose to.',
+        'Looks, spirit sticks and booth photos stay on this device. Booth photos never show names, and they are only shared if you choose to.',
+        'The photo wall\'s pictures and captions stay on the device they were added on. They are never uploaded or sent to a room: friends see empty frames. "Remove all photos" on the wall takes them off.',
       ],
       actions: [{ label: 'Got it', icon: 'check', primary: true }],
     });
@@ -1808,7 +1848,7 @@ async function boot() {
   }
 
   function openPauseMenu() {
-    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy()) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || photoBusy()) return;
     sfx('open', { volume: 0.5 });
     const inRoom = session && session.kind === 'room';
     hud.openPanel({
@@ -2011,7 +2051,7 @@ async function boot() {
   let giftPetTries = 0;
   function giftPetSoon() {
     if (!giftPetDue()) return;
-    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || world.activeGame || hitZeroOpen) {
+    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || photoBusy() || world.activeGame || hitZeroOpen) {
       if (++giftPetTries < 30) setTimeout(giftPetSoon, 2000);
       return;
     }
@@ -2073,7 +2113,7 @@ async function boot() {
   engine.addSystem({
     update(dt, t) {
       if (todo) todo.update(dt);
-      if (beacons) beacons.update(dt, t, camera, player.position, mode === 'play' && !world.activeGame && !(toss && toss.active) && !boothBusy() && !player.controller && !(world.pond && world.pond.active));
+      if (beacons) beacons.update(dt, t, camera, player.position, mode === 'play' && !world.activeGame && !(toss && toss.active) && !boothBusy() && !photoBusy() && !player.controller && !(world.pond && world.pond.active));
     },
   }, 42);
   engine.addSystem({

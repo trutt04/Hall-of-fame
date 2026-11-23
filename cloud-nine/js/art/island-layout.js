@@ -12,6 +12,8 @@
 //   plan.slides              [{ id, fromPlatformId, x0, z0, x1, z1, y0, y1, halfWidth }]
 //   plan.ground              { groundAt(x, z), islandHeight(x, z), insideMain(x, z), ... }
 //   plan.pond                the duck pond: makePond() below (pondColliders(pond) is what is solid)
+//   plan.photoWall           the photo wall: makePhotoWall() below (photoWallColliders(wall) is what is
+//                            solid; js/world/photowall.js registers them, since the scatter doesn't know it)
 //
 //   groundAt(x, z) -> y of the walkable surface (island, isle, cloud platforms, rainbow slides, the
 //   bridge and the duck pond's dock), or -Infinity over open sky. A precomputed height grid plus a
@@ -258,6 +260,13 @@ export function makeIslandPlan() {
   // front, `facing`), so from the end of it she looks out over the ducks at the falls and the sky.
   const pond = makePond({ x: 41, z: -1, r: 4.6, facing: -Math.PI / 2, y: -0.8 });
 
+  // ---------------------------------------------------------------- the photo wall (west lawn)
+  // In the open lawn between the garden path and the freeze tag lawn, west of the plaza, facing the
+  // plaza's west side: it shows from the plaza and from the garden path, but stands out of the view
+  // she gets when she arrives (that one is the toss pads' clouds) and off every path and game area.
+  // A little paved patio in front, and stepping stones over to the garden path.
+  const photoWall = makePhotoWall({ x: -26.5, z: 8.4, facing: faceToward(-26.5, 8.4, -6, 4), y: 0.15 });
+
   // ---------------------------------------------------------------- flat pads (the terrain eases to y = 0 under these)
   const pads = [
     { kind: 'disc', x: plazaC.x, z: plazaC.z, r: plazaC.r + 2, blend: 7 },
@@ -274,6 +283,7 @@ export function makeIslandPlan() {
     { kind: 'disc', x: bridge.x0, z: bridge.z0, r: 5, blend: 5 },
     ...waterfalls.map((w) => ({ kind: 'disc', x: w.x, z: w.z, r: w.pondR + 1.6, blend: 4 })),
     { kind: 'disc', x: pond.x, z: pond.z, r: pond.r + 2.8, blend: 4, y: pond.y }, // the hollow, levelled
+    { kind: 'disc', x: photoWall.pad.x, z: photoWall.pad.z, r: photoWall.pad.r, blend: 4, y: photoWall.y }, // the photo wall and its patio
   ];
   for (const p of pads) {
     if (!Number.isFinite(p.y)) p.y = 0;
@@ -305,6 +315,7 @@ export function makeIslandPlan() {
     { id: 'gardenToToss', w: 3.0, pts: spline([[-46, -21], [-46.5, -26], [tossPads[0].x + 2, tossPads[0].z + 2.5]]) },
     { id: 'isleWalk', w: 2.8, pts: spline([bridgeEnd, toWorld(boutique, 0, 5.2)]) },
   ];
+  photoWall.stones = photoWallStones(photoWall, paths.find((p) => p.id === 'toGarden'));
 
   // ---------------------------------------------------------------- places (Contract 1)
   const places = {
@@ -330,10 +341,11 @@ export function makeIslandPlan() {
     bridge: { x0: bridge.x0, z0: bridge.z0, x1: bridge.x1, z1: bridge.z1, w: bridge.halfWidth * 2 },
     waterfalls: waterfalls.map((w) => ({ id: w.id, x: w.lip[0], z: w.lip[1] })),
     pond: { x: pond.x, z: pond.z, facing: pond.facing, r: pond.r }, // r: the water's radius
+    photoWall: { x: photoWall.x, z: photoWall.z, facing: photoWall.facing }, // the foot of the heart board, facing out
   };
 
   const plan = {
-    center: CENTER, main, isle, isleOutline, places, platforms, slides, bridge, pads, knolls, paths, waterfalls, pond,
+    center: CENTER, main, isle, isleOutline, places, platforms, slides, bridge, pads, knolls, paths, waterfalls, pond, photoWall,
     plazaC, cake, fountain, gym, stage, court, bowField, tag, garden, gardenPlan: hideGarden, photoBooth, boutique,
     toss: { bearing: tossBearing, u: [ux, uz], v: [vx, vz], pads: tossPads },
   };
@@ -529,6 +541,103 @@ export function pondColliders(pond) {
   }
   out.push({ kind: 'box', x: pond.bench.x, z: pond.bench.z, w: 1.9, d: 0.7, rot: pond.bench.facing, tag: 'pond' });
   out.push({ kind: 'circle', x: pond.sign.x, z: pond.sign.z, r: 0.3, tag: 'pond' });
+  return out;
+}
+
+// ------------------------------------------------------------------------------------- the photo wall
+// The classic heart curve, in "heart units": 32 across, from y = -17 (the tip) up to the tops of the
+// lobes (about 11.9), with the dip between them at y = 5. t runs clockwise from the dip.
+export function heartPoint(t, out = [0, 0]) {
+  const s = Math.sin(t);
+  out[0] = 16 * s * s * s;
+  out[1] = 13 * Math.cos(t) - 5 * Math.cos(2 * t) - 2 * Math.cos(3 * t) - Math.cos(4 * t);
+  return out;
+}
+export const HEART = (() => {
+  let top = -Infinity;
+  const p = [0, 0];
+  for (let i = 0; i < 2048; i++) top = Math.max(top, heartPoint((i / 2048) * TAU, p)[1]);
+  return Object.freeze({ width: 32, tip: -17, top, dip: 5 });
+})();
+
+// The wall's furniture in its own frame: local +Z is its front (toward the plaza), +X its right as
+// you face it. x, z is the foot of the board (its centre line on the ground); y the levelled ground.
+//   board: { w, h, d, tip, cy, scale } the heart: w across, h tall, d thick, its tip `tip` m off the
+//          ground, its curve's origin `cy` m up, `scale` m per heart unit (js/art/photowall-art.js)
+//   pad { x, z, r }: the levelled ground       patio { x, z, w }: the paved heart she stands on (w across;
+//   x, z its middle)       spot { x, z }: where the prompt is       travel { x, z, facing }: where "Go to"
+//   puts her, looking at it       poles: the two striped poles the heart and its banner hang from
+//   stakes: where the heart balloons are tied       bench { x, z, facing }: facing the wall
+//   stones [{ x, z, r }]: stepping stones to the garden path (photoWallStones, once the paths exist)
+export const PHOTO_WALL = Object.freeze({
+  w: 5.0, d: 0.24, tip: 0.45, patioW: 5.4, patioAt: 0.25, spotAt: 2.6, travelAt: 5.6,
+  poleX: 1.8, poleBack: 0.34, stakeX: 3.05, stakeAt: 0.3,
+});
+export function makePhotoWall({ x, z, facing, y = 0 }) {
+  const B = PHOTO_WALL;
+  const p = { x, z, facing };
+  const at = (lx, lz) => {
+    const [wx, wz] = toWorld(p, lx, lz);
+    return { x: wx, z: wz };
+  };
+  const scale = B.w / HEART.width;
+  const board = { w: B.w, h: (HEART.top - HEART.tip) * scale, d: B.d, tip: B.tip, cy: B.tip - HEART.tip * scale, scale };
+  // the patio is a heart lying on the ground, its lobes at the board's foot and its tip toward the plaza
+  const patioLen = (HEART.top - HEART.tip) * (B.patioW / HEART.width);
+  const bench = at(-3.9, 2.9);
+  return {
+    x, z, facing, y, board,
+    pad: { ...at(0, 2.0), r: 6.2 },
+    patio: { ...at(0, B.patioAt + patioLen / 2), w: B.patioW, len: patioLen, at: B.patioAt },
+    spot: at(0, B.spotAt),
+    travel: { ...at(0, B.travelAt), facing: facing + Math.PI },
+    poles: [at(-B.poleX, -B.poleBack), at(B.poleX, -B.poleBack)],
+    stakes: [at(-B.stakeX, B.stakeAt), at(B.stakeX, B.stakeAt)],
+    // on the grass beside the patio, turned to look at the middle of the heart
+    bench: { ...bench, facing: faceToward(bench.x, bench.z, at(0, 0.4).x, at(0, 0.4).z) },
+    stones: [],
+  };
+}
+
+// Stepping stones from the patio's edge over the grass to the nearest kerb of `path`, about a stride
+// apart (none when the patio already reaches it).
+export function photoWallStones(wall, path) {
+  if (!wall || !path || !Array.isArray(path.pts) || path.pts.length < 2) return [];
+  const near = { t: 0, d2: 0 };
+  let best = null;
+  for (let i = 0; i < path.pts.length - 1; i++) {
+    const [ax, az] = path.pts[i];
+    const [bx, bz] = path.pts[i + 1];
+    segNear(ax, az, bx, bz, wall.patio.x, wall.patio.z, near);
+    if (!best || near.d2 < best.d2) best = { d2: near.d2, x: ax + (bx - ax) * near.t, z: az + (bz - az) * near.t };
+  }
+  const dx = best.x - wall.patio.x;
+  const dz = best.z - wall.patio.z;
+  const d = Math.sqrt(best.d2) || 1;
+  const from = wall.patio.w * 0.42; // the patio's edge, roughly, on that side
+  const to = d - path.w / 2 - 0.15;
+  const n = Math.floor((to - from) / 0.72);
+  const out = [];
+  for (let k = 0; k < n; k++) {
+    const along = from + ((to - from) * (k + 0.5)) / n;
+    const wob = k % 2 ? 0.16 : -0.16;
+    out.push({ x: wall.patio.x + (dx / d) * along - (dz / d) * wob, z: wall.patio.z + (dz / d) * along + (dx / d) * wob, r: 0.3 - 0.02 * (k % 2) });
+  }
+  return out;
+}
+
+// What is solid at the photo wall: the board (and the poles right behind it), the balloon stakes and
+// the bench. The patio and the stones are walkable. Pure ({ kind, x, z, ... } like
+// planDecor's colliders); js/world/photowall.js registers them, with the tag 'photoWall'.
+export function photoWallColliders(wall) {
+  const f = wall.facing;
+  const B = PHOTO_WALL;
+  const c = (p, r) => ({ kind: 'circle', x: p.x, z: p.z, r, tag: 'photoWall' });
+  const [bx, bz] = toWorld(wall, 0, -0.12);
+  const out = [{ kind: 'box', x: bx, z: bz, w: B.w + 0.1, d: B.d + 0.42, rot: f, tag: 'photoWall' }];
+  for (const p of wall.poles) out.push(c(p, 0.2));
+  for (const p of wall.stakes) out.push(c(p, 0.16));
+  out.push({ kind: 'box', x: wall.bench.x, z: wall.bench.z, w: 1.9, d: 0.7, rot: wall.bench.facing, tag: 'photoWall' });
   return out;
 }
 

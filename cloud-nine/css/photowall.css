@@ -1,0 +1,215 @@
+/* The photo wall (js/world/photowall.js): the manager (js/ui/photo-manager.js) is a sheet at the bottom
+   of a phone, with the wall framed above it, and a panel on the right when the screen is wide; the
+   viewer (js/ui/photo-viewer.js) is a full-screen scrapbook. Her colours: hot pink, black, rhinestones.
+   Text 16px and up, buttons 48px and up, safe areas kept, sideways too. */
+
+/* ---------- the manager ---------- */
+.c9pw{position:fixed;inset:0;z-index:34;pointer-events:auto;font-family:var(--font);color:var(--ink);
+  background:linear-gradient(to top,rgba(43,34,51,.28),rgba(43,34,51,0) 55%)}
+.c9pw-sheet{position:absolute;left:calc(8px + var(--sal));right:calc(8px + var(--sar));bottom:0;height:66%;max-height:calc(100% - 120px);
+  display:flex;flex-direction:column;background:var(--white);border:var(--line);border-bottom:0;border-top:10px solid var(--pink);
+  border-radius:28px 28px 0 0;box-shadow:0 -6px 0 rgba(23,18,28,.12),var(--soft-shadow);outline:none;
+  transform:translateY(24px);opacity:0;transition:transform .32s cubic-bezier(.2,1.2,.3,1),opacity .2s ease-out}
+.c9pw.c9pw-in .c9pw-sheet{transform:none;opacity:1}
+.c9pw-head{position:relative;flex:0 0 auto;display:flex;align-items:flex-start;gap:10px;padding:12px 14px 6px 18px}
+.c9pw-heads{flex:1 1 auto;min-width:0}
+.c9pw-kicker{margin:0;font-weight:900;font-size:16px;letter-spacing:.1em;text-transform:uppercase;color:var(--pink-ink)}
+.c9pw-title{margin:0;font-weight:900;font-size:clamp(22px,6vw,30px);line-height:1.08;color:var(--black);overflow-wrap:break-word}
+.c9pw-x,.c9pv-x{flex:0 0 auto;width:52px;height:52px;display:grid;place-items:center;padding:0;color:var(--ink);background:var(--white);
+  border:var(--line);border-radius:50%;box-shadow:0 3px 0 var(--black);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.c9pw-x:active,.c9pv-x:active{transform:translateY(2px);box-shadow:var(--sticker-down)}
+.c9pw-body{flex:1 1 auto;overflow:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  padding:4px 18px calc(22px + var(--sab)) 18px;touch-action:pan-y}
+.c9pw button:focus-visible{outline:4px solid var(--purple);outline-offset:3px}
+.c9pw label:focus-visible{outline:4px solid var(--purple);outline-offset:3px}
+.c9pw-privacy{display:flex;align-items:flex-start;gap:8px;margin:2px 0 10px;padding:9px 12px;font-weight:700;font-size:16px;line-height:1.3;
+  color:var(--ink);background:var(--pink-pale);border-radius:16px}
+.c9pw-lock{width:22px;height:22px;margin-top:1px;color:var(--pink-ink)}
+.c9pw-note,.c9pw-tip{margin:0 0 10px;padding:9px 12px;font-weight:600;font-size:16px;line-height:1.3;border-radius:16px}
+.c9pw-note{background:#fff3c4;border:2px solid #f3c95a}
+.c9pw-tip{background:#efe6ff;border:2px solid var(--lilac)}
+.c9pw-addrow{position:relative;display:flex;align-items:center;gap:12px;margin:4px 0 2px}
+.c9pw-add{flex:1 1 auto;max-width:340px;min-height:60px;font-size:20px;text-decoration:none;user-select:none;-webkit-user-select:none}
+.c9pw-add.c9pw-busy{opacity:.65}
+.c9pw-add.c9pw-off{opacity:.45;pointer-events:none}
+.c9pw-count{flex:0 0 auto;font-weight:900;font-size:17px;color:var(--pink-ink)}
+/* the file input: in the page (a label opens it), never seen */
+.c9pw-file{position:absolute;left:0;top:0;width:1px;height:1px;opacity:0;pointer-events:none;overflow:hidden}
+.c9pw-status{min-height:24px;margin:6px 2px 8px;font-weight:800;font-size:17px;line-height:1.25;color:var(--ink)}
+.c9pw-status.c9pw-yay{color:var(--pink-ink);animation:c9pw-pop .3s ease-out both}
+.c9pw-status.c9pw-oops{color:#8a1d52;animation:c9pw-pop .3s ease-out both}
+.c9pw-status.c9pw-busy{color:var(--purple)}
+@keyframes c9pw-pop{from{transform:scale(.94);opacity:.3}to{transform:none;opacity:1}}
+.c9pw-empty{margin:4px 0 12px;font-weight:700;font-size:17px;color:var(--ink)}
+
+.c9pw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:12px 10px;margin:4px 0 14px;padding:0;list-style:none}
+.c9pw-cell{margin:0;padding:0}
+.c9pw-tile{position:relative;display:flex;flex-direction:column;width:100%;min-height:118px;margin:0;padding:6px 6px 4px;color:var(--ink);
+  background:#fffdf7;border:2.5px solid var(--black);border-radius:10px;box-shadow:0 3px 0 var(--black);cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent;transform:rotate(-1deg)}
+.c9pw-cell:nth-child(even) .c9pw-tile{transform:rotate(1.2deg)}
+.c9pw-tile:active{transform:translateY(2px);box-shadow:var(--sticker-down)}
+.c9pw-tile.c9pw-picked{outline:4px solid var(--pink);outline-offset:3px;transform:rotate(0) scale(1.03)}
+.c9pw-thumb{display:block;width:100%;aspect-ratio:1/1;height:auto;object-fit:cover;object-position:50% 38%;background:var(--pink-pale);border-radius:3px}
+.c9pw-tile-cap{display:block;min-height:22px;margin-top:3px;font-family:"Marker Felt","Noteworthy","Bradley Hand","Segoe Print","Comic Sans MS",cursive;
+  font-weight:700;font-size:16px;line-height:1.3;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c9pw-badge{position:absolute;top:-12px;right:-10px;width:34px;height:34px;display:grid;place-items:center;font-size:20px;line-height:1;
+  color:var(--black);background:var(--gold);border:2.5px solid var(--black);border-radius:50%;transform:rotate(12deg)}
+.c9pw-tile-add{align-items:center;justify-content:center;color:var(--pink);background:var(--cloud);border-style:dashed;box-shadow:none;transform:none}
+.c9pw-tile-add .c9-icon{width:40px;height:40px;stroke-width:3}
+
+.c9pw-edit{margin:0 0 14px;padding:12px;background:var(--cloud);border:2.5px solid var(--pink-soft);border-radius:20px}
+.c9pw-edit-top{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+.c9pw-edit-pic{flex:0 0 auto;width:96px;padding:5px 5px 14px;background:#fffdf7;border:2.5px solid var(--black);border-radius:8px;transform:rotate(-2deg)}
+.c9pw-edit-img{display:block;width:100%;aspect-ratio:1/1;height:auto;object-fit:cover;object-position:50% 38%;background:var(--pink-pale)}
+.c9pw-capbox{flex:1 1 auto;min-width:0}
+.c9pw-cap-label{display:block;margin:0 0 4px;font-weight:900;font-size:17px;color:var(--black)}
+.c9pw-cap{width:100%;min-height:52px;padding:8px 14px;font-family:inherit;font-weight:700;font-size:18px;color:var(--ink);background:var(--white);
+  border:2.5px solid var(--black);border-radius:14px;outline:none;-webkit-user-select:text;user-select:text}
+.c9pw-cap:focus{border-color:var(--pink);box-shadow:0 0 0 3px var(--pink-pale)}
+.c9pw-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.c9pw-chip{min-height:48px;padding:8px 16px;font-weight:800;font-size:17px;color:var(--ink);background:var(--white);border:2.5px solid var(--black);
+  border-radius:999px;box-shadow:0 3px 0 var(--black);cursor:pointer;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.c9pw-chip:active{transform:translateY(2px);box-shadow:var(--sticker-down)}
+.c9pw-chip[aria-pressed="true"]{color:var(--white);background:var(--pink)}
+.c9pw-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.c9pw-tool{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:52px;padding:6px 10px;font-weight:900;font-size:17px;
+  color:var(--ink);background:var(--white);border:2.5px solid var(--black);border-radius:16px;box-shadow:0 3px 0 var(--black);cursor:pointer;
+  touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.c9pw-tool:active{transform:translateY(2px);box-shadow:var(--sticker-down)}
+.c9pw-tool:disabled{opacity:.4;cursor:default;transform:none;box-shadow:0 3px 0 var(--black)}
+.c9pw-tool .c9-icon{width:22px;height:22px}
+.c9pw-tool-later .c9-icon{transform:scaleX(-1)}
+.c9pw-tool-star .c9-icon{color:var(--gold);fill:var(--gold);stroke:var(--black);stroke-width:1.6}
+.c9pw-tool-star.c9pw-is-star{background:#fff3c4}
+.c9pw-tool-remove{color:#8a1d52}
+.c9pw-confirm{margin:0;padding:12px;background:var(--pink-pale);border:2.5px solid var(--pink);border-radius:16px}
+.c9pw-confirm-all{margin:10px 0 0}
+.c9pw-ask{margin:0 0 2px;font-weight:900;font-size:18px;color:var(--black)}
+.c9pw-why{margin:0 0 10px;font-weight:700;font-size:16px}
+.c9pw-confirm-row{display:flex;flex-wrap:wrap;gap:10px}
+.c9pw-confirm-row .c9-btn{flex:1 1 120px;min-height:52px}
+.c9pw-actions{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 6px}
+.c9pw-actions .c9-btn{flex:1 1 150px;min-height:54px;font-size:18px}
+.c9pw-done{background:var(--lemon)}
+.c9pw-clear{display:block;min-height:48px;margin:10px auto 0;padding:8px 12px;font-weight:700;font-size:16px;color:#8a1d52;background:none;border:0;
+  text-decoration:underline;cursor:pointer;touch-action:manipulation}
+
+/* wide screens and phones on their side: a panel on the right, the wall on the left */
+@media (min-width:760px){
+  .c9pw{background:linear-gradient(to left,rgba(43,34,51,.26),rgba(43,34,51,0) 60%)}
+  .c9pw-sheet{left:auto;top:calc(12px + var(--sat));bottom:calc(12px + var(--sab));right:calc(12px + var(--sar));width:min(500px,52%);height:auto;max-height:none;
+    border:var(--line);border-top:10px solid var(--pink);border-radius:28px;transform:translateX(24px)}
+}
+@media (orientation:landscape) and (max-height:520px){
+  .c9pw{background:linear-gradient(to left,rgba(43,34,51,.26),rgba(43,34,51,0) 60%)}
+  .c9pw-sheet{left:auto;top:calc(6px + var(--sat));bottom:0;right:calc(6px + var(--sar));width:58%;height:auto;max-height:none;
+    border:var(--line);border-bottom:0;border-top:8px solid var(--pink);border-radius:24px 24px 0 0;transform:translateX(24px)}
+  .c9pw-head{padding:8px 12px 4px 16px}
+  .c9pw-title{font-size:22px}
+  .c9pw-grid{grid-template-columns:repeat(auto-fill,minmax(84px,1fr))}
+}
+
+/* ---------- the viewer: a scrapbook page ---------- */
+.c9pv{position:fixed;inset:0;z-index:36;overflow:hidden;outline:none;font-family:var(--font);color:var(--ink);opacity:0;transition:opacity .25s ease-out;
+  background-color:#ffe3ef;
+  background-image:radial-gradient(rgba(255,255,255,.85) 1.6px,transparent 1.8px),linear-gradient(rgba(255,46,147,.07) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(255,46,147,.07) 1px,transparent 1px);
+  background-size:22px 22px,44px 44px,44px 44px;touch-action:none;user-select:none;-webkit-user-select:none}
+.c9pv.c9pv-open{opacity:1}
+/* washi tape in the corners of the page */
+.c9pv::before,.c9pv::after{content:"";position:absolute;width:150px;height:34px;opacity:.9;pointer-events:none;
+  background:repeating-linear-gradient(135deg,#ff8cc6 0 12px,#ffc4df 12px 24px)}
+.c9pv::before{left:-30px;top:calc(26px + var(--sat));transform:rotate(-38deg)}
+.c9pv::after{right:-30px;bottom:calc(26px + var(--sab));transform:rotate(-38deg);background:repeating-linear-gradient(135deg,#cdb4ff 0 12px,#e9deff 12px 24px)}
+.c9pv-stage{position:absolute;left:0;right:0;top:calc(70px + var(--sat));bottom:calc(92px + var(--sab))}
+.c9pv-slide{position:absolute;inset:0;margin:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.c9pv-in{animation:c9pv-fade-in .35s ease-out both}
+.c9pv-out{animation:c9pv-fade-out .35s ease-in both}
+.c9pv-in-slow{animation:c9pv-fade-in 1.2s ease-in-out both}
+.c9pv-out-slow{animation:c9pv-fade-out 1.2s ease-in-out both}
+@keyframes c9pv-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes c9pv-fade-out{from{opacity:1}to{opacity:0}}
+.c9pv-card{position:relative;box-sizing:border-box}
+.c9pv-polaroid{background:#fffdf7;border-radius:6px;box-shadow:0 2px 0 rgba(23,18,28,.15),0 14px 30px rgba(80,30,90,.28);transform:rotate(-1.2deg)}
+.c9pv-img{display:block;background:var(--pink-pale)}
+.c9pv-cap{display:flex;align-items:center;justify-content:center;height:var(--cap,64px);padding:0 10px;font-weight:700;font-size:clamp(20px,4.6vw,34px);
+  line-height:1.1;text-align:center;color:var(--ink);overflow:hidden}
+.c9pv-cap-none::before{content:"\2665  \2665  \2665";color:var(--pink-soft);font-size:22px}
+.c9pv-star{position:absolute;top:-18px;right:-16px;width:52px;height:52px;display:grid;place-items:center;font-size:30px;line-height:1;color:var(--black);
+  background:var(--gold);border:3px solid var(--black);border-radius:50%;transform:rotate(14deg);box-shadow:0 3px 0 var(--black)}
+/* a family note: lined paper, handwriting, tape on top */
+.c9pv-notecard{width:min(540px,86vw);padding:42px 30px 26px;border-radius:6px;transform:rotate(1.6deg);
+  background-color:#fffaf0;background-image:repeating-linear-gradient(to bottom,transparent 0 37px,rgba(255,46,147,.22) 37px 39px);
+  box-shadow:0 2px 0 rgba(23,18,28,.12),0 14px 30px rgba(80,30,90,.25)}
+.c9pv-note-tape{position:absolute;left:50%;top:-14px;width:150px;height:34px;transform:translateX(-50%) rotate(-3deg);
+  background:repeating-linear-gradient(90deg,#ff8cc6 0 10px,#ffd6ea 10px 20px);opacity:.95}
+.c9pv-note-text{margin:0;font-weight:700;font-size:clamp(22px,5vw,32px);line-height:39px;color:#2b2233;overflow-wrap:break-word}
+.c9pv-note-from{margin:14px 0 0;font-weight:700;font-size:clamp(20px,4.6vw,28px);text-align:right;color:var(--pink-ink)}
+.c9pv-note-heart{position:absolute;left:18px;bottom:12px;font-size:30px;color:var(--pink)}
+/* her birthday: the last card */
+.c9pv-bdaycard{width:min(560px,88vw);padding:40px 24px 36px;text-align:center;color:var(--white);border:4px solid var(--black);border-radius:28px;
+  background:linear-gradient(160deg,#ff5aa9,#ff2e93 55%,#c2156f);box-shadow:0 8px 0 var(--black),0 18px 40px rgba(80,30,90,.3);overflow:hidden;transform:rotate(-1deg)}
+.c9pv-bday-kicker{margin:0;font-size:28px;letter-spacing:.2em;color:var(--gold)}
+.c9pv-bday-title{margin:8px 0 10px;font-weight:900;font-size:clamp(32px,8vw,54px);line-height:1.05;color:var(--white);
+  text-shadow:0 3px 0 var(--black),2px 0 0 var(--black),-2px 0 0 var(--black),0 -2px 0 var(--black)}
+.c9pv-bday-line{margin:0;font-weight:700;font-size:clamp(22px,5vw,30px);color:#fff3c4}
+.c9pv-confetti{position:absolute;top:-20px;width:10px;height:16px;border-radius:2px;animation:c9pv-fall 3.2s linear infinite}
+.c9pv-confetti0{background:var(--gold)}
+.c9pv-confetti1{background:var(--white)}
+.c9pv-confetti2{background:var(--lilac)}
+.c9pv-confetti3{background:var(--black)}
+@keyframes c9pv-fall{from{transform:translateY(0) rotate(0)}to{transform:translateY(420px) rotate(540deg)}}
+
+/* the slideshow's gentle drift */
+.c9pv-drift-a .c9pv-card{animation:c9pv-drift-a var(--hold,6s) ease-in-out both}
+.c9pv-drift-b .c9pv-card{animation:c9pv-drift-b var(--hold,6s) ease-in-out both}
+@keyframes c9pv-drift-a{from{transform:rotate(-1.2deg) scale(1)}to{transform:rotate(-.4deg) scale(1.06) translate(-1.2%,-1%)}}
+@keyframes c9pv-drift-b{from{transform:rotate(1deg) scale(1.05) translate(1%,1%)}to{transform:rotate(.2deg) scale(1)}}
+.c9pv-notecard.c9pv-card{animation-name:none}
+.c9pv-sparkles{position:absolute;inset:0;pointer-events:none}
+.c9pv-spark{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;background:var(--white);opacity:0;
+  -webkit-clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);
+  clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);animation:c9pv-twinkle 1.6s ease-out both}
+.c9pv-spark:nth-child(3n){background:#ff7ad1}
+.c9pv-spark:nth-child(3n+1){background:#ffd36e}
+@keyframes c9pv-twinkle{0%{opacity:0;transform:scale(.2) rotate(0)}30%{opacity:1;transform:scale(var(--s,1)) rotate(25deg)}100%{opacity:0;transform:scale(.4) rotate(70deg)}}
+
+/* the bars and the arrows */
+.c9pv-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:10px;
+  padding:calc(10px + var(--sat)) calc(12px + var(--sar)) 6px calc(16px + var(--sal))}
+.c9pv-title{flex:1 1 auto;min-width:0;margin:0;font-weight:900;font-size:clamp(18px,4.8vw,24px);color:var(--black);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.c9pv-count{flex:0 0 auto;margin:0;padding:6px 12px;font-weight:900;font-size:17px;color:var(--white);background:var(--black);border-radius:999px}
+.c9pv-count:empty{display:none}
+.c9pv-edge{position:absolute;top:50%;width:58px;height:58px;margin-top:-29px;display:grid;place-items:center;padding:0;color:var(--ink);background:var(--white);
+  border:var(--line);border-radius:50%;box-shadow:0 4px 0 var(--black);cursor:pointer;z-index:2;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  transition:opacity .3s,visibility .3s}
+/* they step aside for the slideshow and for the cards, so they never sit over a note's words */
+.c9pv-playing .c9pv-edge,.c9pv-on-card .c9pv-edge{opacity:0;visibility:hidden}
+.c9pv-edge:active{transform:translateY(3px);box-shadow:var(--sticker-down)}
+.c9pv-edge .c9-icon{width:30px;height:30px;stroke-width:3}
+.c9pv-prev{left:calc(8px + var(--sal))}
+.c9pv-next{right:calc(8px + var(--sar))}
+.c9pv-next .c9-icon{transform:scaleX(-1)}
+.c9pv-bar{position:absolute;left:0;right:0;bottom:0;display:flex;justify-content:center;flex-wrap:wrap;gap:10px;
+  padding:8px calc(12px + var(--sar)) calc(12px + var(--sab)) calc(12px + var(--sal))}
+.c9pv-bar .c9-btn{flex:0 1 auto;min-height:56px;font-size:18px}
+.c9pv button:focus-visible{outline:4px solid var(--purple);outline-offset:3px}
+.c9pv-playing .c9pv-manage{display:none}
+
+@media (orientation:landscape) and (max-height:520px){
+  .c9pv-stage{top:calc(56px + var(--sat));bottom:calc(70px + var(--sab))}
+  .c9pv-top{padding-top:calc(6px + var(--sat))}
+  .c9pv-bar .c9-btn{min-height:50px;padding:6px 18px}
+  .c9pv-notecard{padding:30px 26px 18px}
+  .c9pv-note-text{font-size:22px;line-height:34px}
+  .c9pv-notecard{background-image:repeating-linear-gradient(to bottom,transparent 0 32px,rgba(255,46,147,.22) 32px 34px)}
+}
+
+@media (prefers-reduced-motion:reduce){
+  .c9pw-sheet{transition:opacity .15s linear;transform:none}
+  .c9pw-status.c9pw-yay,.c9pw-status.c9pw-oops{animation:none}
+  .c9pv-in-slow,.c9pv-out-slow{animation-duration:.6s}
+  .c9pv-drift-a .c9pv-card,.c9pv-drift-b .c9pv-card{animation:none}
+  .c9pv-spark,.c9pv-confetti{display:none}
+}
