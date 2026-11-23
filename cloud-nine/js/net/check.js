@@ -322,7 +322,7 @@ export async function runOnlineCheck({ config = FIREBASE_CONFIG, sdk = null, loa
     }
     // the anonymous account goes too, once nothing is left that needs it to be removed
     if (clean && seen.user && typeof S.auth.deleteUser === 'function') {
-      await withTimeout(S.auth.deleteUser(seen.user), ms, 'deleting the test account').catch(noop);
+      await withTimeout(Promise.resolve().then(() => S.auth.deleteUser(seen.user)), ms, 'deleting the test account').catch(noop);
     }
     t.dispose();
     if (clean && !code) return set('cleanup', 'skip', SAY.nothingToTidy);
