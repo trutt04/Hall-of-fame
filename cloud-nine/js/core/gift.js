@@ -14,6 +14,8 @@
 //   notes      up to 12 of { from: a name, text: up to 280 characters, emoji fine, no < or >, no links }
 //   friends    up to 9 names: her bot friends when she plays alone, in order
 //   petNames   { cloudPuppy: name, husky: name }: only the pet ids in PET_IDS
+//   pondName   the duck pond sign's words on this device ("Zuzu's Duck Pond"): letters, spaces,
+//              apostrophes and hyphens (a letter first), up to 24
 // A name is letters, spaces and . ' - (a letter first), up to 16. Every name and note goes through
 // the game's word filter (js/content/blocklist.js): a blocked one is dropped.
 //
@@ -50,15 +52,16 @@ import { BIRTHDAY, PALETTE } from '../config.js';
 import { isBlocked } from '../content/blocklist.js';
 
 export const GIFT_KEY = 'c9.gift.v1';
-export const GIFT_LIMITS = Object.freeze({ bytes: 8192, name: 16, note: 280, notes: 12, friends: 9, botNick: 12, year: [2000, 2030] });
+export const GIFT_LIMITS = Object.freeze({ bytes: 8192, name: 16, note: 280, notes: 12, friends: 9, botNick: 12, year: [2000, 2030], pondName: 24 });
 export const PET_IDS = Object.freeze(['cloudPuppy', 'husky']);
 const MAX_ENCODED = Math.ceil(GIFT_LIMITS.bytes / 3) * 4;
-const KEYS = ['v', 'to', 'from', 'birthday', 'notes', 'friends', 'petNames'];
+const KEYS = ['v', 'to', 'from', 'birthday', 'notes', 'friends', 'petNames', 'pondName'];
 
 // ---------------------------------------------------------------------------------- characters
 
 const LETTER = 'A-Za-z\\u00c0-\\u00d6\\u00d8-\\u00f6\\u00f8-\\u017f';
 const NAME_RE = new RegExp("^[" + LETTER + "][" + LETTER + " .'-]*$");
+const POND_RE = new RegExp("^[" + LETTER + "][" + LETTER + " '-]*$");
 // what a note may hold besides emoji: letters, digits, spaces and common punctuation
 const TEXT_RE = new RegExp("^[" + LETTER + "0-9 .,!?\\u00a1\\u00bf'\"\\u2018\\u2019\\u201c\\u201d():;\\-\\u2013\\u2014\\u2026&/+=%*#~_^$\\u20ac\\u00a3\\u00b0\\u00b7\\u2022]$");
 const ANGLES = new Set([0x3c, 0x3e, 0xff1c, 0xff1e, 0xfe64, 0xfe65, 0x2329, 0x232a, 0x3008, 0x3009]);
@@ -111,6 +114,25 @@ function nameCheck(raw) {
   if (!s) return { reason: 'empty' };
   if (cpCount(s) > GIFT_LIMITS.name) return { reason: 'longer than ' + GIFT_LIMITS.name + ' characters' };
   if (!NAME_RE.test(s)) return { reason: "only letters, spaces and . ' - (starting with a letter)" };
+  if (isBlocked(s)) return { reason: 'the word filter refused it' };
+  return { name: s };
+}
+
+// The duck pond's sign: { name } or { reason }. Like a name, but up to 24 and no dots.
+function pondNameCheck(raw) {
+  const max = GIFT_LIMITS.pondName;
+  if (typeof raw !== 'string') return { reason: 'not text' };
+  if (raw.length > 200) return { reason: 'longer than ' + max + ' characters' };
+  let s = '';
+  for (const ch of nfc(raw).replace(/[‘’ʼ]/g, "'")) {
+    const cp = ch.codePointAt(0);
+    if (/\s/.test(ch)) s += ' ';
+    else if (!isControl(cp) && !isInvisible(cp) && cp !== 0x200d && cp !== 0xfe0e && cp !== 0xfe0f) s += ch;
+  }
+  s = s.replace(/ {2,}/g, ' ').trim();
+  if (!s) return { reason: 'empty' };
+  if (cpCount(s) > max) return { reason: 'longer than ' + max + ' characters' };
+  if (!POND_RE.test(s)) return { reason: "only letters, spaces, ' and - (starting with a letter)" };
   if (isBlocked(s)) return { reason: 'the word filter refused it' };
   return { name: s };
 }
@@ -283,6 +305,11 @@ export function validateGift(raw) {
       }
       if (any) gift.petNames = pets;
     }
+  }
+  if (raw.pondName !== undefined) {
+    const r = pondNameCheck(raw.pondName);
+    if (r.name) gift.pondName = r.name;
+    else drop('pondName', r.reason, raw.pondName);
   }
   return { gift, dropped };
 }

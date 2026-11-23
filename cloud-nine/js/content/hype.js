@@ -18,7 +18,7 @@
 // any situation may also use name (this player's nickname), so pass it whenever you have it.
 //   welcome [name]  idle [name]  cloudCatch [name] (walked off the edge; a cloud brings you home)
 //   friendJoin [name]  friendLeave [name]  collect [stick, unlock, count, total]  cheer [name]
-//   gameStart [game]
+//   gameStart [game]  ducks [name] (a big feed at the duck pond)
 //   basket toss: tossLand [name, height, tricks, trick, score]  cradle [name, trick] (still
 //     mid-trick at touchdown)  trick [trick] (in the air, short)  combo [tricks, trick] (short)
 //     bigToss [name, bases (friend count), height]

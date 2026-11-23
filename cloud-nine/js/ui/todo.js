@@ -1,9 +1,11 @@
-// "Things to do": eight first goals that show a new cheerleader what there is to do on Cloud Nine,
+// "Things to do": nine first goals that show a new cheerleader what there is to do on Cloud Nine,
 // saved on this device (in the store's progress object, under `todo`). A chip in the HUD's top-left
-// column ("To do 2/8") opens the list as a card; the in-world menu has a row for it too. Each goal
-// ticks with a sparkle on the chip, a chime and a little hype; finishing all eight is an ALL STAR
+// column ("To do 2/9") opens the list as a card; the in-world menu has a row for it too. Each goal
+// ticks with a sparkle on the chip, a chime and a little hype; finishing them all is an ALL STAR
 // celebration and wins the Gold bow in My cheerleader. Then the chip bows out (the menu row stays
 // and shows the finished list).
+// Goals marked `late` came after the first eight. A list won before one was added stays won (the
+// Gold bow stays hers); the chip comes back to show the new goal, and ticking it is a plain goal.
 //
 //   const todo = createTodo(world, { onCreator, seed })
 //       world: the Contract 1 world (hud, store, audio, player, net, toss, booth, spawnBurst, mode)
@@ -30,6 +32,7 @@ export const TODO_GOALS = Object.freeze([
   Object.freeze({ id: 'stick', label: 'Find a spirit stick', tip: '12 are hidden. The menu has hints!', yay: 'Spirit stick spotted!' }),
   Object.freeze({ id: 'look', label: 'Change your look', tip: 'Menu, then My cheerleader.', yay: 'Your style, your way!' }),
   Object.freeze({ id: 'cheer', label: 'Send a cheer', tip: 'Tap the speech bubble button.', yay: 'Squad spirit!' }),
+  Object.freeze({ id: 'ducks', label: 'Feed the ducks', tip: 'The duck pond is by the bridge path.', yay: 'Quack quack! Thank you!', late: true }),
 ]);
 export const TODO_IDS = Object.freeze(TODO_GOALS.map((g) => g.id));
 
@@ -38,12 +41,14 @@ export const TODO_IDS = Object.freeze(TODO_GOALS.map((g) => g.id));
 export const TODO_REWARD = Object.freeze({ slot: 'bow', id: 'gold', label: 'Gold bow' });
 
 // Saved progress is untrusted (old versions, other tabs, a hand-edited store): known ids only, once
-// each, in list order.
+// each, in list order. `won` sticks when every goal but the late ones is done (a list won before a
+// goal was added stays won).
 export function cleanTodo(raw) {
   const ok = raw && typeof raw === 'object' && !Array.isArray(raw);
   const list = ok && Array.isArray(raw.done) ? raw.done.slice(0, 32) : [];
   const done = TODO_IDS.filter((id) => list.includes(id));
-  return { done, seen: !!(ok && raw.seen), won: !!(ok && raw.won) && done.length === TODO_IDS.length };
+  const core = TODO_GOALS.every((g) => g.late || done.includes(g.id));
+  return { done, seen: !!(ok && raw.seen), won: !!(ok && raw.won) && core };
 }
 
 export function todoCount(state) {
@@ -59,16 +64,17 @@ export function tickTodo(state, id) {
 }
 
 // The creator's locked map (js/world/sticks.js lockedLooks), plus the Gold bow until every goal is
-// done. Never changes the map it was given.
+// done (or the list was won before). Never changes the map it was given.
 export function withTodoLock(locked, state) {
   const out = {};
   if (locked && typeof locked === 'object') for (const k of Object.keys(locked)) out[k] = Object.assign({}, locked[k]);
-  if (todoCount(state) >= TODO_IDS.length) return out;
+  if (todoCount(state) >= TODO_IDS.length || cleanTodo(state).won) return out;
   const r = TODO_REWARD;
+  const n = TODO_IDS.length;
   out[r.slot] = Object.assign({}, out[r.slot], {
     [r.id]: {
-      name: 'Things to do list', label: r.label, hint: 'Do all 8 things on it. The list is in the menu!',
-      line: 'Do all 8 Things to do to win the ' + r.label + '! The list is in the menu.',
+      name: 'Things to do list', label: r.label, hint: 'Do all ' + n + ' things on it. The list is in the menu!',
+      line: 'Do all ' + n + ' Things to do to win the ' + r.label + '! The list is in the menu.',
     },
   });
   return out;
@@ -124,7 +130,7 @@ export function createTodo(world, opts = {}) {
     chipCount.textContent = n + '/' + total;
     chip.setAttribute('aria-label', 'Things to do: ' + n + ' of ' + total + ' done');
     // gone once everything is done and celebrated (the menu row keeps the list)
-    chip.hidden = state.won && !queue.length;
+    chip.hidden = state.won && todoCount(state) >= total && !queue.length;
     chip.classList.toggle('c9do-new', !state.seen);
   }
   paintChip();
@@ -148,7 +154,7 @@ export function createTodo(world, opts = {}) {
     if (!r.added) return false;
     state = Object.assign(r.state, { seen: state.seen, won: state.won });
     queue.push({ id, n: todoCount(state) });
-    if (r.all) {
+    if (r.all && !state.won) {
       state.won = true;
       queue.push({ all: true });
     }
@@ -165,7 +171,7 @@ export function createTodo(world, opts = {}) {
     if (c.all) {
       sfx('tada', { volume: 0.9 });
       sfx('crowd', { volume: 0.5 });
-      hud.big('ALL STAR!', 'All 8 things to do, done! You won the ' + TODO_REWARD.label + '!', { ms: 3200, color: '#ffd36e' });
+      hud.big('ALL STAR!', 'All ' + total + ' things to do, done! You won the ' + TODO_REWARD.label + '!', { ms: 3200, color: '#ffd36e' });
       if (p) {
         world.spawnBurst(p.x, p.y + 1.6, p.z, { count: 60, speed: 7 });
         setTimeout(() => world.spawnBurst(p.x, p.y + 2.4, p.z, { count: 40, speed: 5, colors: [0xffd36e, 0xff2e93, 0xffffff] }), 450);
@@ -226,7 +232,8 @@ export function createTodo(world, opts = {}) {
     box.appendChild(ul);
     const prize = el('p', 'c9do-prize' + (all ? ' c9do-won' : ''));
     prize.appendChild(icon('bow', 'c9-icon c9do-prize-icon'));
-    prize.appendChild(el('span', null, all ? 'You won the ' + TODO_REWARD.label + '! Try it on in My cheerleader.' : 'Do all 8 to win a ' + TODO_REWARD.label + ' for your cheerleader!'));
+    const won = all || state.won;
+    prize.appendChild(el('span', null, won ? 'You won the ' + TODO_REWARD.label + '! Try it on in My cheerleader.' : 'Do all ' + total + ' to win a ' + TODO_REWARD.label + ' for your cheerleader!'));
     box.appendChild(prize);
     return box;
   }

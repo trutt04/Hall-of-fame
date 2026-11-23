@@ -32,8 +32,8 @@ The first tap turns the sound on. The speaker button turns it off and on, and th
 ## What there is to do
 
 A badge floats over each of these places so she can spot them from across the island, and the
-"To do" chip (top left, also in the menu as "Things to do") lists eight first goals. Finishing
-all eight wins the gold bow in My cheerleader. On a new device, My cheerleader opens once right
+"To do" chip (top left, also in the menu as "Things to do") lists nine first goals. Finishing
+all nine wins the gold bow in My cheerleader (a list finished before the duck pond came keeps it). On a new device, My cheerleader opens once right
 after the welcome, so each cousin can make their own look before playing.
 
 - **Basket toss.** Three glittery mats on the headland, each aimed at a cloud (8, 14 and 22 m
@@ -52,6 +52,13 @@ after the welcome, so each cousin can make their own look before playing.
   friends standing near the booth strike a pose too. The picture has a frame, the date and no
   names on it. "Save" puts it on the device (on a phone, "Share" opens the share sheet, where
   "Save Image" puts it in Photos). Nothing is ever uploaded.
+- **The duck pond.** In the hollow on the east lawn, between the bridge path and the dodgeball
+  court, with the east waterfall beyond it (also in the menu's "Go to"). A mama duck paddles
+  loops with four fluffy ducklings in a wobbly line behind her, plus a mallard drake and a white
+  duck; they bob, dabble, preen, shake and quack. Stand on the little dock or by the water and tap
+  "Feed the ducks!": pick Bread (their favourite), Peas or Corn (or press 1, 2, 3). She tosses,
+  crumbs float, the nearest ducks paddle over to eat and hearts pop up; a big feed makes the mama
+  flap for joy. In a room, friends see the crumbs and their ducks rush over too.
 - **Spirit sticks.** Twelve are hidden around the island, a few of them on the clouds. Touching
   one collects it, and each unlocks something new for her cheerleader (a heart bow, space buns,
   rainbow socks...). The menu's "Spirit sticks" row shows how many are found and gives a hint for
@@ -118,6 +125,7 @@ From then on, on that device:
 - **Bot friends** are her family when she plays by herself. In rooms, bots keep made-up names, so
   nobody mistakes a bot for a real cousin who joins.
 - **Her pets** can wear the names in the link.
+- **The duck pond's sign** can say the name in the link ("Duck Pond" everywhere else).
 
 Only devices that opened the link have these touches. Clearing the browser's data (or using a new
 device) removes them: open the link again and they come back. On an iPhone or iPad, a Cloud Nine
@@ -138,7 +146,8 @@ optional, and `"to"` is Bailey unless you say otherwise.
     { "from": "Mom and Dad", "text": "Keep flying high! 🎀" }
   ],
   "friends": ["Zuzu", "Grandpa Zork", "Pip"],
-  "petNames": { "cloudPuppy": "Biscuit" }
+  "petNames": { "cloudPuppy": "Biscuit" },
+  "pondName": "Zuzu's Duck Pond"
 }
 ```
 
@@ -147,7 +156,8 @@ checks everything with the game's own rules, lists anything it had to leave out 
 prints the link. The rules: names are letters, spaces and `. ' -`, at most 16 (names over bots
 are at most 12, so "Grandma Fizzle" shows as "Fizzle"); up to 12 notes of up to 280 characters,
 emoji welcome, but no `<` or `>` (write ❤️ for <3), links or phone numbers; up to 9 bot friends,
-in the order they should appear; everything passes the game's word filter.
+in the order they should appear; the duck pond's sign (`pondName`) is letters, spaces, `'` and `-`,
+at most 24; everything passes the game's word filter.
 
 **Share it privately, like a photo.** The link holds the family's names: send it straight to her
 family (a message or an email), and never post it, paste it in an issue, or commit it. Keep

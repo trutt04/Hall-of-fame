@@ -11,10 +11,11 @@
 //   plan.platforms           [{ id, x, z, y, r }]: the basket-toss target clouds
 //   plan.slides              [{ id, fromPlatformId, x0, z0, x1, z1, y0, y1, halfWidth }]
 //   plan.ground              { groundAt(x, z), islandHeight(x, z), insideMain(x, z), ... }
+//   plan.pond                the duck pond: makePond() below (pondColliders(pond) is what is solid)
 //
-//   groundAt(x, z) -> y of the walkable surface (island, isle, cloud platforms, rainbow slides and
-//   the bridge), or -Infinity over open sky. A precomputed height grid plus a handful of analytic
-//   shapes, so it costs well under a microsecond.
+//   groundAt(x, z) -> y of the walkable surface (island, isle, cloud platforms, rainbow slides, the
+//   bridge and the duck pond's dock), or -Infinity over open sky. A precomputed height grid plus a
+//   handful of analytic shapes, so it costs well under a microsecond.
 
 import { clamp, lerp, smoothstep, valueNoise2, TAU, DEG } from '../core/util.js';
 
@@ -251,6 +252,12 @@ export function makeIslandPlan() {
     return { id: 'falls' + (i + 1), bearing: b, x: CENTER.x + dx * (r - 3.2), z: CENTER.z + dz * (r - 3.2), lip: [CENTER.x + dx * r, CENTER.z + dz * r], dir: [dx, dz], pondR: 2.6 };
   });
 
+  // ---------------------------------------------------------------- the duck pond (east lawn)
+  // A little pond in the natural hollow between the bridge path and the dodgeball court, with the
+  // east waterfall pouring off the rim beyond it. Its dock reaches in from the west shore (the pond's
+  // front, `facing`), so from the end of it she looks out over the ducks at the falls and the sky.
+  const pond = makePond({ x: 41, z: -1, r: 4.6, facing: -Math.PI / 2, y: -0.8 });
+
   // ---------------------------------------------------------------- flat pads (the terrain eases to y = 0 under these)
   const pads = [
     { kind: 'disc', x: plazaC.x, z: plazaC.z, r: plazaC.r + 2, blend: 7 },
@@ -266,9 +273,10 @@ export function makeIslandPlan() {
     ...slides.map((s) => ({ kind: 'disc', x: s.x1, z: s.z1, r: 4, blend: 4 })),
     { kind: 'disc', x: bridge.x0, z: bridge.z0, r: 5, blend: 5 },
     ...waterfalls.map((w) => ({ kind: 'disc', x: w.x, z: w.z, r: w.pondR + 1.6, blend: 4 })),
+    { kind: 'disc', x: pond.x, z: pond.z, r: pond.r + 2.8, blend: 4, y: pond.y }, // the hollow, levelled
   ];
   for (const p of pads) {
-    p.y = 0;
+    if (!Number.isFinite(p.y)) p.y = 0;
     if (p.kind === 'rect') p.reach = Math.hypot(p.w, p.d) / 2 + p.blend;
     else p.reach = p.r + p.blend;
   }
@@ -321,10 +329,11 @@ export function makeIslandPlan() {
     boutique: { x: boutique.x, z: boutique.z, facing: boutique.facing },
     bridge: { x0: bridge.x0, z0: bridge.z0, x1: bridge.x1, z1: bridge.z1, w: bridge.halfWidth * 2 },
     waterfalls: waterfalls.map((w) => ({ id: w.id, x: w.lip[0], z: w.lip[1] })),
+    pond: { x: pond.x, z: pond.z, facing: pond.facing, r: pond.r }, // r: the water's radius
   };
 
   const plan = {
-    center: CENTER, main, isle, isleOutline, places, platforms, slides, bridge, pads, knolls, paths, waterfalls,
+    center: CENTER, main, isle, isleOutline, places, platforms, slides, bridge, pads, knolls, paths, waterfalls, pond,
     plazaC, cake, fountain, gym, stage, court, bowField, tag, garden, gardenPlan: hideGarden, photoBooth, boutique,
     toss: { bearing: tossBearing, u: [ux, uz], v: [vx, vz], pads: tossPads },
   };
@@ -470,6 +479,59 @@ function secretSpots(plan) {
   return spots;
 }
 
+// ------------------------------------------------------------------------------------- the duck pond
+// The pond's furniture in its own frame (local +Z is its front, the west shore where the dock goes in).
+//   y: the levelled shore    water: the water's surface    dock: { x, z, w, d, facing, y } the walkable
+//   deck (in groundAt), end/foot: the deck's two ends    bench, sign: { x, z, facing }
+export const POND = Object.freeze({ waterUp: 0.1, deckUp: 0.26, dockW: 1.5, dockIn: 2.7, dockOut: 1.1, rimR: 0.5, rimAt: 0.3 });
+export function makePond({ x, z, r, facing, y }) {
+  const p = { x, z, facing };
+  const lz0 = r - POND.dockIn; // the dock's end, over the water
+  const lz1 = r + POND.dockOut; // its foot, on the shore
+  const [dx, dz] = toWorld(p, 0, (lz0 + lz1) / 2);
+  const [ex, ez] = toWorld(p, 0, lz0 + 0.55);
+  const [fx, fz] = toWorld(p, 0, lz1 + 1.2);
+  const [sx, sz] = toWorld(p, -2.3, r + 1.25);
+  const [bx, bz] = toWorld(p, -(r + 1.45), -0.6);
+  return {
+    x, z, r, facing, y, water: y + POND.waterUp,
+    dock: { x: dx, z: dz, w: POND.dockW, d: lz1 - lz0, facing, y: y + POND.deckUp },
+    end: { x: ex, z: ez }, // where she stands to feed them from the dock
+    foot: { x: fx, z: fz, facing: facing + Math.PI }, // on the shore at the dock's foot, looking out
+    sign: { x: sx, z: sz, facing: facing - 0.45 },
+    bench: { x: bx, z: bz, facing: facing + Math.PI / 2 - 0.1 }, // on the north shore, looking at the water
+  };
+}
+// What is solid at the pond: rim stones all round the water except where the dock goes in, low rails
+// along the dock's sides and across its end, the bench and the sign. Pure ({ kind, x, z, ... } like
+// planDecor's colliders), so the island registers them with everything else.
+export function pondColliders(pond) {
+  const out = [];
+  const R = pond.r + POND.rimAt;
+  const half = POND.dockW / 2;
+  const n = Math.ceil((Math.PI * 2 * R) / 0.75);
+  for (let i = 0; i < n; i++) {
+    const a = (i / n) * Math.PI * 2;
+    const lx = Math.sin(a) * R;
+    const lz = Math.cos(a) * R;
+    if (lz > 0 && Math.abs(lx) < half + 0.4) continue; // the dock's way in
+    const [x, z] = toWorld(pond, lx, lz);
+    out.push({ kind: 'circle', x, z, r: POND.rimR, tag: 'pond' });
+  }
+  const d = pond.dock;
+  for (const side of [-1, 1]) {
+    const [x, z] = toWorld(d, side * (half + 0.1), 0);
+    out.push({ kind: 'box', x, z, w: 0.2, d: d.d, rot: d.facing, tag: 'pond' });
+  }
+  {
+    const [x, z] = toWorld(d, 0, -d.d / 2 - 0.1);
+    out.push({ kind: 'box', x, z, w: POND.dockW + 0.4, d: 0.2, rot: d.facing, tag: 'pond' });
+  }
+  out.push({ kind: 'box', x: pond.bench.x, z: pond.bench.z, w: 1.9, d: 0.7, rot: pond.bench.facing, tag: 'pond' });
+  out.push({ kind: 'circle', x: pond.sign.x, z: pond.sign.z, r: 0.3, tag: 'pond' });
+  return out;
+}
+
 // ------------------------------------------------------------------------------------- heights
 function padDistance(p, x, z) {
   if (p.kind === 'disc') return Math.max(0, Math.hypot(x - p.x, z - p.z) - p.r);
@@ -606,6 +668,17 @@ export function createGround(plan, { cell = GRID_CELL } = {}) {
     if (near.d2 > bridgeBox.hw2) return NaN;
     return bridgeProfile(bridge, near.t);
   }
+  // the duck pond's dock: a flat deck a step up from the shore
+  const dock = plan.pond ? plan.pond.dock : null;
+  const dockReach = dock ? Math.hypot(dock.w, dock.d) / 2 : 0;
+  const dockC = dock ? Math.cos(dock.facing) : 1;
+  const dockS = dock ? Math.sin(dock.facing) : 0;
+  function dockY(x, z) {
+    const dx = x - dock.x;
+    const dz = z - dock.z;
+    if (Math.abs(dx) > dockReach || Math.abs(dz) > dockReach) return NaN;
+    return Math.abs(dx * dockC - dz * dockS) <= dock.w / 2 && Math.abs(dx * dockS + dz * dockC) <= dock.d / 2 ? dock.y : NaN;
+  }
   // the isle: a low dome, flat enough for a shop
   function isleHeight(x, z) {
     const d = Math.hypot(x - isle.x, z - isle.z);
@@ -649,6 +722,10 @@ export function createGround(plan, { cell = GRID_CELL } = {}) {
       if (sx * sx + sz * sz < stageReach * stageReach) {
         const st = stageHeight(x, z, y);
         if (st === st) y = st;
+      }
+      if (dock) {
+        const dy = dockY(x, z);
+        if (dy > y) y = dy;
       }
       if (y > best) best = y;
     }
