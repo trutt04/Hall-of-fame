@@ -8,6 +8,10 @@
 //     tris,          // triangle count of the body
 //   }
 //
+// Headwear (look.hat): the bow is drawn only with hat 'bow'; a cap (either way round) or a beanie sits
+// on the head bone over the hair, in the bow colour, and hair styles that would poke through tuck
+// under it (ponies drop low, buns move down, curls and fringes peek out below the brim).
+//
 // Everything is drawn in the bind pose (character-rig.js): feet at y = 0, facing +Z, arms down.
 // Each vertex follows one bone, except the hair chain and the skirt, which blend two.
 // Faces, rhinestones and bow patterns are decals: small flat shapes laid on the surface below them
@@ -307,9 +311,22 @@ const RIM = {
   back: [[0, 60], [30, 63], [55, 70], [80, 77], [100, 83], [118, 103], [140, 121], [180, 129]],
   bob: [[0, 63], [24, 64], [36, 70], [50, 116], [70, 131], [110, 137], [180, 140]],
   long: [[0, 57], [20, 59], [36, 67], [52, 112], [80, 124], [130, 119], [180, 116]],
+  crop: [[0, 56], [25, 58], [40, 66], [60, 84], [80, 87], [100, 92], [130, 110], [180, 117]],
+  buzz: [[0, 59], [25, 61], [40, 68], [60, 85], [80, 88], [100, 93], [130, 110], [180, 115]],
 };
+// Where a hat's lower edge sits (same angles as RIM). A backwards cap rides higher at the back.
+const HAT_RIM = {
+  cap: [[0, 60], [40, 64], [80, 80], [110, 90], [150, 98], [180, 100]],
+  capBack: [[0, 60], [40, 64], [80, 78], [110, 80], [150, 82], [180, 82]],
+  beanie: [[0, 62], [40, 66], [80, 82], [110, 92], [150, 102], [180, 106]],
+};
+const HAT_R = HR + 0.034; // clear of every hair cap (and the bob's flare under it)
+const fromFront = (az) => Math.abs(((az / DEG) % 360 + 540) % 360 - 180); // degrees, 0 at the front
+const hatRimDeg = (hat, az) => table(HAT_RIM[hat], fromFront(az));
+// A point on a sphere around the skull centre: az from the front toward her left, polar from the crown.
+const onHead = (azDeg, polDeg, r) => [HC[0] + Math.sin(azDeg * DEG) * Math.sin(polDeg * DEG) * r, HC[1] + Math.cos(polDeg * DEG) * r, HC[2] + Math.cos(azDeg * DEG) * Math.sin(polDeg * DEG) * r * HS];
 function hairCap(g, q, o) {
-  const S = q.hair, K = q.hairRings, rim = RIM[o.rim], col = o.color;
+  const S = q.hair, K = q.hairRings, rim = o.table || RIM[o.rim], col = o.color;
   const rimAt = (az) => table(rim, Math.abs(((az / DEG) % 360 + 540) % 360 - 180)) * DEG; // degrees from the front
   const grid = [];
   const rimJ = [];
@@ -320,6 +337,7 @@ function hairCap(g, q, o) {
       const az = (TAU * j) / S, th = rimJ[j] * Math.pow(k / K, 0.88);
       let r = o.r;
       if (o.flare) r *= 1 + o.flare[2] * sstep(o.flare[0] * DEG, o.flare[1] * DEG, th);
+      if (o.crown) r *= 1 + o.crown * Math.max(0, Math.cos(th)) ** 2;
       if (k > 0 && k < K) r *= 1 + 0.035 * (hash(j * 31 + k * 7 + 3) - 0.5);
       row.push([HC[0] + Math.sin(az) * Math.sin(th) * r, HC[1] + Math.cos(th) * r, HC[2] + Math.cos(az) * Math.sin(th) * r * HS]);
     }
@@ -352,6 +370,9 @@ function hairCap(g, q, o) {
 // Bind-pose hair chains and bow spots per style.
 const PONY_CHAIN = [[0, 1.342, -0.108], [0, 1.38, -0.21], [0, 1.21, -0.262], [0, 0.99, -0.222]];
 const LONG_CHAIN = [[0, 1.23, -0.135], [0, 1.07, -0.172], [0, 0.94, -0.163], [0, 0.81, -0.136]];
+// Under a cap or a beanie a ponytail comes out low at the back instead of on the crown.
+const PONY_CHAIN_LOW = [[0, 1.15, -0.168], [0, 1.1, -0.232], [0, 0.98, -0.245], [0, 0.82, -0.2]];
+const SHORT = new Set(['crop', 'curls', 'swoop', 'buzz']);
 const BOW_SPOT = {
   highPony: { p: [0, 1.382, -0.126], tilt: 0.52 },
   braidPony: { p: [0, 1.382, -0.126], tilt: 0.52 },
@@ -360,6 +381,7 @@ const BOW_SPOT = {
   halfUp: { p: [0, 1.335, -0.16], tilt: 0.5 },
   longDown: { p: [0, 1.3, -0.178], tilt: 0.32 },
   bob: { p: [0, 1.362, -0.132], tilt: 0.6 },
+  short: { p: [0, 1.345, -0.12], tilt: 0.62 },
 };
 
 function tendrils(g, q, col) {
@@ -370,23 +392,30 @@ function tendrils(g, q, col) {
 }
 
 function buildHair(g, look, q, rest) {
-  const style = look.hairStyle;
+  const style = lookOption('hairStyle', look.hairStyle).id;
+  const hat = lookOption('hat', look.hat).id;
+  const hatted = hat === 'cap' || hat === 'capBack' || hat === 'beanie';
   const col = hx(lookOption('hair', look.hair).color);
   g.bone(B.head);
   const jit = g.jit;
   g.jit = 0.05;
   const pony = style === 'highPony' || style === 'braidPony' || style === 'curlyPony';
+  const short = SHORT.has(style);
   if (pony || style === 'spaceBuns') {
     hairCap(g, q, { rim: 'back', r: HR + 0.016, color: col, lip: true });
     tendrils(g, q, col);
   } else if (style === 'bob') {
     hairCap(g, q, { rim: 'bob', r: HR + 0.02, color: col, flare: [92, 138, 0.2], lip: true });
+  } else if (style === 'buzz') {
+    hairCap(g, q, { rim: 'buzz', r: HR + 0.008, color: shade(col, 0.92), lip: true });
+  } else if (short) {
+    hairCap(g, q, { rim: 'crop', r: HR + 0.014, color: col, lip: true, crown: style === 'curls' ? 0 : 0.07 });
   } else {
     hairCap(g, q, { rim: 'long', r: HR + 0.018, color: col, flare: [100, 128, 0.06], lip: true });
   }
 
   if (pony) {
-    const P = PONY_CHAIN;
+    const P = hatted ? PONY_CHAIN_LOW : PONY_CHAIN;
     rest.chain = P;
     g.wf = chainWeights(P);
     g.sphere(P[0][0], P[0][1], P[0][2], 0.038, col, { seg: q.tube + 1, rings: 4 });
@@ -424,15 +453,17 @@ function buildHair(g, look, q, rest) {
     g.wf = null;
   } else if (style === 'spaceBuns') {
     for (const sx of [1, -1]) {
-      const c = [sx * 0.108, 1.342, -0.028], R = 0.068;
+      // on top of her head, or low behind her ears under a hat
+      const c = hatted ? [sx * 0.114, 1.108, -0.13] : [sx * 0.108, 1.342, -0.028], R = hatted ? 0.058 : 0.068;
       const seg = q.tube + 1;
-      g.at(c[0], c[1], c[2], 0, 0, -sx * 0.4);
+      g.at(c[0], c[1], c[2], 0, hatted ? -0.5 : 0, -sx * (hatted ? 1.1 : 0.4));
       for (let i = 0; i < 5; i++) {
         const y0 = -R + i * R * 0.4, y1 = y0 + R * 0.4;
         const r0 = Math.sqrt(Math.max(0, R * R - y0 * y0)), r1 = Math.sqrt(Math.max(0, R * R - y1 * y1));
         g.band(r0, y0, r1, y1, seg, i * 0.5, i % 2 ? shade(col, 1.12) : col);
       }
       g.restore();
+      if (hatted) continue;
       // a scrunchie in the bow color around each bun
       const bc = hx(lookOption('bow', look.bow).color);
       g.at(c[0] * 0.86, c[1] - 0.045, c[2], 0, 0, -sx * 0.4);
@@ -442,13 +473,15 @@ function buildHair(g, look, q, rest) {
     }
     // a centre part from the hairline to the crown
     const dark = shade(col, 0.6);
-    for (let i = 0; i < 5; i++) {
+    for (let i = 0; i < (hatted ? 0 : 5); i++) {
       const th0 = 0.12 + i * 0.17, th1 = th0 + 0.17, r = HR + 0.0185;
       const a0 = [HC[0], HC[1] + Math.cos(th0) * r, HC[2] + Math.sin(th0) * r * HS], a1 = [HC[0], HC[1] + Math.cos(th1) * r, HC[2] + Math.sin(th1) * r * HS];
       g.quad([-0.0032, a1[1], a1[2]], [0.0032, a1[1], a1[2]], [0.0032, a0[1], a0[2]], [-0.0032, a0[1], a0[2]], dark);
     }
-  } else if (style === 'bob') {
-    // nothing else: the cap is the bob
+  } else if (style === 'bob' || style === 'buzz') {
+    // nothing else: the cap is the bob (or the buzz cut)
+  } else if (short) {
+    shortHair(g, style, col, q, hatted ? hat : null);
   } else {
     // long hair down the back, swinging on the chain
     const P = LONG_CHAIN;
@@ -490,13 +523,152 @@ function buildHair(g, look, q, rest) {
     }
     g.wf = null;
     g.bone(B.head);
-    if (style === 'halfUp') {
+    if (style === 'halfUp' && !hatted) {
       g.sphere(0, 1.305, -0.152, 0.036, col, { seg: q.tube + 1, rings: 4 });
       g.tube([[0, 1.3, -0.172], [0, 1.26, -0.202], [0, 1.21, -0.207]], 0.022, col, { seg: q.tube - 1, r1: 0.006 });
     }
   }
   g.jit = jit;
-  rest.bow = BOW_SPOT[style] || BOW_SPOT.highPony;
+  rest.bow = BOW_SPOT[style] || (short ? BOW_SPOT.short : BOW_SPOT.highPony);
+  if (hatted) buildHat(g, look, q, hat);
+}
+
+// The short styles' extras: a crop's front tufts, a cap of little curls, a side swoop. Under a hat
+// only what peeks out below its edge is drawn.
+function shortHair(g, style, col, q, hat) {
+  const below = (az, pol, pad = 5) => !hat || pol > hatRimDeg(hat, az * DEG) + pad;
+  if (style === 'crop') {
+    if (hat) return;
+    for (const az of [-26, 0, 26]) {
+      const c = onHead(az, az ? 40 : 34, 0.174);
+      g.ico(c[0], c[1], c[2], 0.036, shade(col, az ? 1 : 1.07), { sy: 0.62, sz: 0.9, rx: -0.5, ry: az * DEG, jitter: 0.1, rnd: mulberry(az + 50) });
+    }
+  } else if (style === 'curls') {
+    // rows of little curls: [polar angle, how many around, skip the face below this polar angle]
+    const rows = q.more ? [[12, 3], [36, 6], [58, 8], [80, 7], [103, 4]] : [[30, 5], [62, 6], [92, 4]];
+    const rnd = mulberry(77);
+    let n = 0;
+    for (const [pol, count] of rows) {
+      for (let i = 0; i < count; i++) {
+        let az = (360 * (i + (pol % 2 ? 0.5 : 0.15))) / count + pol * 1.7;
+        az = ((az % 360) + 360) % 360;
+        const ff = fromFront(az * DEG);
+        if (pol >= 70 && ff < 52) continue; // keep her forehead clear
+        if (pol >= 95 && ff < 115) continue; // and her ears
+        if (!below(az, pol)) continue;
+        const c = onHead(az, pol, HR + 0.02);
+        g.ico(c[0], c[1], c[2], q.more ? 0.034 : 0.04, n % 3 === 1 ? shade(col, 1.1) : n % 3 === 2 ? shade(col, 0.88) : col, { jitter: 0.16, rnd });
+        n++;
+      }
+    }
+  } else if (style === 'swoop') {
+    // a fringe swept from a side part across her forehead to the other temple
+    const path = hat ? [[34, 0], [0, 0], [-38, 0], [-64, 0]] : [[42, 20], [16, 38], [-14, 52], [-44, 62], [-70, 72]];
+    const pts = path.map(([az, pol]) => onHead(az, hat ? hatRimDeg(hat, az * DEG) + 4 : pol, hat ? HR + 0.022 : HR + 0.03));
+    g.tube(pts, hat ? 0.02 : 0.034, shade(col, 1.06), { seg: q.more ? 6 : 4, r1: 0.01 });
+    if (!hat) {
+      const pts2 = [[56, 30], [22, 46], [-22, 60]].map(([az, pol]) => onHead(az, pol, HR + 0.026));
+      g.tube(pts2, 0.026, col, { seg: q.more ? 5 : 4, r1: 0.01 });
+    }
+  }
+}
+
+// ---- headwear ------------------------------------------------------------------------------------
+// A cap (forward or backwards) or a beanie, in the bow colour, on the head bone.
+function buildHat(g, look, q, hat) {
+  const opt = lookOption('bow', look.bow);
+  const col = hx(opt.color), dark = hx(opt.dark), acc = hx(opt.accent);
+  const rainbow = opt.rainbow ? opt.rainbow.map(hx) : null;
+  const beanie = hat === 'beanie';
+  const S = q.hair, K = q.more ? 4 : 3, R = HAT_R;
+  const jit = g.jit;
+  g.jit = 0.025;
+  g.bone(B.head);
+  const rimAt = (az) => hatRimDeg(hat, az) * DEG;
+  const ys = beanie ? 1.08 : 0.97; // a beanie stands a little taller, a cap's crown is rounder
+  const pt = (az, th, r) => [HC[0] + Math.sin(az) * Math.sin(th) * r, HC[1] + Math.cos(th) * r * (Math.cos(th) > 0 ? ys : 1), HC[2] + Math.cos(az) * Math.sin(th) * r * HS];
+  const grid = [];
+  for (let k = 0; k <= K; k++) {
+    const row = [];
+    for (let j = 0; j < S; j++) {
+      const az = (TAU * j) / S;
+      row.push(pt(az, rimAt(az) * (k / K), R));
+    }
+    grid.push(row);
+  }
+  const d0 = g.tris;
+  for (let k = 0; k < K; k++) {
+    for (let j = 0; j < S; j++) {
+      const j1 = (j + 1) % S, panel = Math.floor((j * 6) / S);
+      let c;
+      if (beanie) c = rainbow ? rainbow[k % rainbow.length] : j % 2 ? col : shade(col, 0.9); // knit ribs
+      else c = rainbow ? rainbow[panel % rainbow.length] : panel % 2 ? col : shade(col, 0.93); // six panels
+      quadOut(g, grid[k][j], grid[k][j1], grid[k + 1][j1], grid[k + 1][j], c, HC);
+    }
+  }
+  const d1 = g.tris;
+  // the edge, tucked under toward her head
+  const edge = (ring, r, hex) => {
+    for (let j = 0; j < S; j++) {
+      const j1 = (j + 1) % S, a = ring[j], b = ring[j1];
+      const ia = add(HC, scl(sub(a, HC), (HR * 0.94) / len(sub(a, HC)))), ib = add(HC, scl(sub(b, HC), (HR * 0.94) / len(sub(b, HC))));
+      const az = (TAU * (j + 0.5)) / S, th = rimAt(az) - 0.3;
+      quadOut(g, a, b, ib, ia, hex, pt(az, th, r * 0.9));
+    }
+  };
+  if (beanie) {
+    // a folded cuff, ribbed, and a pom-pom on top
+    const top = [], bot = [];
+    for (let j = 0; j < S; j++) {
+      const az = (TAU * j) / S, th = rimAt(az);
+      top.push(pt(az, th - 15 * DEG, R + 0.013));
+      bot.push(pt(az, th + 1.5 * DEG, R + 0.013));
+    }
+    const cuff = rainbow ? col : shade(col, 0.82);
+    for (let j = 0; j < S; j++) {
+      const j1 = (j + 1) % S, az = (TAU * (j + 0.5)) / S;
+      quadOut(g, top[j], top[j1], bot[j1], bot[j], j % 2 ? cuff : shade(cuff, 0.88), HC);
+      // the cuff's top edge meets the knit above it
+      const ia = pt((TAU * j) / S, rimAt((TAU * j) / S) - 15 * DEG, R - 0.002), ib = pt((TAU * j1) / S, rimAt((TAU * j1) / S) - 15 * DEG, R - 0.002);
+      quadOut(g, ia, ib, top[j1], top[j], shade(cuff, 1.08), pt(az, rimAt(az) - 8 * DEG, R - 0.03));
+    }
+    edge(bot, R + 0.013, shade(cuff, 0.7));
+    const c = pt(0, 0, R + 0.028);
+    g.ico(c[0], c[1], c[2] - 0.004, 0.05, rainbow ? 0xffffff : acc, { detail: q.more ? 1 : 0, jitter: 0.2, rnd: mulberry(91) });
+  } else {
+    edge(grid[K], R, shade(dark, 0.85));
+    // the button on top
+    const c = pt(0, 0, R);
+    g.ico(c[0], c[1] + 0.004, c[2], 0.017, rainbow ? 0xffffff : dark, { sy: 0.6 });
+    // the brim: a curved bill out the front (or the back)
+    const back = hat === 'capBack', base = back ? Math.PI : 0, N = q.more ? 8 : 5, span = 74 * DEG;
+    const inner = [], outer = [], innerB = [], outerB = [];
+    for (let i = 0; i <= N; i++) {
+      const u = (i / N) * 2 - 1, az = base + u * span, a = pt(az, rimAt(az) - 1.5 * DEG, R + 0.002);
+      const az2 = base + u * span * 0.62, L = 0.108 * (1 - 0.5 * u * u), drop = back ? 0.004 : -0.016;
+      const o = [a[0] + Math.sin(az2) * L, a[1] + drop * (1 - 0.4 * u * u), a[2] + Math.cos(az2) * L * HS];
+      inner.push(a); outer.push(o);
+      innerB.push([a[0], a[1] - 0.009, a[2]]); outerB.push([o[0], o[1] - 0.008, o[2]]);
+    }
+    const mid = [(inner[N >> 1][0] + outer[N >> 1][0]) / 2, (inner[N >> 1][1] + outer[N >> 1][1]) / 2, (inner[N >> 1][2] + outer[N >> 1][2]) / 2];
+    const below = [mid[0], mid[1] - 0.2, mid[2]], above = [mid[0], mid[1] + 0.2, mid[2]];
+    const brim = rainbow ? rainbow[0] : dark;
+    for (let i = 0; i < N; i++) {
+      quadOut(g, inner[i], inner[i + 1], outer[i + 1], outer[i], brim, below);
+      quadOut(g, innerB[i], innerB[i + 1], outerB[i + 1], outerB[i], shade(brim, 0.7), above);
+      quadOut(g, outer[i], outer[i + 1], outerB[i + 1], outerB[i], shade(brim, 0.85), [HC[0], mid[1], HC[2]]);
+    }
+    // a little star on the front panel; a backwards cap shows its strap gap over her forehead instead
+    const hit = raycast(g, d0, d1, [0, HC[1] + 0.13, HC[2] + 0.6], [0, 0, -1]);
+    if (hit) {
+      const f = frame(hit);
+      if (back) {
+        decalPoly(g, f, [[-0.028, -0.034], [0.028, -0.034], [0.022, -0.006], [0, 0.004], [-0.022, -0.006]], shade(hx(lookOption('hair', look.hair).color), 0.9), 0.0014, 0, -0.02);
+        decalStrip(g, f, [[-0.03, -0.012], [0.03, -0.012]], 0.007, shade(col, 0.75), 0.0018);
+      } else decalPoly(g, f, starPts(0.024, 0.0105), rainbow ? 0xffffff : acc, 0.0014);
+    }
+  }
+  g.jit = jit;
 }
 function mulberry(seed) {
   let a = seed >>> 0;
@@ -694,20 +866,21 @@ function buildBody(g, look, q, rest, glints, seed) {
 
   // -- pelvis: shorts, skirt briefs or leggings
   g.bone(B.hips);
-  const band = bot.style === 'leggings' ? bc : bt;
+  const band = bot.style === 'leggings' || bot.style === 'joggers' ? bc : bt;
   lathe2(g, 0, 0.004, [[0.56, 0, 0], [0.568, 0.042, 0.03], [0.59, 0.092, 0.065], [0.63, 0.11, 0.075], [0.68, 0.104, 0.072], [0.715, 0.096, 0.068], [0.747, 0.092, 0.065]], S,
     (y) => (y > 0.722 ? band : bc));
 
   // -- waist and chest
   const crop = top.style === 'crop';
+  const loose = top.style === 'hoodie' || top.style === 'varsity' || top.style === 'jersey';
   g.bone(B.waist);
-  const hem = top.style === 'hoodie' ? 0.69 : 0.705;
+  const hem = loose ? 0.69 : 0.705;
   const wr = crop ? [[0.712, 0.093, 0.065], [0.75, 0.088, 0.062], [0.79, 0.09, 0.063], [0.825, 0.098, 0.066]]
-    : [[hem, top.style === 'hoodie' ? 0.112 : 0.103, top.style === 'hoodie' ? 0.078 : 0.072], [hem + 0.02, 0.1, 0.07], [0.75, 0.094, 0.066], [0.79, 0.096, 0.067], [0.825, 0.102, 0.068]];
-  lathe2(g, 0, 0.004, wr, S, (y) => {
+    : [[hem, loose ? 0.112 : 0.103, loose ? 0.078 : 0.072], [hem + 0.02, 0.1, 0.07], [0.75, 0.094, 0.066], [0.79, 0.096, 0.067], [0.825, 0.102, 0.068]];
+  lathe2(g, 0, 0.004, wr, S, (y, az, i, j) => {
     if (crop) return skin;
-    if (top.style === 'hoodie' && y < hem + 0.02) return tt;
-    if (top.style === 'shell' && y < hem + 0.02) return tt;
+    if (top.style === 'varsity' && y < hem + 0.02) return j % 2 ? tt : shade(tt, 0.9); // ribbed hem
+    if ((top.style === 'hoodie' || top.style === 'shell' || top.style === 'jersey') && y < hem + 0.02) return tt;
     return tc;
   }, { capBot: !crop });
   if (crop) { // a little navel
@@ -727,6 +900,17 @@ function buildBody(g, look, q, rest, glints, seed) {
   }, { capBot: crop ? tc : false, capTop: crop ? skin : tc });
   const t1 = g.tris;
   const chestHit = (x, y, back = false) => raycast(g, t0, t1, [x, y, back ? -0.4 : 0.4], [0, 0, back ? 1 : -1]);
+  // A number in blocky seven-segment digits, each laid on the chest where it lands (front or back),
+  // read left to right from where you see it. grow thickens it (an outline drawn underneath).
+  const drawNumber = (num, cy, back, h, hex, lift, grow = 0, cx = 0) => {
+    const ds = String(Math.max(0, Math.min(99, Math.floor(Number(num) || 0)))).split('').map(Number);
+    const w = h * 0.56, gap = h * 0.2, total = ds.length * w + (ds.length - 1) * gap;
+    ds.forEach((d, i) => {
+      const xv = cx - total / 2 + w / 2 + i * (w + gap);
+      const hit = chestHit(back ? -xv : xv, cy, back);
+      if (hit) digitDecal(g, frame(hit), d, w + grow, h + grow, h * 0.17 + grow, hex, lift);
+    });
+  };
 
   if (crop) {
     // straps over the shoulders
@@ -807,6 +991,31 @@ function buildBody(g, look, q, rest, glints, seed) {
       const hs = chestHit(sx * 0.022, 0.93);
       if (hs) decalStrip(g, frame(hs), [[0, 0.03], [sx * 0.002, -0.004], [sx * 0.004, -0.04]], 0.005, acc, 0.0016);
     }
+  } else if (top.style === 'jersey') {
+    // a team jersey: a trimmed V-neck and a big number on the front and the back
+    const acc = hx(top.accent);
+    const h = chestHit(0, 0.935);
+    if (h) {
+      const f = frame(h);
+      decalPoly(g, f, [[-0.03, 0.04], [0.03, 0.04], [0, -0.036]], skin, 0.0012, 0, 0.01);
+      decalStrip(g, f, [[-0.035, 0.042], [0, -0.042], [0.035, 0.042]], 0.009, tt, 0.0016);
+    }
+    for (const back of [false, true]) {
+      drawNumber(top.number, back ? 0.875 : 0.85, back, back ? 0.072 : 0.058, tt, 0.0013, 0.006);
+      drawNumber(top.number, back ? 0.875 : 0.85, back, back ? 0.072 : 0.058, acc, 0.0019, 0);
+    }
+  } else if (top.style === 'varsity') {
+    // a varsity jacket: ribbed collar, snaps down the front and a big "9" patch (Cloud Nine!)
+    const acc = hx(top.accent);
+    lathe2(g, 0, 0.004, [[0.97, 0.066, 0.056], [0.985, 0.062, 0.052], [1.0, 0.055, 0.047]], S, (y, az, i, j) => (j % 2 ? tt : shade(tt, 0.88)));
+    const hf = chestHit(0, 0.88);
+    if (hf) {
+      const f = frame(hf);
+      decalStrip(g, f, [[0, 0.075], [0, -0.08]], 0.005, shade(tc, 0.72), 0.0013);
+      for (const y of [0.05, 0.012, -0.026, -0.064]) decalPoly(g, f, ellipse(0.0042, 0.0042, 6, 0.0001, y), 0xf4f1f6, 0.0018);
+    }
+    drawNumber(9, 0.885, false, 0.042, tt, 0.0013, 0.007, 0.052);
+    drawNumber(9, 0.885, false, 0.042, acc, 0.0019, 0, 0.052);
   }
 
   // -- neck and head
@@ -829,7 +1038,8 @@ function buildBody(g, look, q, rest, glints, seed) {
   buildFace(g, look, q, rest, h0, h1, skin);
 
   // -- arms
-  const sleeve = top.style === 'tee' ? 'short' : top.style === 'hoodie' ? 'long' : null;
+  const sleeve = top.style === 'tee' ? 'short' : top.style === 'hoodie' || top.style === 'varsity' ? 'long' : null;
+  const sc = top.style === 'varsity' ? hx(top.sleeve) : tc; // varsity sleeves in their own colour
   for (const sx of [1, -1]) {
     const x = sx * RIG.shoulderX;
     g.bone(sx > 0 ? B.armL : B.armR);
@@ -837,7 +1047,7 @@ function buildBody(g, look, q, rest, glints, seed) {
       : [[0.73, 0], [0.75, 0.03], [0.85, 0.035], [0.935, 0.038], [0.978, 0]];
     const grow = (y) => (sleeve === 'long' ? 0.007 : sleeve === 'short' && y > 0.845 ? 0.009 : 0);
     lathe2(g, x, 0, up.map(([y, r]) => [y, r > 0 ? r + grow(y) : 0]), L, (y) => {
-      if (sleeve === 'long') return tc;
+      if (sleeve === 'long') return sc;
       if (sleeve === 'short') return y > 0.86 ? tc : y > 0.845 ? tt : skin;
       if (top.style === 'shell' && y > 0.935) return tc;
       return skin;
@@ -845,7 +1055,7 @@ function buildBody(g, look, q, rest, glints, seed) {
     g.bone(sx > 0 ? B.foreL : B.foreR);
     const lo = q.more ? [[0.56, 0], [0.568, 0.022], [0.6, 0.0255], [0.69, 0.029], [0.75, 0.03], [0.766, 0]]
       : [[0.565, 0], [0.6, 0.025], [0.74, 0.03], [0.766, 0]];
-    lathe2(g, x, 0, lo.map(([y, r]) => [y, r > 0 ? r + (sleeve === 'long' ? (y < 0.6 ? 0.009 : 0.007) : 0) : 0]), L, (y) => (sleeve === 'long' ? (y < 0.6 ? tt : tc) : skin));
+    lathe2(g, x, 0, lo.map(([y, r]) => [y, r > 0 ? r + (sleeve === 'long' ? (y < 0.6 ? 0.009 : 0.007) : 0) : 0]), L, (y) => (sleeve === 'long' ? (y < 0.6 ? tt : sc) : skin));
     // fist with a thumb
     lathe2(g, x, 0.006, q.more ? [[0.503, 0, 0], [0.509, 0.018, 0.02], [0.522, 0.024, 0.027], [0.55, 0.024, 0.027], [0.566, 0, 0]]
       : [[0.505, 0, 0], [0.52, 0.024, 0.026], [0.55, 0.024, 0.026], [0.566, 0, 0]], q.more ? 6 : 5, skin);
@@ -858,10 +1068,18 @@ function buildBody(g, look, q, rest, glints, seed) {
     g.bone(sx > 0 ? B.legL : B.legR);
     const thigh = q.more ? [[0.318, 0], [0.33, 0.035], [0.36, 0.043], [0.45, 0.05], [0.53, 0.054], [0.545, 0.055], [0.61, 0.053], [0.645, 0.041], [0.662, 0]]
       : [[0.32, 0], [0.345, 0.04], [0.53, 0.054], [0.545, 0.055], [0.64, 0.045], [0.662, 0]];
-    const shorts = bot.style === 'shorts', legg = bot.style === 'leggings';
+    const shorts = bot.style === 'shorts', legg = bot.style === 'leggings', jog = bot.style === 'joggers', hoop = bot.style === 'bball';
+    // a stripe down the outside of her leg (joggers and basketball shorts): the column facing out
+    const outAz = sx > 0 ? Math.PI / 2 : Math.PI * 1.5;
+    const stripe = (az) => Math.abs(Math.atan2(Math.sin(az - outAz), Math.cos(az - outAz))) < (Math.PI / L) * 0.95;
     const th0 = g.tris;
-    lathe2(g, x, 0.004, thigh.map(([y, r]) => [y, r > 0 && shorts && y >= 0.53 && y <= 0.545 ? r + 0.005 : r]), L, (y) => {
+    // basketball shorts: long and roomy, down to just above the knee, with a hem band
+    const hoopThigh = q.more ? [[0.318, 0], [0.33, 0.035], [0.36, 0.043], [0.393, 0.046], [0.394, 0.068], [0.412, 0.069], [0.47, 0.072], [0.545, 0.074], [0.61, 0.07], [0.645, 0.057], [0.662, 0]]
+      : [[0.32, 0], [0.345, 0.04], [0.393, 0.046], [0.394, 0.068], [0.412, 0.069], [0.545, 0.074], [0.64, 0.06], [0.662, 0]];
+    lathe2(g, x, 0.004, (hoop ? hoopThigh : thigh).map(([y, r]) => [y, r > 0 && shorts && y >= 0.53 && y <= 0.545 ? r + 0.005 : r > 0 && jog ? r + 0.011 : r]), L, (y, az) => {
       if (legg) return bc;
+      if (jog) return stripe(az) ? bt : bc;
+      if (hoop) return y < 0.3935 ? skin : y < 0.412 ? bt : stripe(az) ? bt : bc;
       if (shorts) return y > 0.545 ? bc : y > 0.53 ? bt : skin;
       return skin;
     });
@@ -884,7 +1102,8 @@ function buildBody(g, look, q, rest, glints, seed) {
       : [[0.065, 0], [0.08, 0.028], [0.125, 0.031], [0.25, 0.041], [0.364, 0]];
     const stripes = sock.stripes ? sock.stripes.map(hx) : null;
     const sh0 = g.tris;
-    lathe2(g, x, 0.002, shin.map(([y, r]) => [y, r > 0 && y <= 0.125 ? r + 0.002 : r]), L, (y, az, i) => {
+    lathe2(g, x, 0.002, shin.map(([y, r]) => [y, r > 0 && jog ? r + (y <= 0.125 ? 0.009 : 0.013) : r > 0 && y <= 0.125 ? r + 0.002 : r]), L, (y, az, i) => {
+      if (jog) return y < 0.125 ? (i % 2 ? shade(bc, 0.8) : shade(bc, 0.72)) : stripe(az) ? bt : bc; // ribbed cuffs
       if (y < 0.125) return stripes ? stripes[(i + 3) % stripes.length] : hx(sock.color);
       if (legg && y > 0.11) return bc;
       return skin;
@@ -904,7 +1123,7 @@ function buildBody(g, look, q, rest, glints, seed) {
 
 function buildShoe(g, x, shoe, q, glints, bone, rnd) {
   const up = hx(shoe.color), sole = hx(shoe.sole), acc = hx(shoe.accent), lace = hx(shoe.lace);
-  const sneaker = shoe.style === 'sneaker';
+  const sneaker = shoe.style === 'sneaker' || shoe.style === 'hightop';
   const soleH = sneaker ? 0.024 : 0.018;
   const k = sneaker ? 1.06 : 1;
   let st = [[-0.05, 0.022, 0.058], [-0.044, 0.031, 0.085], [-0.02, 0.034, 0.09], [0.025, 0.035, 0.073], [0.07, 0.036, 0.058], [0.108, 0.03, 0.046], [0.132, 0.013, 0.032]];
@@ -952,7 +1171,40 @@ function buildShoe(g, x, shoe, q, glints, bone, rnd) {
       decalPoly(g, fl, starPts(0.004, 0.0016, 4, rnd()), i % 2 ? 0xffffff : acc, 0.0008);
     }
   }
+  if (shoe.style === 'hightop') {
+    // the high-top's collar around her ankle: its top follows her shin, its bottom her foot
+    const shinBone = bone === B.footL ? B.shinL : B.shinR, so = x > 0 ? 1 : -1;
+    g.wf = (px, py) => (py >= 0.125 ? [shinBone, shinBone, 1, 0] : py <= 0.06 ? [bone, bone, 1, 0] : [bone, shinBone, 1 - (py - 0.06) / 0.065, (py - 0.06) / 0.065]);
+    lathe2(g, x, -0.004, [[0.03, 0.05, 0.057], [0.09, 0.047, 0.051], [0.132, 0.045, 0.048], [0.152, 0.043, 0.046], [0.153, 0.034, 0.036]], q.more ? 8 : 6,
+      (y) => (y > 0.152 ? shade(up, 0.7) : y > 0.134 ? acc : up));
+    for (let i = 0; i < (q.more ? 3 : 2); i++) {
+      const y = 0.096 + i * 0.019;
+      const fl = { o: [x, y, -0.004 + lerp(0.051, 0.047, i / 2) + 0.0012], n: [0, 0, 1], t: [1, 0, 0], b: [0, 1, 0] };
+      decalStrip(g, fl, [[-0.013, 0.003], [0.013, -0.003]], 0.005, lace, 0.0008);
+      decalStrip(g, fl, [[-0.013, -0.003], [0.013, 0.003]], 0.005, lace, 0.0008);
+    }
+    const fs = { o: [x + so * 0.0472, 0.108, -0.004], n: [so, 0, 0], t: [0, 0, -so], b: [0, 1, 0] };
+    decalPoly(g, fs, starPts(0.013, 0.0055), acc, 0.0012);
+    g.wf = null;
+    g.bone(bone);
+  }
   glintAt(glints, [x + 0.03, 0.05, 0.02], [1, 0, 0], bone, 0.5, shoe.glitter ? 0xffffff : 0xfff0fa, 0.004);
+}
+
+// Seven-segment digits for jersey numbers and patches, as decal quads on frame f (centred on it).
+const SEG7 = ['abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg', 'acdfg', 'acdefg', 'abc', 'abcdefg', 'abcdfg'];
+function digitDecal(g, f, d, w, h, t, hex, lift) {
+  const x0 = -w / 2, x1 = w / 2, y0 = -h / 2, y1 = h / 2;
+  const one = d === 1; // a 1 stands in the middle of its cell
+  const R = {
+    a: [x0, y1 - t, x1, y1], d: [x0, y0, x1, y0 + t], g: [x0, -t / 2, x1, t / 2],
+    f: [x0, -t / 2, x0 + t, y1], e: [x0, y0, x0 + t, t / 2],
+    b: one ? [-t / 2, -t / 2, t / 2, y1] : [x1 - t, -t / 2, x1, y1], c: one ? [-t / 2, y0, t / 2, t / 2] : [x1 - t, y0, x1, t / 2],
+  };
+  for (const ch of SEG7[d] || SEG7[0]) {
+    const [ax, ay, bx, by] = R[ch];
+    decalQuad(g, f, [[ax, ay], [bx, ay], [bx, by], [ax, by]], hex, lift);
+  }
 }
 
 function buildSkirt(g, bot, q) {
@@ -1094,10 +1346,11 @@ export function buildCharacter(look, quality = 'high') {
   buildBody(g, look, q, rest, glints, seed);
   buildHair(g, look, q, rest);
 
-  // the bow, on its own bone
+  // the bow, on its own bone (only when she wears it: hats and "just hair" leave it off)
   const size = lookOption('bowSize', look.bowSize).scale * 1.22;
   const spot = rest.bow;
-  const { bg, glints: bowGlints } = buildBow(look, q, seed);
+  const wearBow = lookOption('hat', look.hat).id === 'bow';
+  const { bg, glints: bowGlints } = wearBow ? buildBow(look, q, seed) : { bg: new Geo(), glints: [] };
   const pos = [spot.p[0], spot.p[1] + 0.004 * (size - 1), spot.p[2] - 0.02 * (size - 1)];
   const M = new THREE.Matrix4().makeTranslation(pos[0], pos[1], pos[2])
     .multiply(new THREE.Matrix4().makeRotationX(spot.tilt))

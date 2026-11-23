@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { LOOK_OPTIONS, LOOK_SLOTS, DEFAULT_LOOK, cleanLook, randomLook, lookOption, lookKey } from '../js/art/character-looks.js';
 
-const SLOTS = ['skin', 'hair', 'hairStyle', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'pet'];
+const SLOTS = ['skin', 'hair', 'hairStyle', 'hat', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'pet'];
 const isValid = (look) => SLOTS.every((s) => LOOK_OPTIONS[s].some((o) => o.id === look[s]));
 
 function seeded(seed) {
@@ -40,8 +40,8 @@ test('every slot has preset options with unique ids, labels and colors', () => {
   }
   assert.equal(LOOK_OPTIONS.skin.length, 8);
   assert.equal(LOOK_OPTIONS.hair.length, 10);
-  assert.equal(LOOK_OPTIONS.hairStyle.length, 7);
-  assert.equal(LOOK_OPTIONS.bow.length, 9);
+  assert.equal(LOOK_OPTIONS.hairStyle.length, 11); // 7 long styles and 4 short ones
+  assert.equal(LOOK_OPTIONS.bow.length, 11); // the bow colours also colour caps and beanies
   assert.equal(LOOK_OPTIONS.bowPattern.length, 8);
   assert.deepEqual(LOOK_OPTIONS.bowSize.map((o) => o.id), ['big', 'huge', 'ridiculous', 'mega']);
   for (let i = 1; i < LOOK_OPTIONS.bowSize.length; i++) assert.ok(LOOK_OPTIONS.bowSize[i].scale > LOOK_OPTIONS.bowSize[i - 1].scale, 'the bigger the better');
@@ -86,7 +86,7 @@ test("DEFAULT_LOOK is Bailey's real outfit", () => {
 });
 
 test('cleanLook keeps a valid look and returns a fresh object', () => {
-  const look = { skin: 'tone6', hair: 'lilac', hairStyle: 'spaceBuns', bow: 'rainbow', bowPattern: 'hearts', bowSize: 'ridiculous', top: 'hoodie-pink', bottom: 'skirt-purple', shoes: 'sneakers-pink', socks: 'rainbow', sparkle: 'max', pet: 'cloudPuppy' };
+  const look = { skin: 'tone6', hair: 'lilac', hairStyle: 'spaceBuns', hat: 'beanie', bow: 'rainbow', bowPattern: 'hearts', bowSize: 'ridiculous', top: 'hoodie-pink', bottom: 'skirt-purple', shoes: 'sneakers-pink', socks: 'rainbow', sparkle: 'max', pet: 'cloudPuppy' };
   const out = cleanLook(look);
   assert.deepEqual(out, look);
   assert.notEqual(out, look);

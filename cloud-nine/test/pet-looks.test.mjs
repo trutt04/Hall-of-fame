@@ -8,9 +8,9 @@ import { lockedLooks } from '../js/world/sticks.js';
 import { SPIRIT_STICKS, stickById } from '../js/content/collectibles.js';
 import { wantsPet } from '../js/world/pets.js';
 
-test('the pet slot: no pet by default, or the cloud puppy', () => {
-  assert.deepEqual(LOOK_OPTIONS.pet.map((o) => o.id), ['none', 'cloudPuppy']);
-  assert.deepEqual(LOOK_OPTIONS.pet.map((o) => o.label), ['No pet', 'Cloud puppy']);
+test('the pet slot: no pet by default, the cloud puppy or the mini husky', () => {
+  assert.deepEqual(LOOK_OPTIONS.pet.map((o) => o.id), ['none', 'cloudPuppy', 'husky']);
+  assert.deepEqual(LOOK_OPTIONS.pet.map((o) => o.label), ['No pet', 'Cloud puppy', 'Mini husky']);
   assert.equal(DEFAULT_LOOK.pet, 'none');
   assert.equal(cleanLook({}).pet, 'none');
   assert.equal(cleanLook({ pet: 'cloudPuppy' }).pet, 'cloudPuppy');
@@ -47,7 +47,7 @@ test('a look with a pet stays well under the 600-character network limit, and su
   assert.equal(look.pet, 'cloudPuppy');
   const json = JSON.stringify(look);
   assert.ok(json.length < 400, 'look JSON is ' + json.length + ' characters');
-  assert.equal(Object.keys(look).length, 12);
+  assert.equal(Object.keys(look).length, 13); // 13 slots since the hat
   // through NET's encode/decode with the real cleaner, as a friend's device sees it
   const back = decodeLook(encodeLook(look), cleanLook);
   assert.deepEqual(back, look);
