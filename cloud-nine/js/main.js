@@ -12,6 +12,11 @@
 //   ./world/photobooth.js               -> the photo booth stays scenery
 //   ./world/pets.js                     -> no cloud puppy (the look's pet slot is kept, just not drawn)
 //   ./ui/creator.js, ./rhythm/index.js  -> loaded when first opened; a friendly placeholder if missing
+//   ./core/gift.js                      -> no family touches (the gift link's notes, birthday, bot friends)
+//
+// The family's private gift link, index.html#gift=<payload> (js/core/gift.js, README "Personal
+// touches"): read first thing, kept on this device, and taken out of the address bar. It brings the
+// notes, her birthday, her family as bot friends when she plays alone, and a one-time unwrap card.
 //
 // URL switches (for testing):
 //   ?solo=1               skip the menus, straight into solo free roam
@@ -249,6 +254,14 @@ function animForEmote(e) {
 // ------------------------------------------------------------------------------------ boot
 
 async function boot() {
+  // The gift link first, so the family's names leave the address bar while the island loads.
+  const giftLoad = optional('./core/gift.js').then((mod) => {
+    try {
+      return mod ? { giftMod: mod, gift: mod.readGiftFromUrl() || mod.getGift() } : { giftMod: null, gift: null };
+    } catch (err) {
+      return { giftMod: null, gift: null };
+    }
+  });
   const store = createStore();
   const params = store.params;
   debugOn = store.flag('debug');
@@ -284,6 +297,7 @@ async function boot() {
   engine.on('contextrestored', () => hud.skyLost(false));
 
   const [islandMod, skyMod, charMod0, audioMod, netMod, emotesMod, namesMod, hypeMod, birthdayMod, howtoMod, notesMod, glossaryMod, collectiblesMod, tossMod, gamesMod] = await parts;
+  const { giftMod, gift } = await giftLoad;
   hud.setLoading(0.3, 'Building the island');
   await nextFrame();
 
@@ -497,15 +511,17 @@ async function boot() {
   window.__c9 = world;
 
   // ---------------------------------------------------------------- birthday
-  const bInfo = FEATURES.birthdayMode ? content.birthdayInfo(new Date(), BIRTHDAY) || {} : {};
+  // the gift link's date and name win over js/config.js, so the party starts by itself on the day
+  const herBirthday = giftMod ? giftMod.giftBirthday(gift, BIRTHDAY) : BIRTHDAY;
+  const bInfo = FEATURES.birthdayMode ? content.birthdayInfo(new Date(), herBirthday) || {} : {};
   const isBirthday = !!(bInfo.isBirthday || store.flag('birthday'));
-  const age = Number.isFinite(bInfo.age) && bInfo.age > 0 ? bInfo.age : BIRTHDAY.year ? new Date().getFullYear() - BIRTHDAY.year : 11;
+  const age = Number.isFinite(bInfo.age) && bInfo.age > 0 ? bInfo.age : herBirthday.year ? new Date().getFullYear() - herBirthday.year : 11;
   try {
-    if (island.setBirthday) island.setBirthday({ isBirthday, age, name: BIRTHDAY.name });
+    if (island.setBirthday) island.setBirthday({ isBirthday, age, name: herBirthday.name });
   } catch (err) {
     console.warn('[c9] setBirthday failed', err);
   }
-  world.birthday = { isBirthday, age, name: BIRTHDAY.name, info: bInfo };
+  world.birthday = { isBirthday, age, name: herBirthday.name, info: bInfo };
   // a soft pop for the birthday fireworks while she is on the island (not under every menu)
   if (isBirthday && typeof island.onFirework === 'function') {
     let pops = 0;
@@ -1328,6 +1344,32 @@ async function boot() {
     menu.title({ onPlay: () => showMenu(), onSound: toggleSound, sound: audio.enabled });
   }
 
+  // The first time this device opens the family's gift link: a card to unwrap before the title,
+  // with confetti, and a sparkle as she opens it (her tap is what lets sound start). Shown once.
+  function showUnwrap() {
+    giftMod.markUnwrapped();
+    setMode('title');
+    titleCamera();
+    const screen = menu.message({
+      icon: 'bow',
+      title: herBirthday.name ? 'A gift for you, ' + herBirthday.name + '!' : 'A gift for you!',
+      lines: [gift.from ? 'From ' + gift.from : '', 'Cloud Nine was made just for you. Happy birthday!'].filter(Boolean),
+      actions: [{
+        label: 'Open it!',
+        icon: 'sparkle',
+        onClick: () => {
+          sfx('sparkle');
+          sfx('tada', { volume: 0.7 });
+          giftMod.confetti({ calm });
+          showTitle();
+        },
+      }],
+    });
+    if (screen && screen.classList) screen.classList.add('c9-gift-card');
+    setTimeout(() => giftMod.confetti({ calm }), 300);
+    if (unlocked) sfx('sparkle');
+  }
+
   function showMenu() {
     leaveSession();
     setMode('menu');
@@ -1565,7 +1607,7 @@ async function boot() {
       player.position.y += 7;
       player.velocity.y = -2;
       if (isBirthday) {
-        hud.big('Happy Birthday,\n' + BIRTHDAY.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
+        hud.big('Happy Birthday,\n' + herBirthday.name + '!', age ? 'Turning ' + age + ' on Cloud Nine!' : content.hype('birthday', { age }), { ms: 3400 });
         // a burst of birthday sparkle over the cake as she lands
         const c = places.cake || places.plaza;
         setTimeout(() => {
@@ -1652,12 +1694,14 @@ async function boot() {
     }
     return out;
   }
-  // Notes from the family (js/content/notes.js): checked by CONTENT's cleanNote, shown in a card
-  // from the menu. Nothing shows until the owner adds some.
+  // Notes from the family: the gift link's (js/core/gift.js, checked there), else the repo's
+  // (js/content/notes.js, checked by CONTENT's cleanNote). Shown in a card from the menu, each
+  // signed "From ...". Nothing shows until there are some.
   const familyNotes = (() => {
     try {
-      if (!FEATURES.familyNotes || typeof content.familyNotes !== 'function') return [];
-      const list = content.familyNotes();
+      if (!FEATURES.familyNotes) return [];
+      const repoNotes = () => (typeof content.familyNotes === 'function' ? content.familyNotes() : []);
+      const list = giftMod ? giftMod.pickNotes(gift, repoNotes) : repoNotes();
       return Array.isArray(list) ? list.filter((n) => n && typeof n.text === 'string' && n.text).slice(0, 20) : [];
     } catch (err) {
       return [];
@@ -2080,12 +2124,22 @@ async function boot() {
     hostStartGame,
     setNick: applyNick,
     setLook: applyLook,
-    // bot friends for games (host only): random names and looks; they are players like anyone else
+    // bot friends for games (host only): random looks; they are players like anyone else. Playing
+    // alone, they take the gift link's family names in order (js/core/gift.js), then random ones; in
+    // a room always random names, so a bot is never mistaken for a real cousin who joins.
     addBots(n = 1) {
       const ids = [];
+      const nicks = giftMod ? giftMod.botNicks(n, {
+        gift,
+        solo: !!(session && session.kind === 'solo'),
+        taken: [...net.players.values()].map((p) => p && p.nick),
+        myNick,
+        cleanNick: content.cleanNick,
+        randomNick: () => content.randomNick(),
+      }) : [];
       for (let i = 0; i < n; i++) {
         const look = charMod.randomLook ? charMod.randomLook(Math.random) : placeholder.randomLook(Math.random);
-        const id = net.addBot({ nick: content.randomNick(), look });
+        const id = net.addBot({ nick: nicks[i] || content.randomNick(), look });
         if (!id) break;
         ids.push(id);
       }
@@ -2096,6 +2150,9 @@ async function boot() {
       for (const [id, p] of [...net.players]) if (p && p.bot) net.removeBot(id);
       refreshPeople();
     },
+    // the gift link's name for this device's own pet ('cloudPuppy', 'husky'), or null. Only for her
+    // own pet's label: the gift stays on this device and never goes over the network.
+    petName: (id) => (giftMod ? giftMod.petName(id, gift) : null),
     parts: {
       island: !island.fallback, sky: !!skyMod, character: charMod !== placeholder, audio: !!audioReal, net: !!netMod,
       toss: !!toss, games: !!gamesMod, content: Object.fromEntries(Object.entries(content.modules).map(([k, v]) => [k, !!v])),
@@ -2135,6 +2192,8 @@ async function boot() {
     }
   } else if (store.flag('solo')) {
     await startSolo();
+  } else if (gift && giftMod.unwrapDue()) {
+    showUnwrap();
   } else {
     showTitle();
   }

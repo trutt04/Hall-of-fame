@@ -1,4 +1,6 @@
 // Family notes: short messages from the family, shown in the game. Pure.
+// Notes with real names belong in the private gift link instead (js/core/gift.js, README "Personal
+// touches"): this repo is public. A gift's notes win over these; these are the fallback.
 //
 //   FAMILY_NOTES                  [{ from, text }]: empty until the owner sends them (example below)
 //   NOTE_LIMITS                   { text: 160, from: 24 }
@@ -16,8 +18,9 @@
 import { isBlocked } from './blocklist.js';
 
 export const FAMILY_NOTES = Object.freeze([
-  // OWNER: add the family's notes here, one per line, like this example. First names or
-  // relations only (never last names), and keep each note short and sweet:
+  // OWNER: better, put the notes in the private gift link (README, "Personal touches"), which
+  // never goes in this public repo. Notes here are public: add them one per line, like this
+  // example. First names or relations only (never last names), and keep each note short and sweet:
   // { from: 'Grandma', text: 'Happy birthday, sweet flyer! We are so proud of you. Fly high!' },
 ]);
 
