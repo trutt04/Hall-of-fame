@@ -4,11 +4,11 @@
 // floats a little above the ground with a gentle bob, hops along when its owner moves and does a
 // happy spin for a cheer or a landed toss; the mini husky trots on the ground with its legs, wagging
 // its curled tail, and does a happy hop with a little synthesized "awoo" instead. Both settle and
-// sit when their owner stands still. A pet poofs along with her when she
-// teleports (travel, the rescue cloud), waits at the pad and bounces during her basket toss, sits
-// beside the stage mat during Hit Zero and beside her in the photo booth (in the picture). During
-// squad games it poofs into a tiny cloud (a pet following a hider would give her away) and comes
-// back after. It never collides with anything and is never a camera blocker.
+// sit when their owner stands still. A pet poofs along with its owner on a teleport (travel, the
+// rescue cloud), waits at the pad and bounces during a basket toss, sits beside the stage mat during
+// Hit Zero and beside its owner in the photo booth (in the picture). During squad games it poofs
+// into a tiny cloud (a pet following a hider would give them away) and comes back after. It never
+// collides with anything and is never a camera blocker. A different pet in the look swaps the model.
 //
 //   const pets = createPets(world, { myLook })     myLook() -> my current look
 //   pets.update(dt, t)          once a frame, after the player, the toss and the peers
@@ -16,8 +16,10 @@
 //   pets.cheer(id)              a happy spin (puppy) or hop and "awoo" (husky): id 'me' or a player id
 //   pets.arrive(id)             the unlock moment: a poof right beside her, a happy bark and a spin
 //   pets.count                  pets in the world;  pets.mine -> my pet's entry or null (tests)
-//   pets.track(id, owner)       tests: a pet for any owner { position, heading, speed } (null removes)
+//   pets.track(id, owner)       tests: a pet for any owner { position, heading, speed, look? } (null removes)
 //   pets.dispose()
+//   awoo(audio, volume = 1)     the husky's "awoo", synthesized on audio.real.context only while
+//                               audio.enabled (else the game's own 'aww' sfx, which minds the toggle)
 //
 // Pure helpers (node tests): PET, wantsPet(look), petKindOf(look), followSpot(x, z, heading, side, out),
 // springStep(s, target, omega, dt), petMode(flags), stageSpot(stage, x, z, out), padSpot(pad, out)
