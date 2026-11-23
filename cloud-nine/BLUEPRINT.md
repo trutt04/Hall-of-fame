@@ -183,7 +183,9 @@ export function createCharacter(look = DEFAULT_LOOK, { quality = 'high' } = {}) 
 ```
 
 A look is a small object of preset ids, never free text:
-`{ skin, hair, hairStyle, bow, bowPattern, bowSize, top, bottom, shoes, socks, sparkle }`.
+`{ skin, hair, hairStyle, hat, bow, bowPattern, bowSize, top, bottom, shoes, socks, sparkle, pet }`.
+(Added later: `hat` is 'bow' | 'none' | 'cap' | 'capBack' | 'beanie', and the bow is drawn only when
+`hat` is 'bow'; `pet` is 'none' | 'cloudPuppy' | 'husky'. Old saved looks get 'bow' and 'none'.)
 
 `DEFAULT_LOOK`: high ponytail, dark brown hair, a big hot-pink bow with small black stars, a black
 crop top covered in rhinestone starbursts (pink, purple, silver), hot-pink shorts, black cheer

@@ -298,6 +298,19 @@ async function boot() {
 
   const [islandMod, skyMod, charMod0, audioMod, netMod, emotesMod, namesMod, hypeMod, birthdayMod, howtoMod, notesMod, glossaryMod, collectiblesMod, tossMod, gamesMod] = await parts;
   const { giftMod, gift } = await giftLoad;
+  // The family's names for their pets (the gift link) label the pets in My cheerleader, on this
+  // device only: names never go over the network.
+  if (giftMod && gift) {
+    optional('./art/character-looks.js').then((looks) => {
+      if (!looks || typeof looks.setPetLabels !== 'function') return;
+      const names = {};
+      for (const id of ['husky', 'cloudPuppy']) {
+        const n = giftMod.petName(id, gift);
+        if (n) names[id] = n;
+      }
+      if (Object.keys(names).length) looks.setPetLabels(names);
+    });
+  }
   hud.setLoading(0.3, 'Building the island');
   await nextFrame();
 
@@ -1620,12 +1633,14 @@ async function boot() {
       // A device that never dressed up gets My cheerleader once, right after the splash, starting
       // from the default look (Done straight away is fine). Test switches skip it unless ?welcome=1.
       const testRun = (store.flag('solo') || params.has('room') || params.has('game')) && !store.flag('welcome');
-      if (!testRun && welcome.creatorDue(!!store.look)) {
+      const creatorFirst = !testRun && welcome.creatorDue(!!store.look);
+      if (creatorFirst) {
         setTimeout(() => {
           if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || world.activeGame || hitZeroOpen) return;
           welcome.creatorShown();
           openCheerleader(() => {
             backToPlay();
+            if (giftPetDue()) setTimeout(giftPetSoon, 1400);
             setTimeout(() => {
               if (playing() && !hitZeroOpen) hud.toast('Welcome to the squad, ' + myNick + '! Tap To do for fun things to try.', { icon: 'sparkle', ms: 4200 });
             }, todo && todo.pending ? 3400 : 500);
@@ -1637,6 +1652,7 @@ async function boot() {
           if (playing()) hud.toast(familyNotes.length === 1 ? 'Your family left you a note! It is in the menu.' : 'Your family left you notes! They are in the menu.', { icon: 'bow', ms: 5200 });
         }, isBirthday ? 4200 : 2800);
       }
+      if (!creatorFirst && giftPetDue()) setTimeout(giftPetSoon, isBirthday ? 5200 : 4000);
     }
     if (audio.enabled && unlocked) islandMusic();
     const touch = coarsePointer();
@@ -1971,6 +1987,31 @@ async function boot() {
   // The last stick's prize is special: once the splash is over, the cloud puppy poofs in right beside
   // her with a happy bark and a spin, and it's hers from then on ("No pet" in My cheerleader sends it
   // for a nap). Friends in a room see it too.
+  // The family's own dog (the gift link names the mini husky): the first time this device reaches
+  // the island with the gift, the husky poofs in beside her, once, if she has no pet yet. "No pet"
+  // or another pet in My cheerleader changes it like any other look.
+  function giftPetDue() {
+    if (!giftMod || !gift || !pets) return false;
+    const name = giftMod.petName('husky', gift);
+    if (!name) return false;
+    const prog = store.progress || {};
+    return !prog.giftPet && (!myLook.pet || myLook.pet === 'none');
+  }
+  let giftPetTries = 0;
+  function giftPetSoon() {
+    if (!giftPetDue()) return;
+    if (!playing() || hud.isModalOpen() || (toss && toss.active) || boothBusy() || world.activeGame || hitZeroOpen) {
+      if (++giftPetTries < 30) setTimeout(giftPetSoon, 2000);
+      return;
+    }
+    const name = giftMod.petName('husky', gift);
+    store.patchProgress({ giftPet: true });
+    applyLook(Object.assign({}, myLook, { pet: 'husky' }), { quiet: true });
+    if (session) net.updateMe({ nick: myNick, look: myLook });
+    pets.arrive('me');
+    sfx('sparkle', { volume: 0.7 });
+    hud.toast(name + ' came along! Change pets any time in My cheerleader, under Pet.', { icon: '\u{1F43E}', ms: 5200 });
+  }
   function petUnlocked(u) {
     setTimeout(() => hud.toast('Unlocked: ' + u.label + '!', { icon: '\u{1F436}', ms: 3400 }), 900);
     setTimeout(() => {

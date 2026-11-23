@@ -34,7 +34,7 @@ The first tap turns the sound on. The speaker button turns it off and on, and th
 A badge floats over each of these places so she can spot them from across the island, and the
 "To do" chip (top left, also in the menu as "Things to do") lists eight first goals. Finishing
 all eight wins the gold bow in My cheerleader. On a new device, My cheerleader opens once right
-after the welcome, so each cousin can make her own look before playing.
+after the welcome, so each cousin can make their own look before playing.
 
 - **Basket toss.** Three glittery mats on the headland, each aimed at a cloud (8, 14 and 22 m
   up). Stand on one and tap "Basket toss!". The bases count "5, 6, 7, 8!" and throw her. Swipe
@@ -61,9 +61,16 @@ after the welcome, so each cousin can make her own look before playing.
   stops, spins when she cheers, waits at the mat while she flies, and hides during squad games so
   it never gives a hider away. Friends in a room see it too. "Pet" in My cheerleader turns it on
   or off.
-- **My cheerleader.** Hair, bow, outfit, shoes, sparkle, skin tone and pet, plus her cheer name. Her
-  first look is a hot-pink and black cheer outfit: high pony, the big hot-pink bow with black stars, the black
-  rhinestone crop top and hot-pink shorts.
+- **My cheerleader.** Hair (long styles and short ones), hats (the cheer bow, a cap, a backwards
+  cap, a beanie, or just hair), outfits (cheer uniforms, tees, hoodies, team jerseys, varsity
+  jackets, skirts, shorts, leggings, joggers), shoes (cheer shoes, sneakers, high-tops), sparkle,
+  skin tone and pet, plus a cheer name, so everyone from 9 to 15 finds a look they like. Her
+  first look is a hot-pink and black cheer outfit: high pony, the big hot-pink bow with black
+  stars, the black rhinestone crop top and hot-pink shorts.
+- **Pets.** A mini husky is in Pet from the start (its colours are at the top of `js/art/pet.js`,
+  to match a real dog); the cloud puppy is the last spirit stick's prize. Pets follow, sit, hop,
+  and hide during squad games. With the private gift link, the husky wears the family dog's name
+  on that device and comes along the first time she arrives.
 - **Rooms.** "Make a room" shows a 4-letter code. Friends tap "Join a room" and type it. Rooms
   are private: there is no list of rooms anywhere, and only someone with the code can come in.
   Once everyone is in, the host can lock the room (in the lobby or the menu) so nobody new can

@@ -160,7 +160,7 @@ export function createToss(world) {
     }
     // the team uniform: Team Pink wears the outfit from DEFAULT_LOOK; Team Purple swaps in purple pieces
     const base = mod.DEFAULT_LOOK || {};
-    for (const k of ['top', 'bottom', 'bow', 'bowPattern', 'bowSize', 'shoes', 'socks', 'sparkle']) if (base[k] !== undefined) look[k] = base[k];
+    for (const k of ['top', 'bottom', 'hat', 'bow', 'bowPattern', 'bowSize', 'shoes', 'socks', 'sparkle']) if (base[k] !== undefined) look[k] = base[k];
     if (team === 1 && mod.LOOK_OPTIONS) {
       for (const k of ['top', 'bottom', 'bow']) {
         const list = mod.LOOK_OPTIONS[k];
