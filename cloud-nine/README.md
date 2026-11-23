@@ -91,16 +91,65 @@ address.
 **Privacy: this repo is public.** Everything in it, and in its history, can be read by anyone:
 her birthday in `js/config.js`, the family notes in `js/content/notes.js`, the Firebase project
 name. Use first names or relations only ("Grandma", "Aunt Zuzu"), never last names, towns, schools,
-gyms or team names. To keep her birthday off the internet, leave the date `null` and send her the
-link with `?birthday=1` on the end on the day, and the party turns on. A detail
+gyms or team names. To keep her birthday off the internet, leave the date `null` and put it in the
+private gift link (next section), or send her the link with `?birthday=1` on the end on the day,
+and the party turns on. A detail
 committed by mistake stays in the history even after it is deleted, so check before you commit.
+
+## Personal touches (kept out of the repo)
+
+The family's names never go in this public repo. They travel in a private **gift link** instead:
+the game's address with the family's details packed on the end, after `#gift=`. The part after
+`#` stays on the device that opens it: browsers never send it to any server, GitHub's included.
+
+The first time a phone, tablet or computer opens the link, a card unwraps the gift ("A gift for
+you, Bailey! From ..."), the game keeps the details on that device and tidies the address bar.
+From then on, on that device:
+
+- **Notes from your family** in the menu shows the family's notes, each signed "From ...".
+- **Her birthday** turns on by itself on the day, with a candle for each year. (`?birthday=1` still works.)
+- **Bot friends** are her family when she plays by herself. In rooms, bots keep made-up names, so
+  nobody mistakes a bot for a real cousin who joins.
+- **Her pets** can wear the names in the link.
+
+Only devices that opened the link have these touches. Clearing the browser's data (or using a new
+device) removes them: open the link again and they come back.
+
+**Making a link.** Ask Claude ("make Bailey's gift link with these notes: ..."), or write a file
+like this one somewhere outside the repo (the names here are made up). Every key but `"v"` is
+optional, and `"to"` is Bailey unless you say otherwise.
+
+```json
+{
+  "v": 1,
+  "from": "Uncle Wobble",
+  "birthday": { "month": 12, "day": 3, "year": 2015 },
+  "notes": [
+    { "from": "Grandpa Zork", "text": "Happy birthday, superstar flyer! 💖" },
+    { "from": "Mom and Dad", "text": "Keep flying high! 🎀" }
+  ],
+  "friends": ["Zuzu", "Grandpa Zork", "Pip"],
+  "petNames": { "cloudPuppy": "Biscuit" }
+}
+```
+
+Then, from the top of the repo: `node cloud-nine/tools/make-gift.mjs ~/Desktop/gift.json`. It
+checks everything with the game's own rules, lists anything it had to leave out and why, and
+prints the link. The rules: names are letters, spaces and `. ' -`, at most 16 (names over bots
+are at most 12, so "Grandma Fizzle" shows as "Fizzle"); up to 12 notes of up to 280 characters,
+emoji welcome, but no `<` or `>` (write ❤️ for <3), links or phone numbers; up to 9 bot friends,
+in the order they should appear; everything passes the game's word filter.
+
+**Share it privately, like a photo.** The link holds the family's names: send it straight to her
+family (a message or an email), and never post it, paste it in an issue, or commit it. Keep
+`gift.json` out of the repo too.
 
 ## Changing things
 
 | To change... | Edit |
 |---|---|
 | Her birthday | `BIRTHDAY` in `js/config.js` (above) |
-| Notes from the family | `FAMILY_NOTES` in `js/content/notes.js`. One line each, like `{ from: 'Grandma', text: 'Happy birthday, sweet flyer!' }`. Sign with first names or relations only, never last names. They show up in the menu as "Notes from your family", and she gets a nudge when she arrives. The notes are public on the site and in the repo, so keep them to things you'd put on a birthday card in a shop window. |
+| Notes from the family | Best in the private gift link (above), which keeps names out of the repo. Or `FAMILY_NOTES` in `js/content/notes.js` (used when there is no gift). One line each, like `{ from: 'Grandma', text: 'Happy birthday, sweet flyer!' }`. Sign with first names or relations only, never last names. They show up in the menu as "Notes from your family", and she gets a nudge when she arrives. The notes are public on the site and in the repo, so keep them to things you'd put on a birthday card in a shop window. |
 | Her starting look (the skin tone is a guess) | `DEFAULT_LOOK` in `js/art/character-looks.js` |
 | The colors | `PALETTE` in `js/config.js` |
 | What the game says when things happen | the `js/content/hype-lines-*.js` files |
