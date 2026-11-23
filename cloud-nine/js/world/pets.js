@@ -1,27 +1,31 @@
-// Pets: a cloud puppy (js/art/pet.js) for every player whose look has `pet: 'cloudPuppy'`: me, and
+// Pets (js/art/pet.js) for every player whose look has a pet ('cloudPuppy' or 'husky'): me, and
 // friends in a room (following their interpolated positions). Never bots, so it stays special.
-// A pet follows its owner with a soft spring about 1.2 m behind and to one side, floating a little
-// above the ground with a gentle bob. It hops along when she moves, settles and sits when she stands
-// still, and does a happy spin when she cheers or lands a toss. It poofs along with her when she
-// teleports (travel, the rescue cloud), waits at the pad and bounces during her basket toss, sits
-// beside the stage mat during Hit Zero and beside her in the photo booth (in the picture). During
-// squad games it poofs into a tiny cloud (a pet following a hider would give her away) and comes
-// back after. It never collides with anything and is never a camera blocker.
+// A pet follows its owner with a soft spring about 1.2 m behind and to one side. The cloud puppy
+// floats a little above the ground with a gentle bob, hops along when its owner moves and does a
+// happy spin for a cheer or a landed toss; the mini husky trots on the ground with its legs, wagging
+// its curled tail, and does a happy hop with a little synthesized "awoo" instead. Both settle and
+// sit when their owner stands still. A pet poofs along with its owner on a teleport (travel, the
+// rescue cloud), waits at the pad and bounces during a basket toss, sits beside the stage mat during
+// Hit Zero and beside its owner in the photo booth (in the picture). During squad games it poofs
+// into a tiny cloud (a pet following a hider would give them away) and comes back after. It never
+// collides with anything and is never a camera blocker. A different pet in the look swaps the model.
 //
 //   const pets = createPets(world, { myLook })     myLook() -> my current look
 //   pets.update(dt, t)          once a frame, after the player, the toss and the peers
 //   pets.sync()                 match pets to looks (mine and net.players); also runs on net events
-//   pets.cheer(id)              a happy spin: id 'me' or a player id
+//   pets.cheer(id)              a happy spin (puppy) or hop and "awoo" (husky): id 'me' or a player id
 //   pets.arrive(id)             the unlock moment: a poof right beside her, a happy bark and a spin
 //   pets.count                  pets in the world;  pets.mine -> my pet's entry or null (tests)
-//   pets.track(id, owner)       tests: a pet for any owner { position, heading, speed } (null removes)
+//   pets.track(id, owner)       tests: a pet for any owner { position, heading, speed, look? } (null removes)
 //   pets.dispose()
+//   awoo(audio, volume = 1)     the husky's "awoo", synthesized on audio.real.context only while
+//                               audio.enabled (else the game's own 'aww' sfx, which minds the toggle)
 //
-// Pure helpers (node tests): PET, wantsPet(look), followSpot(x, z, heading, side, out),
+// Pure helpers (node tests): PET, wantsPet(look), petKindOf(look), followSpot(x, z, heading, side, out),
 // springStep(s, target, omega, dt), petMode(flags), stageSpot(stage, x, z, out), padSpot(pad, out)
 
 import * as THREE from '../../lib/three.module.min.js';
-import { createPuppy, PIVOT_Y } from '../art/pet.js';
+import { createPet, PIVOT_Y } from '../art/pet.js';
 import { motion, isReducedMotion } from '../art/util.js';
 
 export const PET = Object.freeze({
@@ -35,6 +39,9 @@ export const PET = Object.freeze({
   max: 10, // pets at most (a full room)
 });
 const SPIN = 0.75;
+const HOP = 0.62; // the husky's happy hop
+const AWOO_GAP = 1.4; // seconds between one pet's awoos, at least
+const KINDS = new Set(['cloudPuppy', 'husky']);
 const LOCO = new Set(['idle', 'walk', 'run', 'jump', 'fall', 'land']);
 
 const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
@@ -49,8 +56,14 @@ const smooth = (x) => x * x * (3 - 2 * x);
 
 // ---- pure helpers --------------------------------------------------------------------------------
 
+// Which pet a look has: 'cloudPuppy', 'husky' or null.
+export function petKindOf(look) {
+  if (!look || typeof look !== 'object') return null;
+  const k = look.pet;
+  return typeof k === 'string' && KINDS.has(k) ? k : null;
+}
 export function wantsPet(look) {
-  return !!look && typeof look === 'object' && look.pet === 'cloudPuppy';
+  return petKindOf(look) !== null;
 }
 
 // Where a pet likes to be: behind her and to one side (side +1 is her right, -1 her left).
@@ -299,6 +312,66 @@ function bark(audio) {
   }
 }
 
+// ---- a happy little "awoo": a rising then falling howl, synthesized on the game's audio context -----
+
+export function awoo(audio, volume = 1) {
+  let ok = false;
+  try {
+    const real = audio && audio.real;
+    const ctx = real && real.context;
+    if (audio && audio.enabled && ctx && ctx.state === 'running') {
+      const t = ctx.currentTime + 0.02;
+      const out = ctx.createGain();
+      out.gain.value = 0.3 * volume;
+      out.connect(ctx.destination);
+      const o = ctx.createOscillator(); // the voice: "a-woo", up then down
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(430, t);
+      o.frequency.linearRampToValueAtTime(640, t + 0.22);
+      o.frequency.linearRampToValueAtTime(610, t + 0.5);
+      o.frequency.exponentialRampToValueAtTime(400, t + 0.78);
+      const vib = ctx.createOscillator(); // a little wobble in the howl
+      vib.frequency.value = 6.5;
+      const vibAmt = ctx.createGain();
+      vibAmt.gain.setValueAtTime(0, t);
+      vibAmt.gain.linearRampToValueAtTime(14, t + 0.4);
+      vib.connect(vibAmt);
+      vibAmt.connect(o.frequency);
+      const f1 = ctx.createBiquadFilter(); // the vowel: "aa" closing to "oo"
+      f1.type = 'bandpass';
+      f1.Q.value = 2.2;
+      f1.frequency.setValueAtTime(1100, t);
+      f1.frequency.exponentialRampToValueAtTime(520, t + 0.4);
+      const lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 2400;
+      const g = ctx.createGain();
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(1, t + 0.06);
+      g.gain.setValueAtTime(1, t + 0.5);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.85);
+      o.connect(f1);
+      f1.connect(lp);
+      lp.connect(g);
+      g.connect(out);
+      o.start(t);
+      vib.start(t);
+      o.stop(t + 0.9);
+      vib.stop(t + 0.9);
+      setTimeout(() => {
+        try { out.disconnect(); } catch (err) { /* gone */ }
+      }, 1400);
+      ok = true;
+    }
+  } catch (err) {
+    ok = false;
+  }
+  if (!ok && audio && typeof audio.sfx === 'function') {
+    // no context of our own to play on: the closest of the game's sounds (sfx minds the sound toggle)
+    audio.sfx('aww', { volume: 0.5 * volume, pitch: 1.5 });
+  }
+}
+
 // ---- the pets ------------------------------------------------------------------------------------
 
 export function createPets(world, { myLook = () => world.look } = {}) {
@@ -316,6 +389,7 @@ export function createPets(world, { myLook = () => world.look } = {}) {
   const spot = { x: 0, z: 0 };
   const camPos = new THREE.Vector3();
   let syncIn = 0;
+  let clock = 0;
 
   const meId = () => (net && net.me ? net.me.id : null);
   const groundY = (x, z) => {
@@ -328,13 +402,13 @@ export function createPets(world, { myLook = () => world.look } = {}) {
     return fin(y) ? y : -Infinity;
   };
 
-  function add(id, mine) {
-    const model = createPuppy();
+  function add(id, mine, kind) {
+    const model = createPet(kind);
     model.body.rotation.order = 'YXZ';
     model.group.visible = false;
     root.add(model.group);
     const e = {
-      id, mine, model, visible: false, mode: 'away',
+      id, mine, model, kind, ground: !!model.ground, visible: false, mode: 'away', hopT: 0, howlT: 0, awooAt: -99,
       x: 0, y: 0, z: 0, vx: 0, vy: 0, vz: 0, heading: 0, th: 0, side: mine ? 1 : sideFor(id),
       ox: NaN, oz: NaN, still: 0, sit: 0, move: 0, hopPh: Math.random() * 3, spinT: 0, happyT: 0, excite: 0,
       lastY: 0, bodyY: 0, ph: Math.random() * 6, tiltT: 2 + Math.random() * 3, tilt: 0, wait: null, arrive: 0,
@@ -360,19 +434,22 @@ export function createPets(world, { myLook = () => world.look } = {}) {
 
   // ---- who has a pet
   function sync() {
-    const want = new Set();
-    if (wantsPet(safe(myLook))) want.add('me');
+    const want = new Map(); // owner id -> kind
+    const mineKind = petKindOf(safe(myLook));
+    if (mineKind) want.set('me', mineKind);
     const me = meId();
     const players = net && net.players;
     if (players && typeof players.forEach === 'function') {
       players.forEach((p, id) => {
         if (!p || p.bot || id === me || want.size >= PET.max) return;
-        if (wantsPet(p.look)) want.add(id);
+        const k = petKindOf(p.look);
+        if (k) want.set(id, k);
       });
     }
-    for (const id of tracked.keys()) if (want.size < PET.max) want.add(id);
-    for (const id of [...pets.keys()]) if (!want.has(id)) remove(id, true);
-    for (const id of want) if (!pets.has(id)) add(id, id === 'me');
+    for (const [id, o] of tracked) if (want.size < PET.max) want.set(id, (o && petKindOf(o.look)) || 'cloudPuppy');
+    // a different pet: the old one poofs off and the new one poofs in
+    for (const [id, e] of [...pets]) if (want.get(id) !== e.kind) remove(id, true);
+    for (const [id, kind] of want) if (!pets.has(id)) add(id, id === 'me', kind);
   }
   function safe(fn) {
     try {
@@ -473,8 +550,9 @@ export function createPets(world, { myLook = () => world.look } = {}) {
   }
   // where it floats: over the ground under it or under her, whichever is higher (it is a cloud:
   // beside her on a cloud platform it floats over open sky); her own height when both are sky
-  function floorY(g, o, mode) {
+  function floorY(g, o, mode, e) {
     if ((mode === 'wait' || mode === 'stage') && fin(g)) return g; // its own spot: never up to her cloud
+    if (e && e.ground && fin(g) && fin(o.ground) && Math.abs(g - o.ground) < 1.5) return g; // the husky walks on what is under it
     const b = Math.max(g, o.ground);
     return fin(b) ? b : o.y;
   }
@@ -482,6 +560,7 @@ export function createPets(world, { myLook = () => world.look } = {}) {
   // ---- the frame
   function update(dt, t) {
     dt = Math.min(0.1, Math.max(0, dt));
+    clock += dt;
     if ((syncIn -= dt) <= 0) {
       syncIn = 1; // a slow safety net; net events do the real work
       sync();
@@ -541,7 +620,7 @@ export function createPets(world, { myLook = () => world.look } = {}) {
       }
     }
     let gp = groundY(e.x, e.z); // the ground under it (the shadow, and how high it floats)
-    tgt.y = floorY(gp, o, mode);
+    tgt.y = floorY(gp, o, mode, e);
     // she jumped somewhere (travel, the stage, the booth's mark, back from the rescue cloud): poof along
     // (not while it waits: a friend flying fast in a toss is not a teleport, and it stays put anyway)
     const jumped = mode !== 'wait' && fin(e.ox) && Math.hypot(o.x - e.ox, o.z - e.oz) > PET.jump;
@@ -563,13 +642,16 @@ export function createPets(world, { myLook = () => world.look } = {}) {
         }
       }
       gp = groundY(x, z);
-      tgt.y = floorY(gp, o, mode);
+      tgt.y = floorY(gp, o, mode, e);
       puffIn(e, x, z, tgt.y);
       e.heading = Math.atan2(o.x - x, o.z - z);
       if (e.arrive > 0) {
         e.arrive = 0;
-        bark(world.audio);
-        e.spinT = SPIN;
+        if (e.ground) happyHop(e);
+        else {
+          bark(world.audio);
+          e.spinT = SPIN;
+        }
         e.happyT = 3;
         if (world.spawnBurst) world.spawnBurst(x, e.y + 0.6, z, { count: 26, speed: 3.2, size: 0.4 });
       }
@@ -592,14 +674,15 @@ export function createPets(world, { myLook = () => world.look } = {}) {
     e.heading += angleDelta(e.heading, want) * Math.min(1, dt * (sp > 0.5 ? 9 : 4));
     // hops while it goes, bounces while it waits, a soft float and bob always
     const m = motion();
-    const glide = smooth(clamp((sp - 4.5) / 3.5, 0, 1));
+    const glide = e.ground ? 0 : smooth(clamp((sp - 4.5) / 3.5, 0, 1));
     let hop = 0;
     if (e.excite > 0.05) {
       e.hopPh += dt * 8.5;
-      hop = Math.abs(Math.sin(e.hopPh)) * 0.2 * e.excite * m;
+      hop = Math.abs(Math.sin(e.hopPh)) * (e.ground ? 0.07 : 0.2) * e.excite * m;
     } else if (sp > 0.45) {
+      // the puppy hops along; the husky trots (its legs do the work), with just a little bounce
       e.hopPh += dt * (6.5 + Math.min(6, sp) * 0.9);
-      hop = Math.abs(Math.sin(e.hopPh)) * (0.13 + Math.min(0.08, sp * 0.02)) * (1 - glide) * m;
+      hop = Math.abs(Math.sin(e.hopPh)) * (0.13 + Math.min(0.08, sp * 0.02)) * (e.ground ? 0.15 : 1) * (1 - glide) * m;
     } else {
       e.hopPh = 0;
     }
@@ -611,25 +694,36 @@ export function createPets(world, { myLook = () => world.look } = {}) {
       if (!isReducedMotion()) spinYaw = Math.PI * 2 * smooth(u);
       hop += Math.sin(Math.PI * u) * 0.32 * (isReducedMotion() ? 0.4 : 1);
     }
+    // the husky's happy hop: up off the ground, nose to the sky for the "awoo"
+    let hopPitch = 0;
+    if (e.hopT > 0) {
+      e.hopT = Math.max(0, e.hopT - dt);
+      const u = 1 - e.hopT / HOP;
+      const k = isReducedMotion() ? 0.4 : 1;
+      hop += Math.sin(Math.PI * u) * 0.24 * k;
+      hopPitch = -Math.sin(Math.PI * u) * 0.32 * k;
+    }
+    if (e.howlT > 0) e.howlT -= dt;
     if (e.happyT > 0) e.happyT -= dt;
     if ((e.tiltT -= dt) <= 0) {
       e.tiltT = 3 + Math.random() * 4;
       e.tilt = e.sit > 0.5 && Math.random() < 0.7 ? (Math.random() < 0.5 ? -1 : 1) * 0.32 : 0;
     }
     if (e.sit < 0.5) e.tilt = 0;
-    const hover = 0.26 - 0.2 * e.sit;
-    const bob = Math.sin(t * 2.3 + e.ph) * 0.035 * (1 - 0.6 * e.sit) * m;
+    const hover = e.ground ? 0 : 0.26 - 0.2 * e.sit;
+    const bob = e.ground ? 0 : Math.sin(t * 2.3 + e.ph) * 0.035 * (1 - 0.6 * e.sit) * m;
     const g = e.model.group;
     g.position.set(e.x, e.y, e.z);
     const body = e.model.body;
     e.bodyY = e.y + hover + bob + hop;
     body.position.y = PIVOT_Y + hover + bob + hop;
     const c2 = Math.cos(e.hopPh * 2);
-    const hopping = hop > 0.001 && e.spinT <= 0 ? 1 : 0;
+    const hopping = hop > 0.001 && e.spinT <= 0 && !e.ground ? 1 : 0;
     const sy = 1 - 0.08 * Math.pow(Math.max(0, c2), 3) * hopping + 0.05 * (1 - Math.abs(c2)) * hopping;
     const sxz = 1 / Math.sqrt(sy);
     body.scale.set(sxz, sy, sxz);
-    body.rotation.set(-0.3 * e.sit + 0.14 * e.move * (1 - glide) + 0.1 * glide, e.heading + spinYaw, Math.sin(t * 6 + e.ph) * 0.05 * e.move * m);
+    if (e.ground) body.rotation.set(0.05 * e.move + hopPitch, e.heading, Math.sin(t * 9 + e.ph) * 0.03 * e.move * m);
+    else body.rotation.set(-0.3 * e.sit + 0.14 * e.move * (1 - glide) + 0.1 * glide, e.heading + spinYaw, Math.sin(t * 6 + e.ph) * 0.05 * e.move * m);
     // the shadow stays on the ground and shrinks as it floats up
     const sh = e.model.shadow;
     if (sh) {
@@ -650,11 +744,21 @@ export function createPets(world, { myLook = () => world.look } = {}) {
     mood.vy = dt > 0 ? (e.bodyY - e.lastY) / dt : 0;
     e.lastY = e.bodyY;
     mood.tilt = e.tilt;
+    if (e.ground) mood.howl = e.howlT > 0 ? 1 : 0;
     // sitting, it looks at the camera; waiting, up at her
     let look = 0;
     if (e.sit > 0.5 && mode !== 'booth') look = angleDelta(e.heading, Math.atan2(camPos.x - e.x, camPos.z - e.z));
     mood.look = Math.abs(look) < 1.6 ? look : 0;
     e.model.update(dt, t);
+  }
+
+  // the husky's hello and hooray: a little hop, nose up, and an "awoo" (not too often)
+  function happyHop(e) {
+    e.hopT = HOP;
+    if (clock - e.awooAt < AWOO_GAP) return;
+    e.awooAt = clock;
+    e.howlT = 0.95;
+    awoo(world.audio, e.mine ? 1 : 0.5);
   }
 
   function nearestPad(x, z) {
@@ -686,7 +790,8 @@ export function createPets(world, { myLook = () => world.look } = {}) {
     cheer(id) {
       const e = pets.get(idFor(id));
       if (!e || !e.visible) return false;
-      e.spinT = SPIN;
+      if (e.ground) happyHop(e);
+      else e.spinT = SPIN;
       e.happyT = 2.2;
       if (world.spawnBurst && !isReducedMotion()) world.spawnBurst(e.x, e.bodyY + 0.6, e.z, { count: 10, speed: 2.2, size: 0.3 });
       return true;

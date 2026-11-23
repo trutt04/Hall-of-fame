@@ -1,21 +1,28 @@
 // The cheerleader's looks: preset options for every slot, Bailey's default outfit and the
 // validators. Pure data and logic (no three.js, no DOM), so it runs under node --test.
 //
-//   LOOK_SLOTS                 the 12 slot names, in creator order (the pet last)
+//   LOOK_SLOTS                 the 13 slot names, in creator order (the pet last)
 //   LOOK_OPTIONS               { slot: [{ id, label, ...colors }] }  (deep frozen; colors are '#rrggbb')
 //   DEFAULT_LOOK               Bailey's real outfit (frozen)
 //   cleanLook(raw)             -> a fresh, valid look. Input is hostile (it arrives over the network):
 //                              anything unknown, mistyped, oversized or inherited falls back slot by slot
 //   randomLook(rng)            -> a fresh, valid look, for bots and "Surprise me!". rng() -> [0, 1).
-//                              Never a pet: the cloud puppy is won (Rainbow's End), and bots don't get one
+//                              Never a pet: pets are chosen (or won), and bots don't get one
 //   lookOption(slot, id)       -> the option object for that id (the default's when unknown)
 //   lookKey(look)              -> a short stable string for a clean look (cache keys, equality)
+//   petLabel(id)               -> the name a pet goes by: the one lookup for every pet label (the creator's
+//                              tiles, anything in the world). setPetLabels({ husky: 'Name' }) overrides
+//                              labels (a family's own name for their dog, wired in privately later);
+//                              setPetLabels({ husky: null }) puts the default back. Returns the overrides.
 //
 // A look is a small object of preset ids, never free text:
-//   { skin, hair, hairStyle, bow, bowPattern, bowSize, top, bottom, shoes, socks, sparkle, pet }
-// pet is 'none' or 'cloudPuppy' (drawn and walked by js/art/pet.js and js/world/pets.js, not the body).
+//   { skin, hair, hairStyle, hat, bow, bowPattern, bowSize, top, bottom, shoes, socks, sparkle, pet }
+// hat is what she wears on her head: the cheer bow (the default, so looks saved before hats keep it),
+// just her hair, a cap (forward or backwards) or a beanie. The bow colour list colours a cap or beanie
+// too; the bow is only drawn when hat is 'bow', so a bow and a hat never clip.
+// pet is 'none', 'cloudPuppy' or 'husky' (drawn and walked by js/art/pet.js and js/world/pets.js).
 
-export const LOOK_SLOTS = ['hairStyle', 'hair', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'skin', 'pet'];
+export const LOOK_SLOTS = ['hairStyle', 'hair', 'hat', 'bow', 'bowPattern', 'bowSize', 'top', 'bottom', 'shoes', 'socks', 'sparkle', 'skin', 'pet'];
 
 const RAINBOW = ['#ff4f6d', '#ff9f43', '#ffe066', '#5fdd8b', '#4fb3ff', '#a46bff'];
 
@@ -51,6 +58,18 @@ const OPTIONS = {
     { id: 'halfUp', label: 'Half-up' },
     { id: 'longDown', label: 'Long and down' },
     { id: 'bob', label: 'Short bob' },
+    { id: 'crop', label: 'Short crop' },
+    { id: 'curls', label: 'Short curls' },
+    { id: 'swoop', label: 'Side swoop' },
+    { id: 'buzz', label: 'Buzz cut' },
+  ],
+  // What goes on her head. The bow colours below colour a cap or a beanie too.
+  hat: [
+    { id: 'bow', label: 'Cheer bow' },
+    { id: 'none', label: 'Just hair' },
+    { id: 'cap', label: 'Cap' },
+    { id: 'capBack', label: 'Cap backwards' },
+    { id: 'beanie', label: 'Beanie' },
   ],
   // accent: the pattern color that reads on top of this bow.
   bow: [
@@ -63,6 +82,8 @@ const OPTIONS = {
     { id: 'silver', label: 'Silver glitter', color: '#dcdeea', dark: '#a6a9bf', accent: '#ff2e93', glitter: true },
     { id: 'gold', label: 'Gold', color: '#ffcd4a', dark: '#d6951a', accent: '#ffffff', glitter: true },
     { id: 'lavender', label: 'Lavender', color: '#c3a6ff', dark: '#9a78e6', accent: '#ffffff' },
+    { id: 'navy', label: 'Navy', color: '#2c3e82', dark: '#1c2a5e', accent: '#ffffff' },
+    { id: 'red', label: 'Red', color: '#e63946', dark: '#b02233', accent: '#ffffff' },
   ],
   bowPattern: [
     { id: 'stars', label: 'Stars' },
@@ -94,6 +115,14 @@ const OPTIONS = {
     { id: 'hoodie-lilac', label: 'Lilac hoodie', style: 'hoodie', color: '#cdb4ff', trim: '#ad92ee', accent: '#ffffff' },
     { id: 'hoodie-pink', label: 'Pink hoodie', style: 'hoodie', color: '#ff8cc6', trim: '#f06aae', accent: '#ffffff' },
     { id: 'hoodie-black', label: 'Black hoodie', style: 'hoodie', color: '#241c2a', trim: '#3a2f43', accent: '#ff2e93' },
+    // number: the big number on the front and back of a team jersey (one or two digits)
+    { id: 'jersey-pink', label: 'Pink team jersey', style: 'jersey', color: '#ff2e93', trim: '#17121c', accent: '#ffffff', number: 11 },
+    { id: 'jersey-black', label: 'Black team jersey', style: 'jersey', color: '#211a26', trim: '#ff2e93', accent: '#ffffff', number: 9 },
+    { id: 'jersey-blue', label: 'Blue team jersey', style: 'jersey', color: '#2f6fe0', trim: '#ffffff', accent: '#ffffff', number: 23 },
+    // sleeve: the varsity jacket's sleeves; trim: the striped cuffs, collar and hem; accent: the patch
+    { id: 'varsity-black', label: 'Black varsity jacket', style: 'varsity', color: '#211a26', trim: '#ff2e93', accent: '#ff2e93', sleeve: '#fbf6fb' },
+    { id: 'varsity-navy', label: 'Navy varsity jacket', style: 'varsity', color: '#2c3e82', trim: '#ffcd4a', accent: '#ffcd4a', sleeve: '#f3eee4' },
+    { id: 'varsity-red', label: 'Red varsity jacket', style: 'varsity', color: '#d7263d', trim: '#ffffff', accent: '#ffffff', sleeve: '#f6f1ea' },
   ],
   bottom: [
     { id: 'shorts-pink', label: 'Hot pink shorts', style: 'shorts', color: '#ff2e93', trim: '#d4167a' },
@@ -104,12 +133,20 @@ const OPTIONS = {
     { id: 'skirt-purple', label: 'Purple cheer skirt', style: 'skirt', color: '#7b5cff', trim: '#ffffff', accent: '#ff2e93' },
     { id: 'leggings-black', label: 'Black leggings', style: 'leggings', color: '#211a26', trim: '#ff2e93' },
     { id: 'leggings-galaxy', label: 'Galaxy leggings', style: 'leggings', color: '#3a2a7a', trim: '#7b5cff', specks: ['#ffffff', '#ff8cc6', '#9fd8ff'] },
+    { id: 'joggers-grey', label: 'Grey joggers', style: 'joggers', color: '#a19dae', trim: '#757184' },
+    { id: 'joggers-black', label: 'Black joggers', style: 'joggers', color: '#262029', trim: '#ff2e93' },
+    { id: 'joggers-navy', label: 'Navy joggers', style: 'joggers', color: '#2c3e82', trim: '#ffffff' },
+    { id: 'bball-black', label: 'Black basketball shorts', style: 'bball', color: '#211a26', trim: '#ff2e93' },
+    { id: 'bball-blue', label: 'Blue basketball shorts', style: 'bball', color: '#2f6fe0', trim: '#ffffff' },
   ],
   shoes: [
     { id: 'cheer-black', label: 'Black cheer shoes', style: 'cheer', color: '#211a26', sole: '#f3eef6', accent: '#ff2e93', lace: '#3a3042' },
     { id: 'cheer-white', label: 'White cheer shoes', style: 'cheer', color: '#fbf8fc', sole: '#e6dfec', accent: '#ff2e93', lace: '#e3d8ea' },
     { id: 'sneakers-pink', label: 'Pink sneakers', style: 'sneaker', color: '#ff7ab8', sole: '#ffffff', accent: '#ffffff', lace: '#ffffff' },
     { id: 'glitter', label: 'Glitter sneakers', style: 'sneaker', color: '#d7d9e6', sole: '#ffffff', accent: '#ff2e93', lace: '#ffffff', glitter: true },
+    { id: 'hightop-black', label: 'Black high-tops', style: 'hightop', color: '#211a26', sole: '#f3eef6', accent: '#ff2e93', lace: '#ffffff' },
+    { id: 'hightop-white', label: 'White high-tops', style: 'hightop', color: '#fbf8fc', sole: '#e6dfec', accent: '#2f6fe0', lace: '#e3d8ea' },
+    { id: 'hightop-red', label: 'Red high-tops', style: 'hightop', color: '#e63946', sole: '#ffffff', accent: '#ffffff', lace: '#ffffff' },
   ],
   socks: [
     { id: 'sparkle-black', label: 'Black sparkle', color: '#211a26', specks: ['#eae8f2', '#ff7ad1', '#a96bff'] },
@@ -124,10 +161,12 @@ const OPTIONS = {
     { id: 'max', label: 'Maximum!', level: 2 },
     { id: 'gold', label: 'Golden', level: 2, gold: true },
   ],
-  // A pet that follows her around. The cloud puppy is the 12th spirit stick's prize.
+  // A pet that follows her around. The cloud puppy is the 12th spirit stick's prize; the mini husky
+  // is there from the start. Labels shown to players come from petLabel(id), never straight from here.
   pet: [
     { id: 'none', label: 'No pet' },
     { id: 'cloudPuppy', label: 'Cloud puppy' },
+    { id: 'husky', label: 'Mini husky' },
   ],
 };
 
@@ -148,6 +187,7 @@ export const DEFAULT_LOOK = Object.freeze({
   skin: 'tone3',
   hair: 'darkBrown',
   hairStyle: 'highPony',
+  hat: 'bow',
   bow: 'pink',
   bowPattern: 'stars',
   bowSize: 'big',
@@ -201,7 +241,11 @@ export function cleanLook(raw) {
 const WEIGHTS = {
   bowSize: { big: 0.36, huge: 0.34, ridiculous: 0.2, mega: 0.1 },
   sparkle: { none: 0.12, some: 0.4, max: 0.36, gold: 0.12 },
-  hairStyle: { highPony: 0.22, braidPony: 0.14, curlyPony: 0.14, spaceBuns: 0.13, halfUp: 0.13, longDown: 0.12, bob: 0.12 },
+  hairStyle: {
+    highPony: 0.15, braidPony: 0.09, curlyPony: 0.09, spaceBuns: 0.08, halfUp: 0.08, longDown: 0.08, bob: 0.09,
+    crop: 0.09, curls: 0.09, swoop: 0.09, buzz: 0.07,
+  },
+  hat: { bow: 0.5, none: 0.14, cap: 0.13, capBack: 0.11, beanie: 0.12 },
 };
 
 function unit(rng) {
@@ -242,4 +286,35 @@ export function randomLook(rng) {
 export function lookKey(look) {
   const l = cleanLook(look);
   return KEYS.map((k) => l[k]).join('|');
+}
+
+// ---- pet names -----------------------------------------------------------------------------------
+// One lookup for every pet label, so a family's own name for their dog can be wired in later
+// (privately: this repo is public) with one call, e.g. setPetLabels({ husky: 'Name' }).
+const PET_LABELS = new Map();
+const PET_LABEL_RE = /^[\p{L}\p{N}][\p{L}\p{N} '\u2019.-]{0,23}$/u;
+
+export function petLabel(id) {
+  const own = typeof id === 'string' ? PET_LABELS.get(id) : undefined;
+  if (own) return own;
+  const o = INDEX.get('pet').get(id);
+  return o ? o.label : INDEX.get('pet').get('none').label;
+}
+
+export function setPetLabels(map) {
+  if (map && typeof map === 'object') {
+    for (const id of Object.keys(map)) {
+      if (id === 'none' || !INDEX.get('pet').has(id)) continue; // only real pets, never "No pet"
+      let v = null;
+      try {
+        v = map[id];
+      } catch (err) {
+        v = null;
+      }
+      const name = typeof v === 'string' ? v.normalize('NFC').replace(/\s+/g, ' ').trim() : '';
+      if (name && PET_LABEL_RE.test(name)) PET_LABELS.set(id, name);
+      else if (v === null || v === undefined || v === '') PET_LABELS.delete(id);
+    }
+  }
+  return Object.fromEntries(PET_LABELS);
 }
