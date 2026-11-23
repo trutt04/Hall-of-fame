@@ -264,3 +264,23 @@ test('rules: a room nobody is in can be made again at once (for ?room=CODE links
   assert.equal(store.exec('pa', { op: 'dropPlayer', code: 'K7QZ', id: 'pa' }).ok, true);
   assert.equal(store.exec('pb', { op: 'create', code: 'K7QZ' }).ok, true, 'empty: free again');
 });
+
+test('rules: the host may remove its room once nobody is in it, and nobody else may (the online check tidies up)', () => {
+  const empty = baseRoot();
+  delete empty.rooms.K7QZ.players;
+  assert.equal(write(A, R + '/meta', null, empty), true, 'its host, once the room is empty');
+  assert.equal(write(B, R + '/meta', null, empty), false, 'not anyone else');
+  assert.equal(write(null, R + '/meta', null, empty), false, 'not without signing in');
+  assert.equal(write(A, R + '/meta', null), false, 'not while anyone is in it');
+  assert.equal(write(A, R, null, empty), false, 'part by part, never the whole room at once');
+  assert.equal(update(A, R + '/meta', { hostId: null, beat: NOW }, empty), false, 'never half a meta');
+  assert.equal(write(A, 'rooms/NNNN/meta', null, empty), false, 'nothing there to remove');
+  // in one go with the last entries in it (how the check's disconnect job removes the test room)
+  const alone = baseRoot();
+  delete alone.rooms.K7QZ.players[B.uid];
+  const last = { meta: null, ['players/' + A.uid]: null, ['state/' + A.uid]: null, ['players/' + A.uid + '-b1']: null, ['state/' + A.uid + '-b1']: null };
+  assert.equal(update(A, R, last, alone), true, 'the host, its bots and the room together');
+  assert.equal(update(A, R, last), false, 'not while a friend is still in it');
+  assert.equal(update(A, R, { ...last, ['players/' + B.uid]: null }), false, 'and never by taking the friend out too');
+  assert.equal(update(B, R, { meta: null, ['players/' + B.uid]: null }), false, 'a guest never removes the room');
+});

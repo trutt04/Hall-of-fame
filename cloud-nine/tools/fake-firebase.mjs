@@ -5,13 +5,15 @@
 //     rules: the parsed firebase/database.rules.json (enforced like the real server), or null for none
 //   const dev = fb.device({ clock, signInFails })   one phone or tablet. Hand it to the transport:
 //     createNet({ mode: 'firebase', firebase: { sdk: dev, config } })
-//     dev.app / dev.auth / dev.database      the SDK namespaces (initializeApp, signInAnonymously, ref, set, ...)
+//     signInFails: true (no network) or the 'auth/...' code every sign-in fails with
+//     dev.app / dev.auth / dev.database      the SDK namespaces (initializeApp, signInAnonymously, deleteUser, ref, set, ...)
 //     dev.network(false | true)              the connection drops (the server runs onDisconnect jobs) / comes back
 //     dev.blip({ staleMs })                  reconnects at once, but the server only notices the old
 //                                            connection died staleMs later and runs its onDisconnect jobs then
 //     dev.kill()                             the page is gone for good
 //     dev.uid, dev.connected, dev.pendingWrites
 //   fb.data(path?) -> a copy of the server data      fb.write(path, value)  admin write, no rules
+//   fb.users                             the anonymous accounts that exist (signed up, not deleted): Set of uids
 //   fb.deny = ({ uid, path, value, kind }) => boolean   extra rejections on top of the rules (null for none)
 //   fb.denied   [{ uid, path, reason }]  writes the server refused
 //   fb.serverOffsetMs                    how far the server clock is from this machine's
@@ -137,6 +139,7 @@ export function createFakeFirebase({ rules = null, latencyMs = 2, serverOffsetMs
     deny: null,
     denied: [],
     serverOffsetMs,
+    users: new Set(),
   };
   const serverNow = () => Date.now() + api.serverOffsetMs;
   let connSeq = 0;
@@ -350,8 +353,8 @@ export function createFakeFirebase({ rules = null, latencyMs = 2, serverOffsetMs
       return this.clock() + this.offset;
     }
 
-    write(kind, segs, value) {
-      if (this.dead) return new Promise(() => {});
+    // set values are plain trees; update keys may be paths ('players/abc'), each with its own value
+    check(kind, segs, value) {
       checkPath(segs);
       if (kind === 'update') {
         if (!value || typeof value !== 'object') throw new Error('update failed: values must be an object');
@@ -359,7 +362,12 @@ export function createFakeFirebase({ rules = null, latencyMs = 2, serverOffsetMs
           checkPath(splitPath(k));
           checkValue(v, k);
         }
-      } else checkValue(value, segs.join('/'));
+      } else if (kind !== 'cancel') checkValue(value, segs.join('/'));
+    }
+
+    write(kind, segs, value) {
+      if (this.dead) return new Promise(() => {});
+      this.check(kind, segs, value);
       return new Promise((resolve, reject) => {
         const w = { id: ++this.seq, kind, segs, value, local: resolveServerValues(value, this.estimatedNow()), resolve, reject };
         this.pending.push(w);
@@ -375,7 +383,7 @@ export function createFakeFirebase({ rules = null, latencyMs = 2, serverOffsetMs
 
     job(kind, segs, value) {
       if (this.dead) return new Promise(() => {});
-      if (kind !== 'cancel') checkValue(value, segs.join('/'));
+      this.check(kind, segs, value);
       return new Promise((resolve, reject) => {
         const d = { id: ++this.seq, kind, segs, value, resolve, reject };
         this.waiting.set(d.id, d);
@@ -575,8 +583,10 @@ export function createFakeFirebase({ rules = null, latencyMs = 2, serverOffsetMs
         return new Promise((resolve, reject) => {
           later(() => {
             if (signInFails || !dev.online) {
-              const e = new Error('Firebase: Error (auth/network-request-failed).');
-              e.code = 'auth/network-request-failed';
+              // the real SDK's message and code, e.g. 'auth/admin-restricted-operation' when Anonymous is off
+              const code = typeof signInFails === 'string' && dev.online ? signInFails : 'auth/network-request-failed';
+              const e = new Error('Firebase: Error (' + code + ').');
+              e.code = code;
               reject(e);
               return;
             }
@@ -585,8 +595,29 @@ export function createFakeFirebase({ rules = null, latencyMs = 2, serverOffsetMs
             uid = uid.slice(0, 24) + String(++uidSeq % 10000).padStart(4, '0');
             auth.currentUser = { uid, isAnonymous: true };
             dev.uid = uid;
+            api.users.add(uid);
             if (auth.app.client) auth.app.client.uid = uid;
             resolve({ user: auth.currentUser });
+          });
+        });
+      },
+      // the account is gone, and the page is signed out: its database connection carries no sign-in
+      deleteUser(user) {
+        return new Promise((resolve, reject) => {
+          later(() => {
+            if (!dev.online) {
+              const e = new Error('Firebase: Error (auth/network-request-failed).');
+              e.code = 'auth/network-request-failed';
+              reject(e);
+              return;
+            }
+            api.users.delete(user && user.uid);
+            for (const app of dev.apps.values()) {
+              if (!app.auth || app.auth.currentUser !== user) continue;
+              app.auth.currentUser = null;
+              if (app.client) app.client.uid = null;
+            }
+            resolve();
           });
         });
       },

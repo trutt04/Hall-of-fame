@@ -9,7 +9,7 @@ import { isLightColor } from '../js/ui/hud.js';
 
 const root = fileURLToPath(new URL('..', import.meta.url));
 const read = (p) => readFileSync(root + p, 'utf8');
-const SHEETS = ['css/app.css', 'css/menu.css', 'css/rhythm.css', 'css/creator.css'];
+const SHEETS = ['css/app.css', 'css/menu.css', 'css/rhythm.css', 'css/creator.css', 'css/netcheck.css'];
 
 // every px value a font-size can come out at its smallest: a plain size, or a clamp()'s minimum
 function smallestFontSizes(css) {
