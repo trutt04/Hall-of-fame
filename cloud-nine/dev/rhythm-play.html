@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#9fc4ff">
+<title>Hit Zero</title>
+<link rel="stylesheet" href="../css/rhythm.css">
+<style>
+  /* the dev page's own backdrop: a pastel sky with drifting clouds */
+  html, body { margin: 0; height: 100%; overflow: hidden; overscroll-behavior: none; }
+  body { position: fixed; inset: 0; background: linear-gradient(180deg, #9fc4ff 0%, #cdb4ff 55%, #ffd1e8 100%);
+    font: 700 17px/1.3 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; color: #2b2233; }
+  .cloud { position: absolute; width: 180px; height: 60px; background: #fff8fc; border-radius: 60px; opacity: .85;
+    box-shadow: 40px -22px 0 6px #fff8fc, 90px -8px 0 0 #fff8fc; animation: drift 46s linear infinite; }
+  .cloud:nth-child(2) { top: 18%; animation-duration: 64s; animation-delay: -20s; transform: scale(.7); }
+  .cloud:nth-child(3) { top: 52%; animation-duration: 80s; animation-delay: -50s; opacity: .6; }
+  .cloud:nth-child(1) { top: 8%; }
+  @keyframes drift { from { left: -260px; } to { left: 110%; } }
+  @media (prefers-reduced-motion: reduce) { .cloud { animation: none; left: 30%; } }
+  #launcher { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); text-align: center; width: min(92vw, 420px); }
+  #launcher button { min-height: 56px; padding: 10px 26px; border-radius: 999px; border: 3px solid #2b2233; background: #ff2e93; color: #fff;
+    font: 900 22px ui-rounded, system-ui, sans-serif; box-shadow: 0 5px 0 #2b2233; cursor: pointer; }
+  #launcher pre { text-align: left; font-size: 13px; background: rgba(255,255,255,.7); padding: 10px; border-radius: 12px; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="cloud"></div><div class="cloud"></div><div class="cloud"></div>
+<div id="launcher" hidden><button type="button" id="again">Play Hit Zero</button><pre id="out"></pre></div>
+<script type="module">
+  // Hit Zero on its own. Query params:
+  //   ?level=1|4|7        preselect a level            ?autoplay=1   a perfect bot plays (reaches HIT ZERO)
+  //   ?rate=4             run the internal clock fast   ?skill=0.6    a sloppy bot (with autoplay)
+  //   ?noaudio=1          skip the audio module: the internal metronome and its practice beat
+  import { createHitZero } from '../js/rhythm/index.js';
+
+  const q = new URLSearchParams(location.search);
+  let audio = null;
+  if (!q.has('noaudio')) {
+    try {
+      const m = await import('../js/audio/index.js');
+      audio = m.createAudio();
+      // the first tap anywhere unlocks sound, as the app does
+      window.addEventListener('pointerdown', () => { try { audio.unlock(); } catch (e) {} }, { once: true, capture: true });
+    } catch (err) {
+      audio = null; // no audio module yet: Hit Zero keeps its own time
+    }
+  }
+  const launcher = document.getElementById('launcher');
+  const out = document.getElementById('out');
+
+  function open() {
+    launcher.hidden = true;
+    window.__hzDone = undefined;
+    window.__hz = createHitZero({
+      audio,
+      container: document.body,
+      level: q.get('level') || 1,
+      autoplay: q.get('autoplay') === '1',
+      autostart: q.get('autostart') === '1',
+      rate: Number(q.get('rate')) || 1,
+      botSkill: q.has('skill') ? Number(q.get('skill')) : undefined,
+      seed: q.has('seed') ? Number(q.get('seed')) : undefined,
+      onResult(r) { window.__hzResult = r; },
+      onDone(r) {
+        window.__hzDone = r || null;
+        launcher.hidden = false;
+        out.textContent = r ? r.title + '  ' + r.levelName + '  score ' + r.score + '\n' + r.judges.map((j) => j.name + ' ' + j.card + ': ' + j.line).join('\n') : 'Closed without finishing a routine.';
+      },
+    });
+  }
+  document.getElementById('again').addEventListener('click', open);
+  open();
+</script>
+</body>
+</html>

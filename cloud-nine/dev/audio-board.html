@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Nine: sound board</title>
+<style>
+  :root {
+    --pink: #ff2e93; --pink-soft: #ff8cc6; --pink-pale: #ffd6ea; --ink: #2b2233; --black: #17121c;
+    --lilac: #cdb4ff; --lavender: #b89cf0; --sky-top: #9fc4ff; --sky-horizon: #ffd1e8; --white: #fff8fc;
+    --mint: #9be7c4; --lemon: #ffe68a; --purple: #a96bff;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html { min-height: 100%; background: linear-gradient(180deg, var(--sky-top) 0%, #c9d7ff 35%, var(--sky-horizon) 100%); }
+  html, body { margin: 0; }
+  body {
+    min-height: 100vh; color: var(--ink); font-size: 16px; line-height: 1.35;
+    font-family: ui-rounded, "SF Pro Rounded", "Nunito", "Varela Round", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: max(12px, env(safe-area-inset-top)) 16px 32px;
+  }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; max-width: 1180px; margin: 0 auto 14px; }
+  h1 { margin: 0; font-size: 28px; letter-spacing: .2px; color: var(--black); }
+  h1 small { font-size: 18px; color: var(--pink); font-weight: 800; margin-left: 6px; }
+  h2 { margin: 0 0 12px; font-size: 20px; display: flex; align-items: center; gap: 8px; }
+  h2 .hint { font-size: 16px; font-weight: 500; color: #7a6d86; }
+  main { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 540px), 1fr)); gap: 16px; align-items: start; }
+  .card { background: rgba(255, 248, 252, .9); border-radius: 22px; padding: 18px; box-shadow: 0 10px 30px rgba(84, 53, 140, .14), 0 1px 0 #fff inset; }
+  button, select, input[type=number] {
+    font: inherit; font-weight: 700; min-height: 48px; border-radius: 14px; border: 2px solid transparent;
+    padding: 8px 16px; cursor: pointer; color: var(--ink); background: #fff;
+    box-shadow: 0 2px 0 rgba(84, 53, 140, .18); transition: transform .08s ease, background .2s, box-shadow .2s;
+  }
+  button:active { transform: translateY(1px) scale(.98); }
+  button:focus-visible, select:focus-visible, input:focus-visible { outline: 3px solid var(--purple); outline-offset: 2px; }
+  #power { background: var(--pink); color: #fff; font-size: 18px; padding: 10px 22px; box-shadow: 0 4px 0 #c01670, 0 8px 20px rgba(255, 46, 147, .35); }
+  #power.off { background: #8d8199; box-shadow: 0 4px 0 #5f566b; }
+  #power.waiting { animation: nudge 1.4s ease-in-out infinite; }
+  @keyframes nudge { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.05); } }
+  .tracks { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+  .track { display: flex; flex-direction: column; align-items: flex-start; text-align: left; gap: 2px; padding: 12px 14px; border-radius: 18px; background: #fff; }
+  .track .emoji { font-size: 26px; line-height: 1; }
+  .track .name { font-size: 18px; }
+  .track .meta { font-size: 16px; font-weight: 500; color: #7a6d86; }
+  .track.playing { background: linear-gradient(135deg, var(--pink) 0%, var(--purple) 100%); color: #fff; box-shadow: 0 4px 0 #9b1f84, 0 8px 22px rgba(169, 107, 255, .4); }
+  .track.playing .meta { color: #ffe6f4; }
+  .row { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 12px; }
+  label { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
+  input[type=range] { accent-color: var(--pink); width: 130px; height: 32px; }
+  output { min-width: 3.5em; font-variant-numeric: tabular-nums; color: #7a6d86; }
+  .counts { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; margin: 4px 0 10px; }
+  .dot {
+    aspect-ratio: 1; border-radius: 50%; display: grid; place-items: center; font-size: 22px; font-weight: 900;
+    background: #f1e8f8; color: #b3a5c2; border: 3px solid #e6d9f3; transition: background .12s, color .12s, transform .12s, box-shadow .2s;
+  }
+  .dot { min-width: 0; }
+  .dot.big { border-color: var(--pink-pale); }
+  @media (max-width: 480px) {
+    .counts { gap: 5px; }
+    .dot { font-size: 17px; border-width: 2px; }
+    .dot.on { transform: scale(1.06); box-shadow: 0 0 0 3px var(--pink-pale), 0 0 16px rgba(255, 46, 147, .6); }
+  }
+  .dot.on { background: var(--pink); color: #fff; border-color: #fff; transform: scale(1.12); box-shadow: 0 0 0 4px var(--pink-pale), 0 0 26px rgba(255, 46, 147, .65); }
+  .dot.done { background: var(--pink-pale); color: var(--pink); }
+  .beatinfo { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-weight: 700; }
+  .beatinfo .section { color: var(--pink); font-size: 20px; }
+  .beatinfo .clock { font-variant-numeric: tabular-nums; color: #7a6d86; }
+  .timeline { position: relative; display: flex; height: 54px; border-radius: 14px; overflow: hidden; margin-top: 10px; background: #f1e8f8; }
+  .seg { position: relative; min-width: 0; display: flex; align-items: flex-end; padding: 4px 6px; font-size: 16px; font-weight: 800; color: #fff; white-space: nowrap; overflow: hidden; border-right: 2px solid rgba(255, 255, 255, .7); }
+  .seg span { overflow: hidden; text-overflow: ellipsis; text-shadow: 0 1px 2px rgba(23, 18, 28, .35); }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 3px; background: var(--black); box-shadow: 0 0 0 2px rgba(255, 255, 255, .8); left: 0; transition: left .05s linear; }
+  canvas { display: block; width: 100%; border-radius: 14px; }
+  #scope { height: 90px; margin-top: 12px; background: linear-gradient(180deg, #2b2233, #17121c); }
+  .sfxgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; margin-top: 12px; }
+  .sfx { display: flex; align-items: center; gap: 8px; justify-content: flex-start; padding: 8px 10px; }
+  .sfx .emoji { font-size: 22px; }
+  .sfx.flash { background: var(--pink-pale); box-shadow: 0 0 0 3px var(--pink-soft); }
+  .spatial { display: flex; gap: 14px; align-items: center; margin-top: 14px; flex-wrap: wrap; }
+  #pad { width: 220px; height: 220px; flex: none; background: radial-gradient(circle, #fff 0%, #f6eefc 70%); border: 2px solid #e6d9f3; cursor: crosshair; touch-action: none; }
+  .spatial p { margin: 0; flex: 1 1 200px; color: #5d5168; }
+  #rstats { margin-top: 10px; font-variant-numeric: tabular-nums; white-space: pre-wrap; font-weight: 600; }
+  audio { width: 100%; margin-top: 10px; }
+  a.dl { display: inline-flex; align-items: center; min-height: 48px; font-weight: 800; color: var(--pink); }
+  footer { max-width: 1180px; margin: 14px auto 0; color: #5d5168; font-weight: 600; font-variant-numeric: tabular-nums; }
+  @media (prefers-reduced-motion: reduce) {
+    #power.waiting { animation: none; }
+    .dot, .playhead, button { transition: none; }
+    .dot.on { transform: none; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>☁️ Cloud Nine <small>sound board</small></h1>
+  <button id="power" class="waiting" aria-pressed="false">🔈 Tap for sound</button>
+</header>
+<main>
+  <section class="card" id="music" aria-labelledby="music-h">
+    <h2 id="music-h">🎵 Music <span class="hint">tap a track</span></h2>
+    <div class="tracks" id="tracks"></div>
+    <div class="row">
+      <button id="stop">⏹ Stop</button>
+      <label for="fade">Fade <input type="range" id="fade" min="0" max="3" step="0.1" value="1"><output id="fade-out" for="fade">1.0 s</output></label>
+    </div>
+  </section>
+
+  <section class="card" id="beat" aria-labelledby="beat-h">
+    <h2 id="beat-h">📣 Eight-count <span class="hint">the beat clock</span></h2>
+    <div class="counts" id="counts" aria-live="off"></div>
+    <div class="beatinfo"><span class="section" id="section">Nothing playing</span><span class="clock" id="clock">-</span></div>
+    <div class="timeline" id="timeline"><div class="playhead" id="playhead"></div></div>
+    <canvas id="scope" width="1000" height="180" aria-label="spectrum"></canvas>
+  </section>
+
+  <section class="card" id="fx" aria-labelledby="fx-h">
+    <h2 id="fx-h">✨ Sound effects <span class="hint">all 31</span></h2>
+    <div class="row">
+      <label for="vol">Volume <input type="range" id="vol" min="0" max="1.5" step="0.05" value="1"><output id="vol-out" for="vol">1.00</output></label>
+      <label for="pitch">Pitch <input type="range" id="pitch" min="0.5" max="2" step="0.05" value="1"><output id="pitch-out" for="pitch">1.00</output></label>
+    </div>
+    <div class="sfxgrid" id="sfx"></div>
+    <div class="spatial">
+      <canvas id="pad" width="440" height="440" aria-label="where sounds come from"></canvas>
+      <p id="pad-help">Tap the map to put the sounds somewhere around you: you're in the middle, facing up. The rings are 5, 10 and 20 meters. Tap the middle to bring them back.</p>
+    </div>
+  </section>
+
+  <section class="card" id="render" aria-labelledby="render-h">
+    <h2 id="render-h">💾 Render a WAV <span class="hint">offline, same engine</span></h2>
+    <div class="row">
+      <select id="rtrack" aria-label="track"></select>
+      <label for="rsecs">Seconds <input type="number" id="rsecs" value="20" min="2" max="130" style="width:6em"></label>
+      <button id="rgo">Render</button>
+    </div>
+    <div id="rstats">Renders through the same mixer and limiter as the game, then measures it.</div>
+    <audio id="rplay" controls hidden></audio>
+    <a id="rdl" class="dl" hidden download>⬇ Download the WAV</a>
+  </section>
+</main>
+<footer id="status">Sound starts on your first tap.</footer>
+<script type="module" src="./audio-board.js"></script>
+</body>
+</html>

@@ -1,0 +1,77 @@
+/* Cloud Nine: the photo booth (js/world/photobooth.js, js/ui/photo-card.js). The picker and the
+   result are HUD cards; the countdown layer sits over the island and never eats touches.
+   Text is 16px or more everywhere; buttons are at least 48px tall. */
+
+/* ---------- the countdown layer ---------- */
+.c9-booth{position:fixed;inset:0;z-index:12;pointer-events:none}
+.c9-booth-finder{--booth-accent:var(--pink);position:absolute;border-radius:18px;box-shadow:0 0 0 200vmax rgba(43,34,51,.3);
+  display:flex;flex-direction:column;align-items:center;justify-content:center}
+.c9-booth-corner{position:absolute;width:44px;height:44px;border:7px solid var(--booth-accent);filter:drop-shadow(0 0 1.5px var(--black)) drop-shadow(0 0 1px var(--black))}
+.c9-booth-tl{left:-4px;top:-4px;border-right:0;border-bottom:0;border-top-left-radius:20px}
+.c9-booth-tr{right:-4px;top:-4px;border-left:0;border-bottom:0;border-top-right-radius:20px}
+.c9-booth-bl{left:-4px;bottom:-4px;border-right:0;border-top:0;border-bottom-left-radius:20px}
+.c9-booth-br{right:-4px;bottom:-4px;border-left:0;border-top:0;border-bottom-right-radius:20px}
+.c9-booth-num{font-weight:900;font-size:clamp(120px,32vmin,230px);line-height:1;color:var(--white);
+  -webkit-text-stroke:6px var(--black);paint-order:stroke fill;text-shadow:0 8px 0 var(--black);opacity:.96}
+.c9-booth-num.c9-booth-pop{animation:c9-booth-pop .5s cubic-bezier(.2,1.4,.3,1) both}
+.c9-booth-line{position:absolute;left:12px;right:12px;bottom:14px;text-align:center;font-weight:900;font-size:clamp(18px,4.6vmin,26px);line-height:1.15;
+  color:var(--white);-webkit-text-stroke:4px var(--black);paint-order:stroke fill}
+.c9-booth-flash{position:absolute;inset:0;background:#fff;opacity:0}
+.c9-booth-flash-on{animation:c9-booth-flash .65s ease-out both}
+.c9-booth-fade-on{animation:c9-booth-fade 1.25s ease-in-out both}
+@keyframes c9-booth-pop{0%{transform:scale(.5);opacity:0}100%{transform:scale(1);opacity:.96}}
+/* soft: never full white, and it eases away */
+@keyframes c9-booth-flash{0%{opacity:0}8%{opacity:.82}100%{opacity:0}}
+@keyframes c9-booth-fade{0%{opacity:0}45%{opacity:.38}100%{opacity:0}}
+
+/* ---------- the picker card ---------- */
+.c9-booth-picker{margin:0}
+.c9-booth-label{margin:4px 0 6px;font-weight:900;font-size:16px;letter-spacing:.08em;text-transform:uppercase;color:var(--pink-ink)}
+.c9-booth-frames{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:8px;margin:0 0 10px}
+.c9-booth-frame{display:flex;flex-direction:column;align-items:center;gap:5px;min-height:48px;padding:6px 4px 7px;background:var(--white);border:var(--line);border-radius:18px;
+  box-shadow:0 4px 0 var(--black);cursor:pointer;color:var(--ink)}
+.c9-booth-swatch{display:block;width:100%;height:38px;border-radius:11px;border:2.5px solid var(--black)}
+.c9-booth-frame-name{font-weight:900;font-size:16px;line-height:1.1}
+.c9-booth-frame[aria-pressed="true"]{background:var(--pink-pale);outline:4px solid var(--pink);outline-offset:1px}
+.c9-booth-poses{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.c9-booth-pose{min-height:50px;padding:6px 8px;font-weight:900;font-size:17px;line-height:1.1;color:var(--ink);background:var(--white);border:var(--line);border-radius:999px;
+  box-shadow:0 4px 0 var(--black);cursor:pointer}
+.c9-booth-frame:active,.c9-booth-pose:active{transform:translateY(3px);box-shadow:0 1px 0 var(--black)}
+.c9-booth-pose[aria-pressed="true"]{color:var(--white);background:var(--pink)}
+.c9-card.c9-booth-card .c9-title{margin-bottom:6px}
+.c9-card.c9-booth-pick .c9-actions{margin-top:12px}
+
+/* ---------- the result: a polaroid ---------- */
+.c9-booth-result-box{display:flex;flex-direction:column;align-items:center}
+.c9-booth-polaroid{background:#fff;padding:9px 9px 9px;border:3px solid var(--black);border-radius:10px;box-shadow:0 6px 0 var(--black),var(--soft-shadow);transform:rotate(-2deg);margin:4px 0 8px}
+.c9-booth-img{display:block;height:min(46vh,400px);height:min(46dvh,400px);aspect-ratio:4/5;width:auto;max-width:100%;border-radius:4px;background:var(--pink-pale);object-fit:contain;
+  /* press and hold the picture to save it (iOS "Save to Photos"), even where the share sheet isn't allowed */
+  -webkit-touch-callout:default;-webkit-user-select:auto;user-select:auto}
+.c9-booth-develop .c9-booth-img{animation:c9-booth-develop 1.4s ease-out both}
+@keyframes c9-booth-develop{0%{filter:brightness(1.9) saturate(0);opacity:.6}100%{filter:none;opacity:1}}
+.c9-booth-note{margin:2px 0 0;font-weight:700;font-size:16px;text-align:center;color:var(--ink)}
+.c9-card.c9-booth-result .c9-actions .c9-btn{padding:8px 16px}
+
+/* phones in portrait: the picker sheet stays short, so she shows above it */
+@media (max-width:759px) and (orientation:portrait){
+  .c9-card.c9-booth-pick{padding-top:14px}
+  .c9-card.c9-booth-pick .c9-title{font-size:26px}
+  .c9-card.c9-booth-result{max-height:calc(100% - 24px - var(--sat))}
+  .c9-booth-img{height:min(42vh,380px);height:min(42dvh,380px)}
+}
+/* wide screens and phones on their side: the picker moves to the right, she poses on the left */
+@media (min-width:760px),(max-height:500px) and (orientation:landscape){
+  .c9-card.c9-booth-pick{left:auto;right:calc(18px + var(--sar));top:50%;bottom:auto;transform:translateY(-50%);width:min(430px,48vw);max-height:calc(100% - 24px - var(--sat) - var(--sab))}
+  .c9-card.c9-booth-pick.c9-in{animation:c9-booth-side .3s cubic-bezier(.2,1.2,.3,1) both}
+  .c9-card.c9-booth-result{width:min(480px,calc(100% - 24px));max-height:calc(100% - 20px - var(--sat) - var(--sab))}
+}
+@media (max-height:500px) and (orientation:landscape){
+  .c9-booth-img{height:min(52vh,300px);height:min(52dvh,300px)}
+  .c9-card.c9-booth-pick .c9-title{font-size:24px}
+}
+@keyframes c9-booth-side{from{transform:translate(40px,-50%);opacity:0}to{transform:translate(0,-50%);opacity:1}}
+
+@media (prefers-reduced-motion:reduce){
+  .c9-booth-num.c9-booth-pop,.c9-booth-develop .c9-booth-img,.c9-card.c9-booth-pick.c9-in{animation:none}
+  .c9-booth-polaroid{transform:none}
+}

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Cloud Nine</title>
+<meta name="description" content="A sky island for cheerleaders who fly. Basket tosses, games and sparkles with your friends.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#ffd1e8">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Cloud Nine">
+<meta name="format-detection" content="telephone=no">
+<meta name="application-name" content="Cloud Nine">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="icon" href="icons/icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<script>
+  // The modules the page needs, fetched early. The address picks the page (js/start.js): the game,
+  // or with ?check=online the online-play check for grown-ups, which loads none of the game.
+  (function () {
+    var check = false;
+    try {
+      check = new URLSearchParams(location.search).get('check') === 'online';
+    } catch (e) {}
+    var game = ['lib/three.module.min.js', 'js/main.js', 'js/config.js', 'js/core/engine.js', 'js/core/webgl1.js', 'js/core/store.js',
+      'js/core/input.js', 'js/core/camera.js', 'js/core/colliders.js', 'js/core/util.js', 'js/art/geo.js', 'js/art/materials.js',
+      'js/art/util.js', 'js/world/player.js', 'js/world/interact.js', 'js/world/placeholder-avatar.js', 'js/ui/hud.js', 'js/ui/menu.js',
+      'js/ui/dom.js', 'js/ui/codepad.js', 'js/ui/gameui.js', 'js/ui/labels.js', 'js/ui/fx.js', 'js/ui/standins.js', 'js/ui/silent-tip.js'];
+    var online = ['js/ui/netcheck.js', 'js/ui/dom.js', 'js/net/check.js', 'js/net/firebase-config.js', 'js/net/transport-firebase.js',
+      'js/net/codes.js', 'js/net/validate.js', 'js/core/util.js', 'js/config.js', 'css/netcheck.css'];
+    var list = check ? online : game;
+    for (var i = 0; i < list.length; i++) {
+      var link = document.createElement('link');
+      if (/\.css$/.test(list[i])) {
+        link.rel = 'preload';
+        link.as = 'style';
+      } else link.rel = 'modulepreload';
+      link.href = list[i];
+      document.head.appendChild(link);
+    }
+  })();
+</script>
+<link rel="stylesheet" href="css/app.css">
+<link rel="stylesheet" href="css/menu.css">
+</head>
+<body data-mode="boot">
+<canvas id="scene" tabindex="-1" aria-label="A 3D sky island with a birthday cake, cloud platforms and cheer games."></canvas>
+
+<div id="hud"></div>
+<div id="screens" hidden></div>
+
+<div id="veil" class="c9-veil" role="status" aria-live="polite">
+  <svg class="c9-veil-bow" viewBox="0 0 220 150" aria-hidden="true">
+    <path d="M100 78 L62 140 L82 132 L92 146 L108 82 Z" fill="#e0137c" stroke="#17121c" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M120 78 L158 140 L138 132 L128 146 L112 82 Z" fill="#e0137c" stroke="#17121c" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M104 64 C 78 22, 26 2, 14 38 C 4 70, 46 104, 104 82 Z" fill="#ff2e93" stroke="#17121c" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M116 64 C 142 22, 194 2, 206 38 C 216 70, 174 104, 116 82 Z" fill="#ff2e93" stroke="#17121c" stroke-width="6" stroke-linejoin="round"/>
+    <path d="M30 34 C 40 20, 62 24, 78 40 M142 40 C 158 24, 180 20, 190 34" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".55"/>
+    <path d="M44 47.5L46.1 53.1L52.1 53.3L47.4 57.1L49 62.9L44 59.6L39 62.9L40.6 57.1L35.9 53.3L41.9 53.1Z M176 47.5L178.1 53.1L184.1 53.3L179.4 57.1L181 62.9L176 59.6L171 62.9L172.6 57.1L167.9 53.3L173.9 53.1Z M70 67.5L71.6 71.8L76.2 72L72.6 74.8L73.8 79.3L70 76.7L66.2 79.3L67.4 74.8L63.8 72L68.4 71.8Z M150 67.5L151.6 71.8L156.2 72L152.6 74.8L153.8 79.3L150 76.7L146.2 79.3L147.4 74.8L143.8 72L148.4 71.8Z" fill="#17121c"/>
+    <rect x="92" y="54" width="36" height="38" rx="14" fill="#ff4fa3" stroke="#17121c" stroke-width="6"/>
+  </svg>
+  <div class="c9-veil-title">Cloud Nine</div>
+  <div class="c9-veil-bar"><i></i></div>
+  <div class="c9-veil-line">Fluffing the clouds</div>
+</div>
+
+<div id="fallback" hidden>
+  <h1>Cloud Nine</h1>
+  <p id="fallback-msg">This device could not start the 3D sky island.</p>
+</div>
+
+<noscript>
+  <div style="position:fixed;inset:0;z-index:99;display:grid;place-items:center;padding:24px;text-align:center;background:#ffd6ea;color:#2b2233;font:700 20px/1.4 system-ui,sans-serif">
+    Cloud Nine needs JavaScript to build the sky island.
+  </div>
+</noscript>
+
+<script type="module" src="js/start.js"></script>
+</body>
+</html>

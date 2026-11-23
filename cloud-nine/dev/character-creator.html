@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Cloud Nine: character creator</title>
+<link rel="icon" href="data:,">
+<style>
+  html, body { margin: 0; height: 100%; font: 700 16px/1.3 ui-rounded, "SF Pro Rounded", "Nunito", system-ui, sans-serif; color: #2b2233;
+    background: linear-gradient(180deg, #9fc4ff, #ffd1e8); }
+  main { max-width: 640px; margin: 0 auto; padding: 24px 16px; }
+  button { font: inherit; font-size: 18px; min-height: 52px; padding: 0 22px; border: 0; border-radius: 999px; background: #ff2e93; color: #fff; cursor: pointer; }
+  pre { background: #fff8fc; border-radius: 14px; padding: 12px; white-space: pre-wrap; font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Character creator</h1>
+  <p>Opens on load. <code>?nick=Bailey</code> starts with a name, <code>?random=1</code> with a random look.</p>
+  <button id="open" type="button">Open the creator</button>
+  <pre id="out">Nothing chosen yet.</pre>
+</main>
+<script type="module" src="./character-creator.js"></script>
+</body>
+</html>
