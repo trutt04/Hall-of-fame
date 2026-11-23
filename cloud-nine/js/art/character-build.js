@@ -326,7 +326,7 @@ const hatRimDeg = (hat, az) => table(HAT_RIM[hat], fromFront(az));
 // A point on a sphere around the skull centre: az from the front toward her left, polar from the crown.
 const onHead = (azDeg, polDeg, r) => [HC[0] + Math.sin(azDeg * DEG) * Math.sin(polDeg * DEG) * r, HC[1] + Math.cos(polDeg * DEG) * r, HC[2] + Math.cos(azDeg * DEG) * Math.sin(polDeg * DEG) * r * HS];
 function hairCap(g, q, o) {
-  const S = q.hair, K = q.hairRings, rim = o.table || RIM[o.rim], col = o.color;
+  const S = q.hair, K = o.rings || q.hairRings, rim = o.table || RIM[o.rim], col = o.color;
   const rimAt = (az) => table(rim, Math.abs(((az / DEG) % 360 + 540) % 360 - 180)) * DEG; // degrees from the front
   const grid = [];
   const rimJ = [];
@@ -409,7 +409,7 @@ function buildHair(g, look, q, rest) {
   } else if (style === 'buzz') {
     hairCap(g, q, { rim: 'buzz', r: HR + 0.008, color: shade(col, 0.92), lip: true });
   } else if (short) {
-    hairCap(g, q, { rim: 'crop', r: HR + 0.014, color: col, lip: true, crown: style === 'curls' ? 0 : 0.07 });
+    hairCap(g, q, { rim: 'crop', r: HR + 0.014, color: col, lip: true, crown: style === 'curls' ? 0 : 0.07, rings: style === 'curls' ? 3 : 0 });
   } else {
     hairCap(g, q, { rim: 'long', r: HR + 0.018, color: col, flare: [100, 128, 0.06], lip: true });
   }
@@ -545,7 +545,7 @@ function shortHair(g, style, col, q, hat) {
     }
   } else if (style === 'curls') {
     // rows of little curls: [polar angle, how many around, skip the face below this polar angle]
-    const rows = q.more ? [[12, 3], [36, 6], [58, 8], [80, 7], [103, 4]] : [[30, 5], [62, 6], [92, 4]];
+    const rows = q.more ? [[14, 3], [40, 6], [64, 7], [88, 5], [106, 3]] : [[30, 5], [62, 6], [92, 4]];
     const rnd = mulberry(77);
     let n = 0;
     for (const [pol, count] of rows) {
@@ -1175,7 +1175,7 @@ function buildShoe(g, x, shoe, q, glints, bone, rnd) {
     // the high-top's collar around her ankle: its top follows her shin, its bottom her foot
     const shinBone = bone === B.footL ? B.shinL : B.shinR, so = x > 0 ? 1 : -1;
     g.wf = (px, py) => (py >= 0.125 ? [shinBone, shinBone, 1, 0] : py <= 0.06 ? [bone, bone, 1, 0] : [bone, shinBone, 1 - (py - 0.06) / 0.065, (py - 0.06) / 0.065]);
-    lathe2(g, x, -0.004, [[0.03, 0.05, 0.057], [0.09, 0.047, 0.051], [0.132, 0.045, 0.048], [0.152, 0.043, 0.046], [0.153, 0.034, 0.036]], q.more ? 8 : 6,
+    lathe2(g, x, -0.004, [[0.03, 0.05, 0.057], [0.09, 0.047, 0.051], [0.132, 0.045, 0.048], [0.152, 0.043, 0.046], [0.153, 0.034, 0.036]], q.more ? 7 : 5,
       (y) => (y > 0.152 ? shade(up, 0.7) : y > 0.134 ? acc : up));
     for (let i = 0; i < (q.more ? 3 : 2); i++) {
       const y = 0.096 + i * 0.019;
