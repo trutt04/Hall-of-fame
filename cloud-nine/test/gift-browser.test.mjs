@@ -169,6 +169,7 @@ test('browser: a gift link on a phone: the unwrap card, a clean address, the not
     await page.waitForTimeout(500);
     assert.equal(await page.$('.c9-gift-card'), null, 'no second unwrap card');
     assert.equal(await page.evaluate(() => window.__c9.birthday.name), 'Zuzu');
+    assert.deepEqual(await page.evaluate(() => [window.__c9.petName('cloudPuppy'), window.__c9.petName('husky')]), ['Biscuit', null], 'her pet\'s name, for its label');
     assert.deepEqual(problems, [], 'no page errors and no console errors');
     assert.ok(asked.every((u) => u.startsWith(origin)), 'no requests to anywhere else');
     await context.close();

@@ -2150,6 +2150,9 @@ async function boot() {
       for (const [id, p] of [...net.players]) if (p && p.bot) net.removeBot(id);
       refreshPeople();
     },
+    // the gift link's name for this device's own pet ('cloudPuppy', 'husky'), or null. Only for her
+    // own pet's label: the gift stays on this device and never goes over the network.
+    petName: (id) => (giftMod ? giftMod.petName(id, gift) : null),
     parts: {
       island: !island.fallback, sky: !!skyMod, character: charMod !== placeholder, audio: !!audioReal, net: !!netMod,
       toss: !!toss, games: !!gamesMod, content: Object.fromEntries(Object.entries(content.modules).map(([k, v]) => [k, !!v])),
