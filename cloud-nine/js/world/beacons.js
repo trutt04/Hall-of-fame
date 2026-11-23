@@ -1,12 +1,13 @@
 // Activity beacons: a round badge with an icon and a short label floating over each place where
-// there is something to do (the basket toss pads, the Hit Zero stage, the photo booth, and the four
-// game fields), so a new cheerleader sees from across the island where the fun is. They bob gently,
-// keep a steady size on screen (a map pin, not a billboard), fade away as she walks up to one, and
-// all step aside while a game, Hit Zero, the booth or the toss has the screen.
+// there is something to do (the basket toss pads, the Hit Zero stage, the photo booth, the four
+// game fields and the duck pond), so a new cheerleader sees from across the island where the fun
+// is. They bob gently, keep a steady size on screen (a map pin, not a billboard), fade away as she
+// walks up to one, and all step aside while a game, Hit Zero, the booth, the toss or the duck
+// pond's snack picker has the screen.
 //
 // Cheap on purpose: every badge is drawn once into one canvas atlas (one texture); each beacon is a
-// sprite with its own little quad pointing at its cell. 7 sprites = at most 7 draw calls, ~14
-// triangles, nothing allocated per frame.
+// sprite with its own little quad pointing at its cell. 8 sprites = at most 8 draw calls, ~16
+// triangles, nothing allocated per frame. The atlas holds 8 cells (2 x 4): all of them are used.
 //
 //   import { createBeacons, beaconSpots, beaconFade, beaconHeight, BEACON_KINDS } from './world/beacons.js'
 //   const beacons = createBeacons({ scene, places, groundAt })
@@ -36,6 +37,7 @@ export const BEACON_KINDS = Object.freeze([
   Object.freeze({ id: 'bowField', label: 'Capture the Bow', color: '#ffd0b0', icon: 'bow', up: 5.5, near: 12, far: 19 }),
   Object.freeze({ id: 'tagZone', label: 'Freeze tag', color: '#9fd8ff', icon: 'snow', up: 5.5, near: 10, far: 16 }),
   Object.freeze({ id: 'hideGarden', label: 'Hide and seek', color: '#a9ecd0', icon: 'eyes', up: 6.5, near: 11, far: 17 }),
+  Object.freeze({ id: 'pond', label: 'Duck pond', color: '#bfe8ff', icon: 'duck', up: 5.2, near: 10, far: 16 }),
 ]);
 
 const fin = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -63,6 +65,7 @@ export function beaconSpots(places, groundAt) {
     bowField: P.bowField,
     tagZone: P.tagZone ? centre(P.tagZone.bounds) : null,
     hideGarden: P.hideGarden ? centre(P.hideGarden.bounds) : null,
+    pond: P.pond,
   };
   const out = [];
   for (const k of BEACON_KINDS) {
@@ -204,6 +207,19 @@ function drawIcon(ctx, name) {
         ctx.restore();
       }
       stroke('M4 5.6c1.4-1.2 3.2-1.6 5-1.2M20 5.6c-1.4-1.2-3.2-1.6-5-1.2', 1.6);
+      break;
+    }
+    case 'duck': {
+      const body = 'M3.4 13.2c0 4.4 3.8 7 8.8 7s8.4-2.4 8.4-6.6c0-1.4-.5-2.4-1.3-3.2l-2.5 2.1c-1.1-1-2.4-1.6-3.6-1.8.9-.9 1.5-2.1 1.5-3.5a4.3 4.3 0 1 0-8.6 0c0 1.3.5 2.5 1.3 3.4-2.4.4-4 1.4-4 2.6z';
+      fill(body, PALETTE.lemon);
+      stroke(body, 1.7);
+      const bill = 'M3.4 6.8 0.9 8.3l2.7.9z';
+      fill(bill, '#ff9f3a');
+      stroke(bill, 1.3);
+      fill('M6.6 6.6a1 1 0 1 0 0-.01z', INK);
+      fill('M7.2 9.4a1.1 .8 0 1 0 0-.01z', PINK);
+      stroke('M10 14.4c1.6 1.6 4.2 1.8 6 .4', 1.6);
+      stroke('M1.8 22.2c2-1.1 4-1.1 6 0s4 1.1 6 0 4-1.1 6 0', 1.6, '#3f7fd9');
       break;
     }
     default:

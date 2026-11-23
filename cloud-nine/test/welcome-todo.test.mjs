@@ -9,8 +9,8 @@ import { lockedLooks } from '../js/world/sticks.js';
 import { createStore } from '../js/core/store.js';
 import { copyProblems } from './content-copy-rules.mjs';
 
-test('eight first goals, one for each thing to try', () => {
-  assert.deepEqual([...TODO_IDS], ['toss', 'land', 'stage', 'game', 'photo', 'stick', 'look', 'cheer']);
+test('nine first goals, one for each thing to try', () => {
+  assert.deepEqual([...TODO_IDS], ['toss', 'land', 'stage', 'game', 'photo', 'stick', 'look', 'cheer', 'ducks']);
   const problems = [];
   for (const g of TODO_GOALS) {
     problems.push(...copyProblems(g.label, g.id + '.label', { max: 32 }));
@@ -50,7 +50,7 @@ test('tickTodo adds a goal once and says when the list is done', () => {
     s = r.state;
   }
   assert.equal(r.all, true);
-  assert.equal(todoCount(s), 8);
+  assert.equal(todoCount(s), 9);
 });
 
 test('the gold bow stays locked in the creator until all 8 are done', () => {

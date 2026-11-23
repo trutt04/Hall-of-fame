@@ -10,7 +10,7 @@
 // in places.hideGarden match what the players see.
 
 import { mulberry32, TAU } from '../core/util.js';
-import { toWorld, rectDistance } from './island-layout.js';
+import { toWorld, rectDistance, pondColliders } from './island-layout.js';
 
 // trunk and post sizes, shared with the art so colliders match what is drawn
 // Width of an arena sign board for a label (block letters, 0.06 m per font pixel).
@@ -191,6 +191,8 @@ export function planDecor(plan, { quality = 'high' } = {}) {
 
   // ---------------------------------------------------------------- waterfalls: little rim ponds
   for (const w of plan.waterfalls) circle(w.x, w.z, w.pondR + 0.2, 'falls');
+  // the duck pond: rim stones, the dock's rails, its bench and its sign
+  if (plan.pond) for (const c of pondColliders(plan.pond)) colliders.push(c);
 
   // ---------------------------------------------------------------- fences on the main island
   // the toss headland's rim (gaps where the rainbows come in) and the outer sides of the lawn
@@ -257,6 +259,7 @@ export function planDecor(plan, { quality = 'high' } = {}) {
     ...plan.waterfalls.map((w) => ({ kind: 'disc', x: w.x, z: w.z, r: w.pondR + 2 })),
     { kind: 'disc', x: plan.bridge.x0, z: plan.bridge.z0, r: 4 },
     { kind: 'disc', x: P.plaza.x, z: P.plaza.z, r: 4 },
+    ...(plan.pond ? [{ kind: 'disc', x: plan.pond.x, z: plan.pond.z, r: plan.pond.r + 3.4 }] : []),
   ];
   const inArea = (x, z, m) => areas.some((a) => (a.kind === 'disc' ? Math.hypot(x - a.x, z - a.z) < a.r + m : rectDistance(x, z, a) < m));
   const onPath = (x, z, m) => plan.paths.some((p) => distToPath(p, x, z) < p.w / 2 + m);
@@ -433,7 +436,7 @@ export function planDecor(plan, { quality = 'high' } = {}) {
 // Where a small collectible (a spirit stick) can stand, for a content `where`:
 //   { place, index?, spot? } -> { x, y, z, place, treasure? } | null
 // place is a Contract 1 places id ('plaza', 'gym', 'stage', 'tossPads', 'slides', 'hideGarden',
-// 'court', 'bowField', 'tagZone', 'photoBooth') or one of the extras ('fountain', 'isle', 'bridge'),
+// 'court', 'bowField', 'tagZone', 'photoBooth') or one of the extras ('fountain', 'isle', 'bridge', 'pond'),
 // or 'edge' (a scenic spot on the island's rim; index picks one of several). index picks from list
 // places; spot narrows it: 'target' = on that toss pad's cloud, 'bottom' = just past the slide's end,
 // 'top' = the slide's start on its cloud. Every spot is on walkable ground and clear of colliders.
@@ -464,6 +467,7 @@ export function spotFor(plan, decor, where) {
     case 'isle':
     case 'boutique': at(toWorld(plan.boutique, 3.5, -plan.boutique.d / 2 - 1.4)); break;
     case 'bridge': at([(plan.bridge.x0 + plan.bridge.x1) / 2, (plan.bridge.z0 + plan.bridge.z1) / 2]); break;
+    case 'pond': if (!plan.pond) return null; at([plan.pond.foot.x, plan.pond.foot.z]); break; // the shore at the dock's foot
     case 'hideGarden': {
       const tent = plan.gardenPlan.objects.find((o) => o.kind === 'tent');
       at([tent.x - 1.6, tent.z + 1.9]);
