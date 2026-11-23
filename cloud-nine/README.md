@@ -68,6 +68,9 @@ after the welcome, so each cousin can make her own look before playing.
   are private: there is no list of rooms anywhere, and only someone with the code can come in.
   Once everyone is in, the host can lock the room (in the lobby or the menu) so nobody new can
   join, and can send a friend home if someone shouldn't be there.
+- **For grown-ups.** A row near the bottom of the in-game menu opens a short card on how the game
+  keeps kids safe (no chat, no accounts, private rooms, what is stored and for how long). Handy
+  for the other parents before their kids join a room.
 
 ## Her birthday
 

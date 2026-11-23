@@ -1683,6 +1683,25 @@ async function boot() {
   }
 
   // The spirit stick card: how many, the next hint, and what the found ones unlocked.
+  // For grown-ups: what the game does and doesn't do, in plain words (from the pause menu), so a
+  // parent can check before a kid plays with friends.
+  function showGrownups() {
+    sfx('open', { volume: 0.5 });
+    hud.openCard({
+      icon: 'people',
+      kicker: 'For grown-ups',
+      title: 'How Cloud Nine keeps kids safe',
+      lines: [
+        'No chat. Players can only send preset cheers, like "Go team!" and "Nice one!".',
+        'No accounts, emails, ads or purchases. There is nothing to sign up for.',
+        'Names are letters only, and every device checks them against a word filter.',
+        'Rooms are private. There is no list of rooms: only someone with the 4-letter code can join, and the host can lock the room or send anyone home.',
+        'Online, a room holds only nicknames, looks and where players are, while they play. A room is forgotten 12 hours after anyone last played in it.',
+        'Looks, spirit sticks and booth photos stay on this device. Photos never show names, and they are only shared if you choose to.',
+      ],
+      actions: [{ label: 'Got it', icon: 'check', primary: true }],
+    });
+  }
   function showSticks() {
     const s = sticksRow();
     if (!s) return;
@@ -1758,6 +1777,10 @@ async function boot() {
         onSticks: () => {
           hud.closePanel();
           showSticks();
+        },
+        onGrownups: () => {
+          hud.closePanel();
+          showGrownups();
         },
         onTravel: (p) => {
           hud.closePanel();

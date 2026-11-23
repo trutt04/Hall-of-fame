@@ -16,7 +16,7 @@
 //   menu.busy(text) / menu.hide() / menu.current / menu.setSound(on)
 //   buildPauseMenu({ code, isHost, canPick, places, sound, quality, sticks: { count, total }, notes (count), onClose,
 //                    onTravel, onPick, onCheerleader, onSticks, onNotes, onSound, onQuality, onLeave, leaveLabel,
-//                    todo: { done, total }, onTodo }) -> element
+//                    todo: { done, total }, onTodo, onGrownups }) -> element
 //   buildPicker({ games, onPick }) -> element
 //   JOIN_REASONS      friendly words for every joinRoom failure
 
@@ -534,6 +534,7 @@ export function buildPauseMenu(o = {}) {
   }
   list.appendChild(row(o.sound ? 'Sound is on' : 'Sound is off', 'Tap to turn it ' + (o.sound ? 'off' : 'on'), o.sound ? 'sound' : 'mute', () => o.onSound && o.onSound()));
   list.appendChild(row('Graphics', o.quality === 'low' ? 'Battery saver. Tap for automatic.' : 'Automatic. Tap for battery saver.', 'sparkle', () => o.onQuality && o.onQuality(), { tag: o.quality === 'low' ? 'SAVER' : 'AUTO' }));
+  if (o.onGrownups) list.appendChild(row('For grown-ups', 'How Cloud Nine keeps kids safe', 'people', () => o.onGrownups()));
   list.appendChild(row(o.leaveLabel || 'Back to the menu', null, 'door', () => o.onLeave && o.onLeave()));
   box.appendChild(list);
   if (o.places && o.places.length) {
