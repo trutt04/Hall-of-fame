@@ -113,7 +113,9 @@ From then on, on that device:
 - **Her pets** can wear the names in the link.
 
 Only devices that opened the link have these touches. Clearing the browser's data (or using a new
-device) removes them: open the link again and they come back.
+device) removes them: open the link again and they come back. On an iPhone or iPad, a Cloud Nine
+icon on the Home Screen can keep its own storage, apart from Safari's: if the touches are missing
+there, play in Safari, where the link was opened.
 
 **Making a link.** Ask Claude ("make Bailey's gift link with these notes: ..."), or write a file
 like this one somewhere outside the repo (the names here are made up). Every key but `"v"` is
