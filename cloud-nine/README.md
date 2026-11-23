@@ -59,6 +59,9 @@ after the welcome, so each cousin can make their own look before playing.
   "Feed the ducks!": pick Bread (their favourite), Peas or Corn (or press 1, 2, 3). She tosses,
   crumbs float, the nearest ducks paddle over to eat and hearts pop up; a big feed makes the mama
   flap for joy. In a room, friends see the crumbs and their ducks rush over too.
+- **The photo wall.** A big hot-pink heart covered in polaroids, in the lawn west of the plaza
+  (also in the menu's "Go to"), for real photos of her favorite people. The photos are added on the
+  device and never leave it: see "Photo wall" below.
 - **Spirit sticks.** Twelve are hidden around the island, a few of them on the clouds. Touching
   one collects it, and each unlocks something new for her cheerleader (a heart bow, space buns,
   rainbow socks...). The menu's "Spirit sticks" row shows how many are found and gives a hint for
@@ -83,8 +86,53 @@ after the welcome, so each cousin can make their own look before playing.
   Once everyone is in, the host can lock the room (in the lobby or the menu) so nobody new can
   join, and can send a friend home if someone shouldn't be there.
 - **For grown-ups.** A row near the bottom of the in-game menu opens a short card on how the game
-  keeps kids safe (no chat, no accounts, private rooms, what is stored and for how long). Handy
-  for the other parents before their kids join a room.
+  keeps kids safe (no chat, no accounts, private rooms, what is stored and for how long, and that
+  the photo wall's pictures stay on the device they were added on). Handy for the other parents
+  before their kids join a room.
+
+## Photo wall
+
+A big hot-pink heart stands in the lawn west of the plaza, with a black rhinestone rim, fairy
+lights, heart balloons, a bench and a little heart-shaped patio. Its banner says "Favorite People",
+or her name on a device that opened the gift link ("Zuzu's Favorite People"). It holds up to 12 real
+photos of her and her favorite people, and **those photos never leave the device they are added on.**
+
+**Adding photos.** Walk up to the wall and tap "Add photos" (or tap the wall itself). On a phone or
+tablet that opens the camera roll; on a computer, the file picker. Pick up to 12, and each one pops
+onto the wall in a moment. Tap a photo to say who is in it: tap the name chips (with the gift link:
+Me, her name, her family and her pets from the link; without it: Me, Mom, Dad, Family, Friends and
+My pet) to make captions like "Me, Pip & Grandpa Zork", or type your own, up to 32 letters.
+"Earlier" and "Later" move a photo, "Make it the star" puts it in the big frame in the middle, and
+"Remove" takes it off the wall (after a check: it stays in the camera roll).
+
+A grown-up can add photos on her device before she plays. The next time she visits, a toast says
+"Your photo wall has new photos!" and the wall's badge glows until she has looked.
+
+**Looking at them.** With photos on the wall its button says "Look at the photos": a scrapbook
+page with one photo at a time, big and uncropped. Swipe, use the arrow keys, or tap either side of
+the page (the big arrows sit there). "Play slideshow" goes through them by itself with a gentle
+drift and a sparkle, and slips the family's notes in between as handwritten cards ("From
+Grandma"); a long note shrinks to fit the page. On her birthday it ends on a birthday card.
+
+**Private by design.**
+
+- Photos are added on the device itself, never through a link, so they never go into this repo,
+  the site or any address.
+- Before it is kept, each photo is made smaller (1600 pixels on its long side) and saved again,
+  which drops the hidden details phones put in photos (EXIF), including where it was taken.
+- They are kept in the browser's own storage on that device (IndexedDB). Nothing about them is ever
+  sent anywhere: not the photos, not the captions, not even how many there are. In a room, every
+  device shows its own photos or empty frames, so friends never see hers.
+- "Remove all photos from this device" at the bottom of the wall's card takes them all off.
+  Clearing the browser's data does too.
+- On an iPhone or iPad, Safari can clear a website's storage after about a week without a visit.
+  To keep the photos, add Cloud Nine to the Home Screen (Share, then Add to Home Screen), open it
+  from there and add the photos in it: the Home Screen icon keeps its own storage, apart from
+  Safari's. The wall's card shows this tip in Safari.
+- A browser that keeps nothing (a private window) still shows the photos until it closes, and the
+  card says so.
+- A photo that won't open in that browser (an iPhone HEIC photo on some computers, say) gets a
+  friendly "Try a JPG or PNG".
 
 ## Her birthday
 
@@ -126,6 +174,8 @@ From then on, on that device:
   nobody mistakes a bot for a real cousin who joins.
 - **Her pets** can wear the names in the link.
 - **The duck pond's sign** can say the name in the link ("Duck Pond" everywhere else).
+- **The photo wall's banner** says "<her name>'s Favorite People", and its caption chips offer
+  the names in the link (her family and her pets).
 
 Only devices that opened the link have these touches. Clearing the browser's data (or using a new
 device) removes them: open the link again and they come back. On an iPhone or iPad, a Cloud Nine
@@ -204,4 +254,6 @@ Add these to the end of the address (start with `?`, join more with `&`):
 Plain JavaScript modules and three.js, no build step. `BLUEPRINT.md` is the plan every part was
 built to. The pages in `dev/` show single parts on their own (the island, the character lineup,
 the toss lab, the sound board, Hit Zero). The tests run with `node --test "cloud-nine/test/*.test.mjs"`
-from the top of the repo.
+from the top of the repo. `node cloud-nine/dev/photo-check.cjs` drives the photo wall in a real
+browser (with test pictures it draws itself) and checks that nothing about the photos leaves the
+device, a room of two tabs included.

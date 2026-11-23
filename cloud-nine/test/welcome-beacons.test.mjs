@@ -6,8 +6,8 @@ import { makeIslandPlan } from '../js/art/island-layout.js';
 import { copyProblems } from './content-copy-rules.mjs';
 
 test('a beacon for each place with something to do, within the draw-call budget', () => {
-  assert.deepEqual(BEACON_KINDS.map((k) => k.id), ['toss', 'stage', 'booth', 'court', 'bowField', 'tagZone', 'hideGarden', 'pond']);
-  assert.ok(BEACON_KINDS.length <= 8, 'the atlas has 8 cells (2 x 4)');
+  assert.deepEqual(BEACON_KINDS.map((k) => k.id), ['toss', 'stage', 'booth', 'court', 'bowField', 'tagZone', 'hideGarden', 'pond', 'photoWall']);
+  assert.ok(BEACON_KINDS.length <= 15, 'the atlas pages (8 cells each) hold the badges and the glow');
   assert.ok(BEACON_KINDS.length <= 10, 'one sprite each: at most ~10 extra draw calls');
   const problems = [];
   for (const k of BEACON_KINDS) {
@@ -20,8 +20,10 @@ test('a beacon for each place with something to do, within the draw-call budget'
 test('on the real island every beacon floats over its place', () => {
   const plan = makeIslandPlan();
   const spots = beaconSpots(plan.places, () => 0);
-  assert.equal(spots.length, 8);
+  assert.equal(spots.length, 9);
   assert.deepEqual([spots[7].x, spots[7].z], [plan.places.pond.x, plan.places.pond.z], 'the duck pond has one too');
+  assert.deepEqual([spots[8].x, spots[8].z], [plan.places.photoWall.x, plan.places.photoWall.z], 'and the photo wall');
+  assert.equal(spots[8].label, 'Photo wall');
   const P = plan.places;
   const byId = Object.fromEntries(spots.map((s) => [s.id, s]));
   assert.deepEqual([byId.toss.x, byId.toss.z], [P.tossPads[1].x, P.tossPads[1].z], 'one badge over the middle pad');

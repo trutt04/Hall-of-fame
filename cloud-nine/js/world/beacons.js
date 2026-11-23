@@ -1,20 +1,26 @@
 // Activity beacons: a round badge with an icon and a short label floating over each place where
 // there is something to do (the basket toss pads, the Hit Zero stage, the photo booth, the four
-// game fields and the duck pond), so a new cheerleader sees from across the island where the fun
-// is. They bob gently, keep a steady size on screen (a map pin, not a billboard), fade away as she
-// walks up to one, and all step aside while a game, Hit Zero, the booth, the toss or the duck
-// pond's snack picker has the screen.
+// game fields, the duck pond and the photo wall), so a new cheerleader sees from across the island
+// where the fun is. They bob gently, keep a steady size on screen (a map pin, not a billboard), fade
+// away as she walks up to one, and all step aside while a game, Hit Zero, the booth, the toss, the
+// duck pond's snack picker or the photo wall has the screen.
 //
-// Cheap on purpose: every badge is drawn once into one canvas atlas (one texture); each beacon is a
-// sprite with its own little quad pointing at its cell. 8 sprites = at most 8 draw calls, ~16
-// triangles, nothing allocated per frame. The atlas holds 8 cells (2 x 4): all of them are used.
+// Cheap on purpose: every badge is drawn once into a canvas atlas; each beacon is a sprite with its
+// own little quad pointing at its cell. 9 sprites = at most 9 draw calls, ~18 triangles, nothing
+// allocated per frame. The atlas comes in pages of 8 cells (2 x 4, 1024 x 1024) and a small second
+// page (2 x 1) for the ninth badge and a soft pink glow, which a glowing beacon wears behind it (one
+// more sprite, only while it glows). Every page is a power of two on each side, so old WebGL 1
+// phones take it as it is.
 //
 //   import { createBeacons, beaconSpots, beaconFade, beaconHeight, BEACON_KINDS } from './world/beacons.js'
 //   const beacons = createBeacons({ scene, places, groundAt })
 //   beacons.update(dt, t, camera, playerPos, show)   every frame; show: false fades them all out
 //   beacons.intro()                                  pop them in one by one (her first arrival)
+//   beacons.setGlow(id, on)                          a beacon that pulses in a pink glow (the photo wall:
+//                                                    new photos she hasn't looked at yet)
 //   beacons.list                                     [{ id, label, x, y, z, sprite }] (tests, dev)
 //   beacons.visibleCount                             how many are drawn this frame (tests)
+//   beacons.glowing                                  ids of the glowing beacons (tests)
 //   beacons.dispose()
 //
 // Pure helpers (node tests, no three.js state):
@@ -38,6 +44,7 @@ export const BEACON_KINDS = Object.freeze([
   Object.freeze({ id: 'tagZone', label: 'Freeze tag', color: '#9fd8ff', icon: 'snow', up: 5.5, near: 10, far: 16 }),
   Object.freeze({ id: 'hideGarden', label: 'Hide and seek', color: '#a9ecd0', icon: 'eyes', up: 6.5, near: 11, far: 17 }),
   Object.freeze({ id: 'pond', label: 'Duck pond', color: '#bfe8ff', icon: 'duck', up: 5.2, near: 10, far: 16 }),
+  Object.freeze({ id: 'photoWall', label: 'Photo wall', color: '#ff9fcf', icon: 'photos', up: 7.8, near: 10, far: 16 }),
 ]);
 
 const fin = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -66,6 +73,7 @@ export function beaconSpots(places, groundAt) {
     tagZone: P.tagZone ? centre(P.tagZone.bounds) : null,
     hideGarden: P.hideGarden ? centre(P.hideGarden.bounds) : null,
     pond: P.pond,
+    photoWall: P.photoWall,
   };
   const out = [];
   for (const k of BEACON_KINDS) {
@@ -98,6 +106,15 @@ export function beaconHeight(d, pxPerRad = 600) {
 
 const COLS = 2;
 const ROWS = 4;
+const PER_PAGE = COLS * ROWS;
+const pow2 = (n) => 2 ** Math.ceil(Math.log2(Math.max(1, n)));
+// Cell i: which page, where on it, and how many rows that page has.
+function cellAt(i, total) {
+  const page = Math.floor(i / PER_PAGE);
+  const k = i % PER_PAGE;
+  const rows = pow2(Math.ceil(Math.min(PER_PAGE, total - page * PER_PAGE) / COLS));
+  return { page, col: k % COLS, row: Math.floor(k / COLS), rows };
+}
 const CW = 512;
 const CH = 256;
 const BADGE = { x: 256, y: 100, r: 70 };
@@ -222,6 +239,31 @@ function drawIcon(ctx, name) {
       stroke('M1.8 22.2c2-1.1 4-1.1 6 0s4 1.1 6 0 4-1.1 6 0', 1.6, '#3f7fd9');
       break;
     }
+    case 'photos': {
+      // two polaroids, the front one with a heart in it
+      ctx.save();
+      ctx.translate(12, 12);
+      ctx.rotate(-0.22);
+      ctx.translate(-12, -12);
+      const back = 'M4.6 3.4h12.2v14.6H4.6z';
+      fill(back, '#ffffff');
+      stroke(back, 1.6);
+      fill('M6.2 5h9v8.6h-9z', PALETTE.lilac || '#cdb4ff');
+      ctx.restore();
+      ctx.save();
+      ctx.translate(12, 12);
+      ctx.rotate(0.16);
+      ctx.translate(-12, -12);
+      const front = 'M7.4 5.2h12.6v15.2H7.4z';
+      fill(front, '#ffffff');
+      stroke(front, 1.7);
+      fill('M9 6.8h9.4v9.2H9z', '#ffd6ea');
+      const heart = 'M13.7 14.4c-2.6-1.7-3.6-3.1-3.2-4.4.4-1.2 2-1.5 3.2-.3 1.2-1.2 2.8-.9 3.2.3.4 1.3-.6 2.7-3.2 4.4z';
+      fill(heart, PINK);
+      stroke(heart, 1.2);
+      ctx.restore();
+      break;
+    }
     default:
       fill('M12 3.2l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z', PINK);
   }
@@ -282,26 +324,58 @@ function drawCell(ctx, kind, col, row) {
   ctx.restore();
 }
 
+// The glow a glowing beacon wears: a soft pink light round the badge, with sparkles.
+function drawGlow(ctx, col, row) {
+  ctx.save();
+  ctx.translate(col * CW, row * CH);
+  ctx.beginPath();
+  ctx.rect(0, 0, CW, CH);
+  ctx.clip();
+  const { x, y } = BADGE;
+  const R = y - 2; // as far as the cell's top edge, so it fades out before it
+  const grd = ctx.createRadialGradient(x, y, BADGE.r * 0.6, x, y, R);
+  grd.addColorStop(0, 'rgba(255,90,170,0.95)');
+  grd.addColorStop(0.5, 'rgba(255,120,190,0.45)');
+  grd.addColorStop(1, 'rgba(255,140,200,0)');
+  ctx.fillStyle = grd;
+  ctx.beginPath();
+  ctx.arc(x, y, R, 0, Math.PI * 2);
+  ctx.fill();
+  for (const [dx, dy, r] of [[-96, -50, 15], [98, -34, 12], [-90, 56, 11], [92, 62, 14], [-30, -84, 9]]) sparkle(ctx, x + dx, y + dy, r, '#ffffff');
+  ctx.restore();
+}
+
+// The atlas pages: the kinds' badges in order, then the glow. -> [CanvasTexture]
 function makeAtlas(kinds) {
-  const canvas = document.createElement('canvas');
-  canvas.width = COLS * CW;
-  canvas.height = ROWS * CH;
-  const ctx = canvas.getContext('2d');
-  kinds.forEach((k, i) => drawCell(ctx, k, i % COLS, Math.floor(i / COLS)));
-  const tex = new THREE.CanvasTexture(canvas);
-  tex.colorSpace = THREE.SRGBColorSpace;
-  tex.anisotropy = 2;
-  return tex;
+  const total = kinds.length + 1;
+  const pages = [];
+  for (let i = 0; i < total; i++) {
+    const c = cellAt(i, total);
+    if (!pages[c.page]) {
+      const canvas = document.createElement('canvas');
+      canvas.width = COLS * CW;
+      canvas.height = c.rows * CH;
+      pages[c.page] = canvas;
+    }
+    const ctx = pages[c.page].getContext('2d');
+    if (i < kinds.length) drawCell(ctx, kinds[i], c.col, c.row);
+    else drawGlow(ctx, c.col, c.row);
+  }
+  return pages.map((canvas) => {
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    tex.anisotropy = 2;
+    return tex;
+  });
 }
 
 // A sprite quad (as three.js builds its own) whose uvs point at one atlas cell.
-function cellGeometry(i) {
-  const col = i % COLS;
-  const row = Math.floor(i / COLS);
+function cellGeometry(i, total) {
+  const { col, row, rows } = cellAt(i, total);
   const u0 = col / COLS;
   const u1 = (col + 1) / COLS;
-  const v1 = 1 - row / ROWS;
-  const v0 = 1 - (row + 1) / ROWS;
+  const v1 = 1 - row / rows;
+  const v0 = 1 - (row + 1) / rows;
   const buf = new THREE.InterleavedBuffer(new Float32Array([
     -0.5, -0.5, 0, u0, v0,
     0.5, -0.5, 0, u1, v0,
@@ -322,24 +396,51 @@ export function createBeacons({ scene, places, groundAt } = {}) {
   group.name = 'beacons';
   scene.add(group);
   const bob = 0.045 * motion(); // reduced motion: barely a bob
-  let tex = null;
+  let pages = [];
+  const total = kinds.length + 1;
+  const glowCell = kinds.length;
+  const pageOf = (i) => pages[cellAt(i, total).page] || null;
   try {
-    tex = makeAtlas(kinds);
+    pages = makeAtlas(kinds);
   } catch (err) {
     console.warn('[c9] the beacons could not be drawn', err);
   }
   const list = spots.map((s, i) => {
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false, depthTest: false, fog: false });
+    const cell = kinds.findIndex((k) => k.id === s.id);
+    const mat = new THREE.SpriteMaterial({ map: pageOf(cell), transparent: true, depthWrite: false, depthTest: false, fog: false });
     const sprite = new THREE.Sprite(mat);
-    sprite.geometry = cellGeometry(kinds.findIndex((k) => k.id === s.id));
+    sprite.geometry = cellGeometry(cell, total);
     sprite.center.set(0.5, 0); // the label's bottom edge is the anchor: it never sinks into the ground
     sprite.position.set(s.x, s.y, s.z);
     sprite.renderOrder = 8;
     sprite.visible = false;
     sprite.name = 'beacon-' + s.id;
     group.add(sprite);
-    return Object.assign({}, s, { sprite, mat, phase: i * 1.7, pop: 1, delay: 0 });
+    return Object.assign({}, s, { sprite, mat, phase: i * 1.7, pop: 1, delay: 0, glow: null });
   });
+  // a glowing beacon: a soft additive light behind the badge (only made while one glows)
+  let glowGeo = null;
+  function setGlow(id, on) {
+    const b = list.find((x) => x.id === id);
+    if (!b || !pageOf(glowCell)) return;
+    if (on && !b.glow) {
+      if (!glowGeo) glowGeo = cellGeometry(glowCell, total);
+      const mat = new THREE.SpriteMaterial({ map: pageOf(glowCell), transparent: true, depthWrite: false, depthTest: false, fog: false });
+      const sprite = new THREE.Sprite(mat);
+      sprite.geometry = glowGeo;
+      sprite.center.set(0.5, 0);
+      sprite.renderOrder = 7;
+      sprite.visible = false;
+      sprite.name = 'beacon-glow-' + id;
+      group.add(sprite);
+      b.glow = { sprite, mat };
+    } else if (!on && b.glow) {
+      group.remove(b.glow.sprite);
+      b.glow.mat.dispose();
+      b.glow = null;
+    }
+  }
+  const calm = motion() < 0.5;
   let shown = 0; // 0..1, all of them together (games, Hit Zero, the booth, the toss: 0)
   let visibleCount = 0;
   let clock = 0;
@@ -362,6 +463,7 @@ export function createBeacons({ scene, places, groundAt } = {}) {
       const a = shown * near * Math.min(1, b.pop * 1.6);
       if (a < 0.01 || !camera) {
         b.sprite.visible = false;
+        if (b.glow) b.glow.sprite.visible = false;
         continue;
       }
       const cp = camera.position;
@@ -369,12 +471,23 @@ export function createBeacons({ scene, places, groundAt } = {}) {
       // a little overshoot as it pops in
       const p = b.pop;
       const popScale = p >= 1 ? 1 : 1 + 1.7 * Math.pow(p - 1, 3) + 0.7 * Math.pow(p - 1, 2);
-      const H = beaconHeight(d, ppr) * Math.max(0.05, popScale);
+      // a glowing one breathes: a little bigger and back, in its pink light
+      const pulse = b.glow ? 1.08 + (calm ? 0 : 0.08 * Math.sin(t * 3.2)) : 1;
+      const H = beaconHeight(d, ppr) * Math.max(0.05, popScale) * pulse;
       b.sprite.scale.set(H * 2, H, 1);
       b.sprite.position.y = b.y + Math.sin(t * 1.7 + b.phase) * H * bob;
       b.mat.opacity = a;
       b.sprite.visible = true;
       visibleCount++;
+      if (b.glow) {
+        const g = b.glow.sprite;
+        const k = calm ? 1.25 : 1.2 + 0.12 * Math.sin(t * 3.2 + 0.6);
+        g.scale.set(H * 2 * k, H * k, 1);
+        // the glow is centred on the badge, which sits a little above the label's middle
+        g.position.set(b.x, b.sprite.position.y - H * (k - 1) * (BADGE.y / CH), b.z);
+        b.glow.mat.opacity = a * (calm ? 0.8 : 0.6 + 0.4 * Math.abs(Math.sin(t * 1.6)));
+        g.visible = true;
+      }
     }
   }
 
@@ -382,7 +495,9 @@ export function createBeacons({ scene, places, groundAt } = {}) {
     group,
     list,
     update,
+    setGlow,
     get visibleCount() { return visibleCount; },
+    get glowing() { return list.filter((b) => b.glow).map((b) => b.id); },
     // her first arrival: each badge pops up in turn, a beat apart
     intro() {
       list.forEach((b, i) => {
@@ -394,8 +509,10 @@ export function createBeacons({ scene, places, groundAt } = {}) {
       for (const b of list) {
         b.sprite.geometry.dispose();
         b.mat.dispose();
+        if (b.glow) b.glow.mat.dispose();
       }
-      if (tex) tex.dispose();
+      if (glowGeo) glowGeo.dispose();
+      for (const t of pages) t.dispose();
       scene.remove(group);
     },
   };

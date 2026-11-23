@@ -2,13 +2,15 @@
 // Pure modules only (no WebGL): js/art/island-layout.js and js/art/island-decor.js.
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeIslandPlan, rectDistance, toWorld, slideProfile } from '../js/art/island-layout.js';
+import { makeIslandPlan, rectDistance, toWorld, slideProfile, photoWallColliders } from '../js/art/island-layout.js';
 import { planDecor } from '../js/art/island-decor.js';
 
 const plan = makeIslandPlan();
 const P = plan.places;
 const groundAt = plan.ground.groundAt;
 const decor = planDecor(plan, { quality: 'high' });
+// the photo wall's solid parts (js/world/photowall.js registers them with the island's)
+const wallColliders = photoWallColliders(plan.photoWall);
 const KINDS = ['hedge', 'bush', 'slide', 'tent', 'rack', 'cloud', 'barrel', 'curtain'];
 const MAX_CLIMB = 1.7; // the player treats steeper than this as a wall
 const finite = (v) => typeof v === 'number' && Number.isFinite(v);
@@ -21,7 +23,7 @@ function hits(x, z, r, list = decor.colliders) {
 }
 
 test('places have the Contract 1 ids and shapes', () => {
-  for (const key of ['plaza', 'stage', 'photoBooth']) {
+  for (const key of ['plaza', 'stage', 'photoBooth', 'photoWall']) {
     assert.ok(finite(P[key].x) && finite(P[key].z) && finite(P[key].facing), key);
   }
   for (const key of ['gym', 'court']) {
@@ -199,6 +201,8 @@ test('every place sits on the island with room to spare', () => {
   }
   land(P.stage.x, P.stage.z, 'stage', 10);
   land(P.photoBooth.x, P.photoBooth.z, 'photo booth');
+  land(P.photoWall.x, P.photoWall.z, 'photo wall', 8);
+  for (const c of wallColliders) land(c.x, c.z, 'photo wall part', 6);
   for (const pad of P.tossPads) land(pad.x, pad.z, pad.id, 3);
   for (const b of P.bowField.bases) land(b.x, b.z, 'base ' + b.team, 4);
   const hg = P.hideGarden;
@@ -247,18 +251,29 @@ test('nothing solid where people stand or play', () => {
   open(P.bowField, P.bowField.w, P.bowField.d, 'field');
   const t = P.tagZone.bounds;
   open({ x: (t.x0 + t.x1) / 2, z: (t.z0 + t.z1) / 2, facing: 0 }, t.x1 - t.x0, t.z1 - t.z0, 'lawn');
-  // the walk from the spawn to every place's front door is not walled off
+  // the walk from the spawn to every place's front door is not walled off (the photo wall included)
   for (const p of plan.paths) {
     for (const [x, z] of p.pts) {
-      const h = hits(x, z, 0.3).filter((c) => c.tag !== 'gym' && c.tag !== 'stage');
+      const h = hits(x, z, 0.3, [...decor.colliders, ...wallColliders]).filter((c) => c.tag !== 'gym' && c.tag !== 'stage');
       assert.equal(h.length, 0, 'path ' + p.id + ' blocked at ' + x.toFixed(1) + ',' + z.toFixed(1) + ' by ' + h.map((c) => c.tag));
     }
+  }
+  // the photo wall's patio, its prompt and its "Go to" spot are open, and nothing of the island's
+  // stands in the wall's own solid parts
+  const W = plan.photoWall;
+  for (const [x, z, what] of [[W.spot.x, W.spot.z, 'its prompt spot'], [W.travel.x, W.travel.z, 'its Go to spot'], [W.patio.x, W.patio.z, 'its patio']]) {
+    assert.equal(hits(x, z, 0.45, [...decor.colliders, ...wallColliders]).length, 0, 'photo wall: ' + what);
+  }
+  for (const c of wallColliders) {
+    const probe = c.kind === 'circle' ? c.r : Math.hypot(c.w, c.d) / 2;
+    assert.equal(hits(c.x, c.z, probe + 0.3).length, 0, 'photo wall: the island has nothing where its ' + c.kind + ' stands');
   }
 });
 
 test('solid things are the same at every quality (multiplayer agrees on walls)', () => {
   const low = planDecor(makeIslandPlan(), { quality: 'low' });
   assert.deepEqual(low.colliders, decor.colliders);
+  assert.deepEqual(photoWallColliders(makeIslandPlan().photoWall), wallColliders, 'the photo wall too');
 });
 
 test('the plan is deterministic', () => {

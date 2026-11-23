@@ -42,7 +42,9 @@ on them is a placeholder in `js/config.js`.
   - No accounts beyond Firebase anonymous sign-in, no emails, no analytics, no ads, no purchases,
     no external links, no third-party requests except the Firebase SDK and database.
   - Nothing identifying in code, art or text: no photos, no last names, no gym, team, school or
-    town names. Bailey's first name is fine (birthday banner).
+    town names. Bailey's first name is fine (birthday banner). (The photo wall's real photos are
+    added by the family on a device and stay on it: never in the repo, the site, a link or the
+    network, not even their captions or how many there are. In a room each device shows its own.)
   - Everything from the network is untrusted: validate shapes, clamp numbers, cap lengths, drop
     unknown ids (League World's `cleanVandalItem` in `world/js/core/net.js` is the model).
 - **Tone: hype, sweet, funny, never mean.** League World roasts; Cloud Nine cheers you on.
@@ -82,12 +84,15 @@ cloud-nine/
   js/audio/                               AUDIO
   js/rhythm/, css/rhythm.css              RHYTHM  (Hit Zero)
   js/content/                             CONTENT (words, emotes, names, birthday, notes, collectibles)
+  js/world/photowall.js, js/art/photowall-art.js, js/core/photos.js,
+    js/ui/photo-manager.js, js/ui/photo-viewer.js, css/photowall.css   PHOTOS (added later: the photo wall)
   dev/<owner>-*                           each owner's own dev and test pages
   test/<owner>-*.test.mjs                 each owner's own node tests
 ```
 
 Owner prefixes for dev and test files: `app`, `island`, `character`, `toss`, `net`, `games`,
-`audio`, `rhythm`, `content`. Run tests with `node --test "cloud-nine/test/*.test.mjs"`.
+`audio`, `rhythm`, `content` (and `photo` / `photowall` for the photo wall, added later). Run
+tests with `node --test "cloud-nine/test/*.test.mjs"`.
 
 ## Coordinates and units
 
@@ -143,6 +148,10 @@ export function createSky({ scene, quality }) -> { update(dt, t, camera), lights
 - `bowField` `{ x, z, w, d, facing, bases: [{ team: 0, x, z, r }, { team: 1, x, z, r }] }`: Capture the Bow.
 - `tagZone` `{ bounds: { x0, z0, x1, z1 } }`: freeze tag.
 - `photoBooth` `{ x, z, facing }`: phase 2.
+- `photoWall` `{ x, z, facing }`: the photo wall (added later): the foot of its heart board, facing
+  out toward the plaza. Its furniture (the board, the patio, the bench, the stones, where the
+  prompt and "Go to" are) is `plan.photoWall` from `makePhotoWall()` in `js/art/island-layout.js`,
+  and `photoWallColliders()` is what is solid there (js/world/photowall.js registers them).
 
 ## Contract 2: the player (APP)
 
@@ -246,6 +255,9 @@ Added in review (safety):
 - `net.room` carries `locked`; a `'room'` event fires when it changes.
 - **Names in game state go out blank.** Each device fills in the name it already checked for that
   player id (`V.mapNicks`), so a host can never put free text on anyone's screen.
+- **The photo wall sends nothing.** Its modules never import `js/net/` or touch `world.net`, and
+  never call fetch, XMLHttpRequest, sendBeacon or WebSocket (`test/photowall-privacy.test.mjs`;
+  `dev/photo-check.cjs` checks a real room of two tabs).
 
 ## Contract 5: game modes (GAMES)
 

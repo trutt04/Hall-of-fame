@@ -485,6 +485,16 @@ export function createMenu(root) {
 
 // ------------------------------------------------------------------------------------ in-world pieces
 
+// The "Go to" icons: the HUD's set (ui/dom.js), plus a heart for the photo wall.
+const PLACE_ICONS = { heart: 'M12 20.2C6.2 16.3 3.3 13 3.3 9.6a4.4 4.4 0 0 1 8.7-1 4.4 4.4 0 0 1 8.7 1c0 3.4-2.9 6.7-8.7 10.6z' };
+function placeIcon(name) {
+  if (!PLACE_ICONS[name]) return icon(name);
+  const svg = icon('star');
+  svg.classList.remove('c9-icon-fill');
+  svg.firstChild.setAttribute('d', PLACE_ICONS[name]);
+  return svg;
+}
+
 function row(title, sub, iconName, onClick, extra = {}) {
   const b = el('button', 'c9-row' + (extra.className ? ' ' + extra.className : ''));
   b.type = 'button';
@@ -543,7 +553,7 @@ export function buildPauseMenu(o = {}) {
     for (const p of o.places) {
       const b = el('button', 'c9-place');
       b.type = 'button';
-      b.appendChild(icon(p.icon || 'star'));
+      b.appendChild(placeIcon(p.icon || 'star'));
       b.appendChild(el('span', 'c9-place-name', p.name));
       onTap(b, () => o.onTravel && o.onTravel(p));
       grid.appendChild(b);
