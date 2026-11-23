@@ -1,0 +1,3 @@
+# Private gift files hold family names: they must never be committed (see README, "Personal touches").
+gift*.json
+*.gift.json
