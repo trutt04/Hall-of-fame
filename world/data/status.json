@@ -2,9 +2,9 @@
   "schema": 1,
   "ok": true,
   "reason": "ok",
-  "detail": "Synced season 2026, week 11",
-  "lastAttempt": "2026-11-24T04:49:43Z",
-  "lastSuccess": "2026-11-24T04:49:43Z",
+  "detail": "Synced season 2026, week 12",
+  "lastAttempt": "2026-11-24T09:03:26Z",
+  "lastSuccess": "2026-11-24T09:03:26Z",
   "consecutiveFailures": 0,
   "internal": { "failingSince": null, "alertSent": false, "historyCheckedAt": "2026-11-23T15:01:52Z" }
 }
