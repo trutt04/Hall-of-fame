@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-24T09:03:26Z",
+  "generatedAt": "2026-11-24T13:15:25Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -459,9 +459,9 @@
         "emptyStarters": [],
         "badStarters": [],
         "starters": [
-          { "name": "Bo Nix", "pos": "QB", "slot": "QB", "points": 0, "projected": 16.72 },
+          { "name": "Matthew Stafford", "pos": "QB", "slot": "QB", "points": 0, "projected": 19.62 },
           { "name": "Cam Skattebo", "pos": "RB", "slot": "RB", "points": 0, "projected": 17.83 },
-          { "name": "Justice Hill", "pos": "RB", "slot": "RB", "points": 0, "projected": 9.58 },
+          { "name": "Zach Charbonnet", "pos": "RB", "slot": "RB", "points": 0, "projected": 11.9 },
           { "name": "Tee Higgins", "pos": "WR", "slot": "WR", "points": 0, "projected": 17.54 },
           { "name": "Carnell Tate", "pos": "WR", "slot": "WR", "points": 0, "projected": 11.95 },
           { "name": "Sam LaPorta", "pos": "TE", "slot": "TE", "points": 0, "projected": 10.91 },
@@ -470,13 +470,13 @@
           { "name": "Chris Boswell", "pos": "K", "slot": "K", "points": 0, "projected": 10.57 }
         ],
         "bench": [
-          { "name": "Matthew Stafford", "pos": "QB", "slot": "BE", "points": 0, "projected": 19.62 },
-          { "name": "Zach Charbonnet", "pos": "RB", "slot": "BE", "points": 0, "projected": 11.9 },
           { "name": "Buccaneers D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 6.77 },
           { "name": "Kendre Miller", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Mack Hollins", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.46 },
           { "name": "Tutu Atwell", "pos": "WR", "slot": "BE", "points": 0, "projected": 6.7 },
-          { "name": "Courtland Sutton", "pos": "WR", "slot": "BE", "points": 0, "projected": 8 }
+          { "name": "Courtland Sutton", "pos": "WR", "slot": "BE", "points": 0, "projected": 8 },
+          { "name": "Justice Hill", "pos": "RB", "slot": "BE", "points": 0, "projected": 9.58 },
+          { "name": "Bo Nix", "pos": "QB", "slot": "BE", "points": 0, "projected": 16.72 }
         ]
       }
     },
@@ -1089,7 +1089,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 3, "points": 0, "projected": 111.02 },
-      "away": { "teamId": 11, "points": 0, "projected": 111.09 },
+      "away": { "teamId": 11, "points": 0, "projected": 116.31 },
       "winner": "undecided"
     },
     {
