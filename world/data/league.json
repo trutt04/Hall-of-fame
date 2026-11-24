@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-24T14:59:01Z",
+  "generatedAt": "2026-11-24T16:08:45Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -379,20 +379,20 @@
           { "name": "Jonathan Taylor", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.44 },
           { "name": "Tony Pollard", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.63 },
           { "name": "George Pickens", "pos": "WR", "slot": "WR", "points": 0, "projected": 15.24 },
-          { "name": "Caleb Douglas", "pos": "WR", "slot": "WR", "points": 0, "projected": 10.73 },
+          { "name": "Matthew Golden", "pos": "WR", "slot": "WR", "points": 0, "projected": 17.08 },
           { "name": "Travis Kelce", "pos": "TE", "slot": "TE", "points": 0, "projected": 12.1 },
           { "name": "Aaron Jones Sr.", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 10.45 },
-          { "name": "Bears D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 4.41 },
+          { "name": "Vikings D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.7 },
           { "name": "Matt Gay", "pos": "K", "slot": "K", "points": 0, "projected": 8.09 }
         ],
         "bench": [
           { "name": "Jeremiyah Love", "pos": "RB", "slot": "BE", "points": 0, "projected": 0 },
-          { "name": "Matthew Golden", "pos": "WR", "slot": "BE", "points": 0, "projected": 17.08 },
           { "name": "Jared Goff", "pos": "QB", "slot": "BE", "points": 0, "projected": 21.3 },
-          { "name": "Vikings D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 6.7 },
           { "name": "Tre Tucker", "pos": "WR", "slot": "BE", "points": 0, "projected": 7.86 },
           { "name": "DeMario Douglas", "pos": "WR", "slot": "BE", "points": 0, "projected": 9.04 },
-          { "name": "Michael Mayer", "pos": "TE", "slot": "BE", "points": 0, "projected": 5.71 }
+          { "name": "Michael Mayer", "pos": "TE", "slot": "BE", "points": 0, "projected": 5.71 },
+          { "name": "Caleb Douglas", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.73 },
+          { "name": "Bears D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 4.41 }
         ]
       }
     },
@@ -1065,7 +1065,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 6, "points": 0, "projected": 131.59 },
-      "away": { "teamId": 9, "points": 0, "projected": 114.6 },
+      "away": { "teamId": 9, "points": 0, "projected": 123.24 },
       "winner": "undecided"
     },
     {
