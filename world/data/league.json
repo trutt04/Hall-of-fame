@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-24T17:54:50Z",
+  "generatedAt": "2026-11-24T22:57:14Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -79,7 +79,7 @@
       "roster": {
         "ir": [{ "name": "Alec Pierce", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [],
+        "badStarters": [{ "name": "J.K. Dobbins", "pos": "RB", "slot": "RB", "why": "OUT" }],
         "starters": [
           { "name": "Joe Burrow", "pos": "QB", "slot": "QB", "points": 0, "projected": 31.34 },
           { "name": "Bucky Irving", "pos": "RB", "slot": "RB", "points": 0, "projected": 21.49 },
@@ -1057,7 +1057,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 5, "points": 0, "projected": 135.38 },
-      "away": { "teamId": 2, "points": 0, "projected": 109.41 },
+      "away": { "teamId": 2, "points": 0, "projected": 105.96 },
       "winner": "undecided"
     },
     {
