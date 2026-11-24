@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-24T13:15:25Z",
+  "generatedAt": "2026-11-24T14:59:01Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -292,23 +292,23 @@
         "badStarters": [],
         "starters": [
           { "name": "Kirk Cousins", "pos": "QB", "slot": "QB", "points": 0, "projected": 22.25 },
-          { "name": "Rico Dowdle", "pos": "RB", "slot": "RB", "points": 0, "projected": 8.83 },
-          { "name": "Rachaad White", "pos": "RB", "slot": "RB", "points": 0, "projected": 8.4 },
+          { "name": "Kyren Williams", "pos": "RB", "slot": "RB", "points": 0, "projected": 17.06 },
+          { "name": "Blake Corum", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.09 },
           { "name": "Amon-Ra St. Brown", "pos": "WR", "slot": "WR", "points": 0, "projected": 18.12 },
           { "name": "Jakobi Meyers", "pos": "WR", "slot": "WR", "points": 0, "projected": 12.55 },
           { "name": "Evan Engram", "pos": "TE", "slot": "TE", "points": 0, "projected": 6.69 },
-          { "name": "Adonai Mitchell", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 10.39 },
+          { "name": "Ladd McConkey", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 12.4 },
           { "name": "Panthers D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 5.74 },
           { "name": "Ka'imi Fairbairn", "pos": "K", "slot": "K", "points": 0, "projected": 9.94 }
         ],
         "bench": [
-          { "name": "Kyren Williams", "pos": "RB", "slot": "BE", "points": 0, "projected": 17.06 },
           { "name": "Brock Bowers", "pos": "TE", "slot": "BE", "points": 0, "projected": 15.35 },
-          { "name": "Ladd McConkey", "pos": "WR", "slot": "BE", "points": 0, "projected": 12.4 },
-          { "name": "Blake Corum", "pos": "RB", "slot": "BE", "points": 0, "projected": 14.09 },
+          { "name": "Rico Dowdle", "pos": "RB", "slot": "BE", "points": 0, "projected": 8.83 },
+          { "name": "Rachaad White", "pos": "RB", "slot": "BE", "points": 0, "projected": 8.4 },
           { "name": "Xavier Worthy", "pos": "WR", "slot": "BE", "points": 0, "projected": 6.2 },
           { "name": "Juwan Johnson", "pos": "TE", "slot": "BE", "points": 0, "projected": 5.35 },
-          { "name": "Antonio Williams", "pos": "WR", "slot": "BE", "points": 0, "projected": 9.72 }
+          { "name": "Antonio Williams", "pos": "WR", "slot": "BE", "points": 0, "projected": 9.72 },
+          { "name": "Adonai Mitchell", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.39 }
         ]
       }
     },
@@ -1096,7 +1096,7 @@
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 7, "points": 0, "projected": 102.9 },
+      "home": { "teamId": 7, "points": 0, "projected": 118.84 },
       "away": { "teamId": 10, "points": 0, "projected": 113.76 },
       "winner": "undecided"
     },
