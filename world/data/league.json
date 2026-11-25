@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-25T10:16:44Z",
+  "generatedAt": "2026-11-25T12:00:38Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -327,13 +327,13 @@
       "pointsAgainst": 1367.76,
       "streakType": "LOSS",
       "streakLength": 5,
-      "moves": { "acquisitions": 25, "drops": 25, "trades": 0 },
+      "moves": { "acquisitions": 26, "drops": 26, "trades": 0 },
       "roster": {
         "ir": [],
         "emptyStarters": [],
         "badStarters": [],
         "starters": [
-          { "name": "Aaron Rodgers", "pos": "QB", "slot": "QB", "points": 0, "projected": 17.78 },
+          { "name": "Anthony Richardson Sr.", "pos": "QB", "slot": "QB", "points": 0, "projected": 15.01 },
           { "name": "James Cook III", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.63 },
           { "name": "Travis Etienne Jr.", "pos": "RB", "slot": "RB", "points": 0, "projected": 12.23 },
           { "name": "DeVonta Smith", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.65 },
@@ -1081,7 +1081,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 12, "points": 0, "projected": 144.66 },
-      "away": { "teamId": 8, "points": 0, "projected": 103.72 },
+      "away": { "teamId": 8, "points": 0, "projected": 100.95 },
       "winner": "undecided"
     },
     {
