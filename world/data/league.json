@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-26T02:43:13Z",
+  "generatedAt": "2026-11-26T02:55:04Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -1065,7 +1065,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 6, "points": 0, "projected": 134.74 },
-      "away": { "teamId": 9, "points": 4.9, "projected": 119.37 },
+      "away": { "teamId": 9, "points": 4.9, "projected": 119.31 },
       "winner": "undecided"
     },
     {
@@ -1089,15 +1089,15 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 3, "points": 0, "projected": 116.03 },
-      "away": { "teamId": 11, "points": 3.92, "projected": 109.14 },
+      "away": { "teamId": 11, "points": 3.92, "projected": 109.06 },
       "winner": "undecided"
     },
     {
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 7, "points": 17.1, "projected": 120.43 },
-      "away": { "teamId": 10, "points": 16.5, "projected": 141.79 },
+      "home": { "teamId": 7, "points": 17.1, "projected": 120.31 },
+      "away": { "teamId": 10, "points": 16.5, "projected": 141.73 },
       "winner": "undecided"
     },
     {
