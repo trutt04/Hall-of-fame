@@ -24,6 +24,9 @@
 //   wall.ready             a Promise: the photos were read (after the first frame, so boot stays quick)
 //   wall.count             photos on this device       wall.persistent   false: memory only (no IndexedDB)
 //   wall.addFiles(files, onProgress({ i, n })) -> Promise<{ added, failed: [reason] }>
+//   wall.importPhotos(photos, star) -> Promise<{ added }>   the family's photo pack from her gift link
+//                          (js/core/photo-pack.js, opened by main.js): [{ caption, type, bytes }], saved on
+//                          this device like any other photo, the star one in the middle. Then a toast.
 //   wall.glowing           the beacon glows: photos added in an earlier visit she hasn't looked at yet
 //   wall.store / wall.art / wall.plan / wall.stats { drawCalls, triangles } / wall.dispose()
 
@@ -35,6 +38,7 @@ import { loadCss, reducedMotion } from '../ui/dom.js';
 
 export const WALL_TITLE = 'Favorite People';
 export const NUDGE_LINE = 'Your photo wall has new photos!';
+export const FAMILY_LINE = 'Your family filled your photo wall! Go take a look.';
 export const PROMPTS = Object.freeze({ empty: 'Add photos', full: 'Look at the photos' });
 
 // The banner: "<her name>'s Favorite People" with the gift link's name, else "Favorite People".
@@ -498,6 +502,45 @@ export function installPhotoWall(world, opts = {}) {
     return out;
   }
 
+  // The family's photos from her gift link: saved here like any she adds herself (main.js fetched and
+  // unlocked the pack; nothing goes out from here), with their captions, the star one in the middle.
+  async function importPhotos(photos, star = 0) {
+    const out = { added: 0 };
+    if (!store || !Array.isArray(photos)) return out;
+    let starId = null;
+    for (let i = 0; i < photos.length && store.count < PHOTO_LIMITS.max; i++) {
+      const p = photos[i];
+      if (!p || !p.bytes) continue;
+      const r = await processPhoto(new Blob([p.bytes], { type: p.type || 'image/jpeg' }));
+      if (!r.ok) continue;
+      const res = await store.add({ full: r.full, small: r.small, caption: typeof p.caption === 'string' ? p.caption : '' });
+      if (res.ok) {
+        out.added++;
+        if (i === star) starId = res.id;
+      }
+      await nextFrame();
+    }
+    if (starId) await store.makeStar(starId);
+    if (out.added) {
+      if (!everAdded) {
+        everAdded = true;
+        askToPersist();
+      }
+      setGlow(true);
+      setTimeout(familySoon, 2500);
+    }
+    return out;
+  }
+  let familyTries = 0;
+  function familySoon() {
+    if (!free() || hud.isModalOpen() || active()) {
+      if (++familyTries < 60) setTimeout(familySoon, 2000);
+      return;
+    }
+    hud.toast(FAMILY_LINE, { icon: '\u{1F496}', ms: 6000 });
+    sfx('chime', { volume: 0.5 });
+  }
+
   // On iPhone and iPad, Safari can clear a site's storage after about a week without a visit, unless
   // Cloud Nine is on the Home Screen (it keeps its own storage there).
   function homeScreenTip() {
@@ -540,6 +583,7 @@ export function installPhotoWall(world, opts = {}) {
     openViewer,
     close,
     addFiles,
+    importPhotos,
     update,
     get active() { return active(); },
     get phase() { return phase; },

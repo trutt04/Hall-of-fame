@@ -16,6 +16,9 @@
 //   petNames   { cloudPuppy: name, husky: name }: only the pet ids in PET_IDS
 //   pondName   the duck pond sign's words on this device ("Zuzu's Duck Pond"): letters, spaces,
 //              apostrophes and hyphens (a letter first), up to 24
+//   photos     { id, key }: the family's photo pack for her photo wall (js/core/photo-pack.js). The pack
+//              sits on the site locked (AES-256-GCM); its key exists only here, in the private link.
+//              id: 16 lowercase hex characters (packs/<id>.c9p), key: 43 base64url characters (256 bits)
 // A name is letters, spaces and . ' - (a letter first), up to 16. Every name and note goes through
 // the game's word filter (js/content/blocklist.js): a blocked one is dropped.
 //
@@ -55,7 +58,9 @@ export const GIFT_KEY = 'c9.gift.v1';
 export const GIFT_LIMITS = Object.freeze({ bytes: 8192, name: 16, note: 280, notes: 12, friends: 9, botNick: 12, year: [2000, 2030], pondName: 24 });
 export const PET_IDS = Object.freeze(['cloudPuppy', 'husky']);
 const MAX_ENCODED = Math.ceil(GIFT_LIMITS.bytes / 3) * 4;
-const KEYS = ['v', 'to', 'from', 'birthday', 'notes', 'friends', 'petNames', 'pondName'];
+const KEYS = ['v', 'to', 'from', 'birthday', 'notes', 'friends', 'petNames', 'pondName', 'photos'];
+export const PACK_ID = /^[a-f0-9]{16}$/;
+export const PACK_KEY = /^[A-Za-z0-9_-]{43}$/;
 
 // ---------------------------------------------------------------------------------- characters
 
@@ -310,6 +315,13 @@ export function validateGift(raw) {
     const r = pondNameCheck(raw.pondName);
     if (r.name) gift.pondName = r.name;
     else drop('pondName', r.reason, raw.pondName);
+  }
+  if (raw.photos !== undefined) {
+    const ph = raw.photos;
+    if (!isPlain(ph) || Object.keys(ph).some((k) => k !== 'id' && k !== 'key')) drop('photos', 'expected { "id", "key" } from tools/make-photo-pack.mjs', ph);
+    else if (typeof ph.id !== 'string' || !PACK_ID.test(ph.id)) drop('photos.id', '16 lowercase hex characters', ph.id);
+    else if (typeof ph.key !== 'string' || !PACK_KEY.test(ph.key)) drop('photos.key', '43 base64url characters', ph.key);
+    else gift.photos = { id: ph.id, key: ph.key };
   }
   return { gift, dropped };
 }

@@ -61,7 +61,7 @@ after the welcome, so each cousin can make their own look before playing.
   flap for joy. In a room, friends see the crumbs and their ducks rush over too.
 - **The photo wall.** A big hot-pink heart covered in polaroids, in the lawn west of the plaza
   (also in the menu's "Go to"), for real photos of her favorite people. The photos are added on the
-  device and never leave it: see "Photo wall" below.
+  device and never leave it, or come locked with her private gift link: see "Photo wall" below.
 - **Spirit sticks.** Twelve are hidden around the island, a few of them on the clouds. Touching
   one collects it, and each unlocks something new for her cheerleader (a heart bow, space buns,
   rainbow socks...). The menu's "Spirit sticks" row shows how many are found and gives a hint for
@@ -116,13 +116,25 @@ Grandma"); a long note shrinks to fit the page. On her birthday it ends on a bir
 
 **Private by design.**
 
-- Photos are added on the device itself, never through a link, so they never go into this repo,
-  the site or any address.
+- Photos are added on the device itself, or come with her gift link as a locked pack (below). A
+  photo never goes into this repo, the site or any address unlocked.
 - Before it is kept, each photo is made smaller (1600 pixels on its long side) and saved again,
   which drops the hidden details phones put in photos (EXIF), including where it was taken.
 - They are kept in the browser's own storage on that device (IndexedDB). Nothing about them is ever
   sent anywhere: not the photos, not the captions, not even how many there are. In a room, every
   device shows its own photos or empty frames, so friends never see hers.
+
+**Family photos in the gift link.** A family can also send the photos with her gift link, so her wall
+fills itself the first time the link opens on her device (with captions, the star photo in the
+middle, and "Your family filled your photo wall!"). `node cloud-nine/tools/make-photo-pack.mjs
+pack.json` locks up to 12 photos (AES-256-GCM, `js/core/photo-pack.js`) with a new random key into
+`cloud-nine/packs/<id>.c9p`, which is safe to publish: without the key it is noise. The key goes only
+into the gift JSON as `"photos": { "id", "key" }`, and so only into the private link, whose `#` part
+browsers never send to a server. The game fetches the locked file from its own site with a plain GET,
+unlocks it on the device and keeps the photos like any others; the key and the photos never go
+anywhere. Anyone with her link can see these photos, so keep the link as private as a photo album
+link. To take a pack down, delete its file from `cloud-nine/packs/`. Keep `pack.json` and the photos
+off the repo.
 - "Remove all photos from this device" at the bottom of the wall's card takes them all off.
   Clearing the browser's data does too.
 - On an iPhone or iPad, Safari can clear a website's storage after about a week without a visit.
