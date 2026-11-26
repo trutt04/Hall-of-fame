@@ -242,8 +242,9 @@ test('rules: the local server allows and refuses the same things', () => {
 });
 
 test('config: placeholders mean "not set up yet"', () => {
-  assert.equal(isConfigured(), false, 'the committed file has placeholders');
-  assert.equal(isConfigured(FIREBASE_CONFIG), false);
+  assert.equal(isConfigured(), true, 'the committed file has the family project filled in');
+  assert.equal(isConfigured(FIREBASE_CONFIG), true);
+  assert.equal(isConfigured({ ...FIREBASE_CONFIG, apiKey: 'PASTE-API-KEY-HERE' }), false, 'a placeholder turns rooms off');
   assert.equal(isConfigured(TEST_CONFIG), true);
   assert.equal(isConfigured({ ...TEST_CONFIG, databaseURL: 'https://cloud-nine-test-default-rtdb.europe-west1.firebasedatabase.app' }), true);
   assert.equal(isConfigured({ ...TEST_CONFIG, databaseURL: undefined }), false, 'the database address is needed');

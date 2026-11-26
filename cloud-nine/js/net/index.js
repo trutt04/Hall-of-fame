@@ -126,8 +126,10 @@ function pickMode(mode, firebase) {
   const q = urlMode();
   if (q) return q;
   if (FEATURES && FEATURES.online === false) return 'offline';
-  if (isConfigured((firebase && firebase.config) || FIREBASE_CONFIG)) return 'firebase';
+  // on a developer's own computer, rooms stay in the browser (tabs talk to each other), so tests and
+  // tries never touch the family's real project; ?net=firebase asks for it there
   if (isLocalHost() && localAvailable()) return 'local';
+  if (isConfigured((firebase && firebase.config) || FIREBASE_CONFIG)) return 'firebase';
   return 'offline';
 }
 
