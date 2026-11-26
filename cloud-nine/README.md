@@ -147,7 +147,9 @@ export const BIRTHDAY = { name: 'Bailey', month: 12, day: 3, year: 2015 };
 ```
 
 (Those numbers are only an example.) `year` is the year she was born; the candles count from it.
-While the numbers are `null`, birthday mode stays off. To see it any day, add `?birthday=1` to the
+While the numbers are `null`, birthday mode stays off, except with a gift link (next section): a link
+without a date makes a party of her first three days with the gift, from the day it first opens on her
+device. To see it any day, add `?birthday=1` to the
 address.
 
 **Privacy: this repo is public.** Everything in it, and in its history, can be read by anyone:

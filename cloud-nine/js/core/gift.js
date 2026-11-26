@@ -371,6 +371,27 @@ export function giftBirthday(gift, base = BIRTHDAY) {
   return out;
 }
 
+// No date in the gift link: the party runs for her first days with the gift instead (the day it first
+// arrives on this device and the next two), so the banner, fireworks and song still happen. A real
+// date in the link always wins (main.js). Day keys are 'YYYY-MM-DD' on the device's own calendar.
+export const GIFT_PARTY_DAYS = 3;
+
+export function dayKey(date = new Date()) {
+  const d = date instanceof Date && Number.isFinite(date.getTime()) ? date : new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+export function giftPartyOn(firstKey, date = new Date(), days = GIFT_PARTY_DAYS) {
+  const m = typeof firstKey === 'string' ? /^(\d{4})-(\d{2})-(\d{2})$/.exec(firstKey) : null;
+  if (!m || !(date instanceof Date) || !Number.isFinite(date.getTime())) return false;
+  const first = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  if (dayKey(first) !== firstKey) return false; // not a real day (2026-02-31)
+  const today = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const since = Math.round((today.getTime() - first.getTime()) / 86400000); // calendar days, DST-proof
+  return since >= 0 && since < Math.max(0, Number(days) || 0);
+}
+
 export function pickNotes(gift, fallback) {
   if (gift && Array.isArray(gift.notes) && gift.notes.length) return gift.notes.map((n) => ({ from: n.from, text: n.text }));
   try {
