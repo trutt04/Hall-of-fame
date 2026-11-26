@@ -496,6 +496,12 @@ async function boot() {
   const player = createPlayer({ scene, groundAt, platforms, slides: Array.isArray(places.slides) ? places.slides : [], colliders, input, rig, audio, hud, home });
   let myLook = store.look || cleanLook(charMod.DEFAULT_LOOK || placeholder.DEFAULT_LOOK);
   let myNick = store.nick;
+  // her gift link, the first time it opens on this device: her name tag says her name (the gift's "to",
+  // through the same nickname filter as anything typed). She can change it in My cheerleader.
+  if (giftMod && gift && gift.to && typeof giftMod.unwrapDue === 'function' && giftMod.unwrapDue()) {
+    const named = store.setNick(gift.to);
+    if (named) myNick = named;
+  }
   if (!myNick) myNick = store.setNick(content.randomNick()) || content.randomNick();
   player.setAvatar(makeCharacter(myLook));
   player.place(arrival.x, arrival.z, arrival.facing);

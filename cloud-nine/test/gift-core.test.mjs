@@ -450,3 +450,21 @@ test('no date in the gift link: the party runs for her first three days with the
   for (const bad of [null, '', 'soon', '2026-2-3', '2026-02-31', 20261203]) assert.equal(giftPartyOn(bad, at(2026, 2, 3)), false, String(bad));
   assert.equal(giftPartyOn('2026-12-03', new Date(NaN)), false);
 });
+
+test('a gift link can open with words before the gift: #Happy-Birthday-Zuzu&gift=...', async () => {
+  const g = await import('../js/core/gift.js');
+  const mem = new Map();
+  g.useGiftStorage({ getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
+  try {
+    const payload = g.encodeGift({ v: 1, to: 'Zuzu', from: 'Uncle Wobble' });
+    const loc = { hash: '#Happy-Birthday-Zuzu&gift=' + payload, href: 'https://example.test/cloud-nine/#Happy-Birthday-Zuzu&gift=' + payload };
+    let replaced = null;
+    const hist = { state: null, replaceState: (s, t, url) => (replaced = url) };
+    const gift = g.readGiftFromUrl(loc, hist);
+    assert.equal(gift && gift.to, 'Zuzu');
+    assert.equal(replaced, 'https://example.test/cloud-nine/', 'the whole fragment leaves the address bar');
+    assert.equal(g.unwrapDue(), true, 'a new gift waits to be unwrapped');
+  } finally {
+    g.useGiftStorage(undefined);
+  }
+});
