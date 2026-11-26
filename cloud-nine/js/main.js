@@ -675,6 +675,29 @@ async function boot() {
       console.warn('[c9] the photo wall failed to start', err);
     }
   }
+  // the family's photos from her gift link (js/core/photo-pack.js): once per pack on this device, after the
+  // wall has read its photos. A plain GET of the locked pack from this site; its key stays in the link.
+  if (world.photoWall && gift && gift.photos && typeof world.photoWall.importPhotos === 'function') {
+    const pack = gift.photos;
+    const done = () => {
+      const list = store.progress.photoPacks;
+      return Array.isArray(list) && list.includes(pack.id);
+    };
+    if (!done()) {
+      world.photoWall.ready
+        .then(async (ok) => {
+          if (!ok || done()) return;
+          const mod = await optional('./core/photo-pack.js');
+          if (!mod || typeof mod.fetchPack !== 'function') return;
+          const res = await mod.fetchPack(pack);
+          if (!res.ok) return; // not there yet, or offline: the next visit tries again
+          const list = Array.isArray(store.progress.photoPacks) ? store.progress.photoPacks : [];
+          store.patchProgress({ photoPacks: list.concat(pack.id).slice(-8) });
+          await world.photoWall.importPhotos(res.photos, res.star);
+        })
+        .catch((err) => console.warn('[c9] the family photos did not come in', err));
+    }
+  }
   function closePhotoWall(why) {
     if (world.photoWall) world.photoWall.close(why);
   }
@@ -1828,7 +1851,7 @@ async function boot() {
         'Rooms are private. There is no list of rooms: only someone with the 4-letter code can join, and the host can lock the room or send anyone home.',
         'Online, a room holds only nicknames, looks and where players are, while they play. A room is forgotten 12 hours after anyone last played in it.',
         'Looks, spirit sticks and booth photos stay on this device. Booth photos never show names, and they are only shared if you choose to.',
-        'The photo wall\'s pictures and captions stay on the device they were added on. They are never uploaded or sent to a room: friends see empty frames. "Remove all photos" on the wall takes them off.',
+        'The photo wall\'s pictures and captions stay on the device. Photos the family sends with her gift link come locked, and only her link holds the key. Photos are never uploaded or sent to a room: friends see empty frames. "Remove all photos" on the wall takes them off.',
       ],
       actions: [{ label: 'Got it', icon: 'check', primary: true }],
     });

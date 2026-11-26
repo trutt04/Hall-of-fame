@@ -1,6 +1,6 @@
 // The photo wall's photos (js/world/photowall.js): real family photos of her, added on this device and
-// kept on this device. The repo and the site are public, so a photo never goes into either, nor into a
-// link or over the network: nothing here (or in any photo wall module) imports js/net/ or calls fetch,
+// kept on this device. The repo and the site are public, so a photo never goes into either unlocked (a
+// family's pack from the gift link is locked: js/core/photo-pack.js), nor out over the network: nothing here (or in any photo wall module) imports js/net/ or calls fetch,
 // XMLHttpRequest, sendBeacon or WebSocket (test/photowall-privacy.test.mjs checks). In a room every
 // device shows its own photos, or empty frames; not even a count or a "has photos" flag goes out.
 //
