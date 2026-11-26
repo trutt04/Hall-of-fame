@@ -529,7 +529,21 @@ async function boot() {
   // the gift link's date and name win over js/config.js, so the party starts by itself on the day
   const herBirthday = giftMod ? giftMod.giftBirthday(gift, BIRTHDAY) : BIRTHDAY;
   const bInfo = FEATURES.birthdayMode ? content.birthdayInfo(new Date(), herBirthday) || {} : {};
-  const isBirthday = !!(bInfo.isBirthday || store.flag('birthday'));
+  // a gift link without her date: the party runs for her first three days with the gift (js/core/gift.js)
+  let giftParty = false;
+  if (FEATURES.birthdayMode && gift && giftMod && typeof giftMod.giftPartyOn === 'function' && !(herBirthday.month && herBirthday.day)) {
+    try {
+      let first = store.progress.giftDay;
+      if (typeof first !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(first)) {
+        first = giftMod.dayKey(new Date());
+        store.patchProgress({ giftDay: first });
+      }
+      giftParty = giftMod.giftPartyOn(first, new Date());
+    } catch (err) {
+      giftParty = false;
+    }
+  }
+  const isBirthday = !!(bInfo.isBirthday || store.flag('birthday') || giftParty);
   const age = Number.isFinite(bInfo.age) && bInfo.age > 0 ? bInfo.age : herBirthday.year ? new Date().getFullYear() - herBirthday.year : 11;
   try {
     if (island.setBirthday) island.setBirthday({ isBirthday, age, name: herBirthday.name });

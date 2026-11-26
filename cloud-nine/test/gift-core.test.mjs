@@ -433,3 +433,20 @@ test('privacy: no gift link or gift file is in the game\'s folder', () => {
   walk(C9);
   assert.deepEqual(found, [], 'gift links hold real names: share them privately, never commit them');
 });
+
+test('no date in the gift link: the party runs for her first three days with the gift', async () => {
+  const { dayKey, giftPartyOn, GIFT_PARTY_DAYS } = await import('../js/core/gift.js');
+  assert.equal(GIFT_PARTY_DAYS, 3);
+  const at = (y, m, d, h = 12) => new Date(y, m - 1, d, h);
+  assert.equal(dayKey(at(2026, 12, 3)), '2026-12-03');
+  assert.equal(dayKey(at(2026, 1, 9, 0)), '2026-01-09', 'local midnight is that day');
+  assert.equal(giftPartyOn('2026-12-03', at(2026, 12, 3, 0)), true, 'the day it arrives');
+  assert.equal(giftPartyOn('2026-12-03', at(2026, 12, 4)), true);
+  assert.equal(giftPartyOn('2026-12-03', at(2026, 12, 5, 23)), true, 'the third day, late');
+  assert.equal(giftPartyOn('2026-12-03', at(2026, 12, 6, 0)), false, 'over on the fourth');
+  assert.equal(giftPartyOn('2026-12-03', at(2026, 12, 2, 23)), false, 'a clock set back is not a party');
+  assert.equal(giftPartyOn('2026-12-31', at(2027, 1, 2)), true, 'across the new year');
+  assert.equal(giftPartyOn('2026-03-07', at(2026, 3, 9)), true, 'across a clock change');
+  for (const bad of [null, '', 'soon', '2026-2-3', '2026-02-31', 20261203]) assert.equal(giftPartyOn(bad, at(2026, 2, 3)), false, String(bad));
+  assert.equal(giftPartyOn('2026-12-03', new Date(NaN)), false);
+});
