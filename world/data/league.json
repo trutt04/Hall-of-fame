@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-25T23:50:11Z",
+  "generatedAt": "2026-11-26T01:11:13Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -123,7 +123,7 @@
         "emptyStarters": [],
         "badStarters": [],
         "starters": [
-          { "name": "Bryce Young", "pos": "QB", "slot": "QB", "points": 0, "projected": 17.42 },
+          { "name": "Deshaun Watson", "pos": "QB", "slot": "QB", "points": 0, "projected": 23.73 },
           { "name": "Saquon Barkley", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.56 },
           { "name": "Derrick Henry", "pos": "RB", "slot": "RB", "points": 0, "projected": 14.79 },
           { "name": "Tetairoa McMillan", "pos": "WR", "slot": "WR", "points": 0, "projected": 13.63 },
@@ -136,11 +136,11 @@
         "bench": [
           { "name": "Drake Maye", "pos": "QB", "slot": "BE", "points": 0, "projected": 0 },
           { "name": "Jason Myers", "pos": "K", "slot": "BE", "points": 0, "projected": 7.59 },
+          { "name": "Bryce Young", "pos": "QB", "slot": "BE", "points": 0, "projected": 17.42 },
           { "name": "Pat Freiermuth", "pos": "TE", "slot": "BE", "points": 0, "projected": 7.67 },
           { "name": "Rams D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 7.96 },
           { "name": "Germie Bernard", "pos": "WR", "slot": "BE", "points": 0, "projected": 6.74 },
-          { "name": "Tank Dell", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.99 },
-          { "name": "Deshaun Watson", "pos": "QB", "slot": "BE", "points": 0, "projected": 23.73 }
+          { "name": "Tank Dell", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.99 }
         ]
       }
     },
@@ -159,9 +159,9 @@
       "pointsAgainst": 1385.64,
       "streakType": "LOSS",
       "streakLength": 1,
-      "moves": { "acquisitions": 12, "drops": 11, "trades": 0 },
+      "moves": { "acquisitions": 12, "drops": 12, "trades": 0 },
       "roster": {
-        "ir": [{ "name": "Jacory Croskey-Merritt", "pos": "RB" }],
+        "ir": [],
         "emptyStarters": [],
         "badStarters": [],
         "starters": [
@@ -171,12 +171,12 @@
           { "name": "Rome Odunze", "pos": "WR", "slot": "WR", "points": 0, "projected": 11.03 },
           { "name": "Stefon Diggs", "pos": "WR", "slot": "WR", "points": 0, "projected": 12.78 },
           { "name": "Tyler Warren", "pos": "TE", "slot": "TE", "points": 0, "projected": 7.52 },
-          { "name": "Emeka Egbuka", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 10.47 },
-          { "name": "Bengals D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.96 },
+          { "name": "Jacory Croskey-Merritt", "pos": "RB", "slot": "FLEX", "points": 0, "projected": 11.69 },
+          { "name": "Seahawks D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 4.87 },
           { "name": "Brandon Aubrey", "pos": "K", "slot": "K", "points": 0, "projected": 10.64 }
         ],
         "bench": [
-          { "name": "Seahawks D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 4.87 },
+          { "name": "Emeka Egbuka", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.47 },
           { "name": "Keenan Allen", "pos": "WR", "slot": "BE", "points": 0, "projected": 6.91 },
           { "name": "Alvin Kamara", "pos": "RB", "slot": "BE", "points": 0, "projected": 4.9 },
           { "name": "Devaughn Vele", "pos": "WR", "slot": "BE", "points": 0, "projected": 8.35 },
@@ -1072,7 +1072,7 @@
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 4, "points": 0, "projected": 114.09 },
+      "home": { "teamId": 4, "points": 0, "projected": 113.23 },
       "away": { "teamId": 1, "points": 0, "projected": 135.54 },
       "winner": "undecided"
     },
@@ -1088,7 +1088,7 @@
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 3, "points": 0, "projected": 109.72 },
+      "home": { "teamId": 3, "points": 0, "projected": 116.03 },
       "away": { "teamId": 11, "points": 0, "projected": 114.96 },
       "winner": "undecided"
     },
