@@ -5,6 +5,14 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { runOnlineCheck, settingsProblem, explainSignIn, tooOpenText, CHECK_LINES, SAY, TEST_NICK } from '../js/net/check.js';
 import { FIREBASE_CONFIG } from '../js/net/firebase-config.js';
+// js/net/firebase-config.js as firebase/SETUP.md first hands it out
+const PLACEHOLDERS = {
+  apiKey: 'PASTE-API-KEY-HERE',
+  authDomain: 'PASTE-PROJECT-ID.firebaseapp.com',
+  databaseURL: 'https://PASTE-PROJECT-ID-default-rtdb.firebaseio.com',
+  projectId: 'PASTE-PROJECT-ID',
+  appId: 'PASTE-APP-ID',
+};
 import { createFakeFirebase } from '../tools/fake-firebase.mjs';
 import { rulesJson, TEST_CONFIG, watchConsole, sleep } from './net-kit.mjs';
 
@@ -94,7 +102,7 @@ test('check: it goes through the game\'s own room code and sends nothing persona
 
 test('check: placeholders still in the settings: step 7, and nothing is loaded or sent', async () => {
   let loads = 0;
-  const report = await runOnlineCheck({ loadSdk: () => (loads++, new Promise(() => {})), timeoutMs: WAIT });
+  const report = await runOnlineCheck({ config: PLACEHOLDERS, loadSdk: () => (loads++, new Promise(() => {})), timeoutMs: WAIT });
   assert.equal(states(report), 'settings:fail sdk:skip signin:skip database:skip safety:skip cleanup:skip');
   assert.equal(report.first.id, 'settings');
   assert.equal(report.first.text, 'The game still has the PASTE-… placeholders. See step 7.');
@@ -103,8 +111,9 @@ test('check: placeholders still in the settings: step 7, and nothing is loaded o
   assert.equal(lineOf(report, 'sdk').text, SAY.skipped);
   assert.equal(lineOf(report, 'cleanup').text, SAY.nothingToTidy);
   assert.equal(report.ok, false);
-  // the committed file is the one the check reads by default
-  assert.deepEqual(settingsProblem(FIREBASE_CONFIG), { text: SAY.placeholders, step: '7' });
+  // the file as SETUP.md hands it out has placeholders; the committed one has the family project in
+  assert.deepEqual(settingsProblem(PLACEHOLDERS), { text: SAY.placeholders, step: '7' });
+  assert.equal(settingsProblem(FIREBASE_CONFIG), null);
   assert.equal(settingsProblem(TEST_CONFIG), null);
   assert.match(settingsProblem({ ...TEST_CONFIG, appId: '', projectId: undefined }).text, /missing: projectId, appId\. See step 7/);
   assert.equal(settingsProblem({ ...TEST_CONFIG, databaseURL: 'https://console.firebase.google.com/project/x' }).step, '6 and 7');

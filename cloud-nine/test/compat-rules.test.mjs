@@ -228,8 +228,11 @@ test('solo and offline play load and run without BroadcastChannel or Web Locks (
     const { localAvailable } = await import('../js/net/transport-local.js');
     const { createStandinNet } = await import('../js/ui/standins.js');
     assert.equal(localAvailable(), false);
+    // solo play always asks for 'offline' (js/main.js); 'auto' on a game whose Firebase settings are
+    // not filled in falls back to offline too (the committed settings have the family project in)
+    const unset = { config: { apiKey: 'PASTE-API-KEY-HERE' } };
     for (const mode of ['offline', 'auto']) {
-      const net = createNet({ mode, helpers: {} });
+      const net = createNet({ mode, helpers: {}, firebase: mode === 'auto' ? unset : null });
       try {
         assert.equal(net.mode, 'offline', mode + ' picks offline here');
         const code = await net.createRoom({ nick: 'Bailey', look: {} });

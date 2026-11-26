@@ -97,7 +97,9 @@ doesn't look right is refused.
 2. Click **Add domain**, type `trutt04.github.io` (just that: no `https://`, no slash at the end),
    and click **Add**.
 
-`localhost` is already on the list. Leave it there.
+`localhost` is already on the list. Leave it there. (On `localhost` the game keeps rooms inside the
+browser, so testing on a computer never touches this project. Add `?net=firebase` to the address to
+try the real one from there.)
 
 ## Step 6: copy the web app settings
 

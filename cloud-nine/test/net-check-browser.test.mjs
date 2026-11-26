@@ -20,6 +20,13 @@ try {
 }
 
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.json': 'application/json', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png' };
+const PLACEHOLDERS = {
+  apiKey: 'PASTE-API-KEY-HERE',
+  authDomain: 'PASTE-PROJECT-ID.firebaseapp.com',
+  databaseURL: 'https://PASTE-PROJECT-ID-default-rtdb.firebaseio.com',
+  projectId: 'PASTE-PROJECT-ID',
+  appId: 'PASTE-APP-ID',
+};
 const PHONE = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true };
 const read = (p) => fs.readFileSync(path.join(C9, p), 'utf8');
 
@@ -87,7 +94,13 @@ async function openCheck(browser, origin, { rules = null, shot = null } = {}) {
   });
   page.on('request', (r) => asked.push(r.url()));
   if (rules) await fakeGoogle(page, rules);
-  else await page.route('https://www.gstatic.com/**', (route) => route.abort());
+  else {
+    // the settings as firebase/SETUP.md first hands them out (the committed file has the real project)
+    await page.route('https://www.gstatic.com/**', (route) => route.abort());
+    const config = read('js/net/firebase-config.js').replace(/export const FIREBASE_CONFIG = \{[\s\S]*?\};/, 'export const FIREBASE_CONFIG = ' + JSON.stringify(PLACEHOLDERS) + ';');
+    assert.ok(config.includes('PASTE-API-KEY-HERE'), 'the placeholders are in');
+    await page.route('**/cloud-nine/js/net/firebase-config.js', (route) => route.fulfill({ status: 200, contentType: 'text/javascript', body: config }));
+  }
   await page.goto(origin + '/cloud-nine/index.html?check=online');
   try {
     await page.waitForFunction(() => {
@@ -127,7 +140,7 @@ test('browser: ?check=online on a phone: the card, and none of the game', { skip
   const origin = 'http://127.0.0.1:' + server.address().port;
   const browser = await playwright.chromium.launch();
   try {
-    // as the repo is now: the PASTE-... placeholders
+    // not set up yet: the PASTE-... placeholders
     const off = await openCheck(browser, origin, { shot: 'netcheck-not-set-up.png' });
     assert.deepEqual(off.problems, [], 'no page errors and no console errors');
     assert.equal(states(off.view), 'settings:fail sdk:skip signin:skip database:skip safety:skip cleanup:skip');
