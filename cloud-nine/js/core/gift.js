@@ -569,6 +569,20 @@ export function clearGift() {
   cache = { raw: null, rec: null };
 }
 
+// A gift link pasted in by hand (For grown-ups, "Add a gift link"): for a Home Screen app on iPhone or
+// iPad, which keeps its own storage apart from Safari, or any browser the link didn't open in. The whole
+// link, or just its gift=... part. Kept like an opened link; null when it holds no usable gift.
+export function acceptGiftText(text) {
+  if (typeof text !== 'string' || text.length > MAX_ENCODED + 4096) return null;
+  const m = /(?:^|[#&?\s])gift=([A-Za-z0-9_-]+)/.exec(text.trim());
+  const gift = m ? decodeGift(m[1]) : null;
+  if (!gift) return null;
+  const prev = readRecord();
+  const same = !!prev && JSON.stringify(prev.gift) === JSON.stringify(gift);
+  writeRecord({ gift, seen: same && prev.seen });
+  return gift;
+}
+
 export function unwrapDue() {
   const rec = readRecord();
   return !!(rec && rec.gift && !rec.seen);
