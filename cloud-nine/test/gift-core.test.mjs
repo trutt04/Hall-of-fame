@@ -468,3 +468,22 @@ test('a gift link can open with words before the gift: #Happy-Birthday-Zuzu&gift
     g.useGiftStorage(undefined);
   }
 });
+
+test('a gift link pasted by hand is kept like an opened one', async () => {
+  const g = await import('../js/core/gift.js');
+  const mem = new Map();
+  g.useGiftStorage({ getItem: (k) => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: (k) => mem.delete(k) });
+  try {
+    const payload = g.encodeGift({ v: 1, to: 'Zuzu', from: 'Uncle Wobble' });
+    assert.equal(g.acceptGiftText('nothing here'), null);
+    assert.equal(g.acceptGiftText('https://example.test/cloud-nine/#gift=' + payload.slice(0, 20)), null, 'cut off');
+    assert.equal(g.getGift(), null, 'nothing kept from a bad paste');
+    const got = g.acceptGiftText('  https://example.test/cloud-nine/#Happy-Birthday-Zuzu&gift=' + payload + '\n');
+    assert.equal(got && got.to, 'Zuzu');
+    assert.equal(g.getGift().to, 'Zuzu');
+    assert.equal(g.unwrapDue(), true);
+    assert.equal(g.acceptGiftText('gift=' + payload).from, 'Uncle Wobble', 'the gift part alone works too');
+  } finally {
+    g.useGiftStorage(undefined);
+  }
+});

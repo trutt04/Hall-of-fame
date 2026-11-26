@@ -1853,7 +1853,62 @@ async function boot() {
         'Looks, spirit sticks and booth photos stay on this device. Booth photos never show names, and they are only shared if you choose to.',
         'The photo wall\'s pictures and captions stay on the device. Photos the family sends with her gift link come locked, and only her link holds the key. Photos are never uploaded or sent to a room: friends see empty frames. "Remove all photos" on the wall takes them off.',
       ],
-      actions: [{ label: 'Got it', icon: 'check', primary: true }],
+      contentEl: giftStatusEl(),
+      actions: [
+        { label: 'Got it', icon: 'check', primary: true },
+        ...(giftMod && typeof giftMod.acceptGiftText === 'function' ? [{ label: 'Add a gift link', icon: 'plus', onClick: () => setTimeout(showAddGift, 0) }] : []),
+      ],
+    });
+  }
+  // what this device holds: her gift link, and whether its family photos came in
+  function giftStatusEl() {
+    const p = el('p', 'c9-card-line');
+    p.style.fontWeight = '700';
+    if (!gift) p.textContent = 'On this device: no gift link yet. Open her gift link here, or paste it with "Add a gift link".';
+    else {
+      const packs = store.progress.photoPacks;
+      const photosIn = gift.photos && Array.isArray(packs) && packs.includes(gift.photos.id);
+      p.textContent = 'On this device: the gift link for ' + (gift.to || 'her') + (gift.from ? ', from ' + gift.from : '') + '. '
+        + (!gift.photos ? '' : photosIn ? 'Its family photos are on the photo wall.' : 'Its family photos come in when the game is open and online.');
+    }
+    return p;
+  }
+  // paste her gift link by hand: a Home Screen app on iPhone or iPad keeps its own storage apart from
+  // Safari, so a link opened in Safari isn't in it. Checked like an opened link, then the game reloads.
+  function showAddGift() {
+    sfx('open', { volume: 0.5 });
+    const box = el('div', 'c9-addgift');
+    const field = document.createElement('textarea');
+    field.rows = 3;
+    field.setAttribute('aria-label', 'Her gift link');
+    field.placeholder = 'Paste the whole gift link here';
+    for (const [k, v] of [['autocapitalize', 'off'], ['autocorrect', 'off'], ['spellcheck', 'false']]) field.setAttribute(k, v);
+    Object.assign(field.style, { width: '100%', boxSizing: 'border-box', fontSize: '16px', padding: '10px 12px', borderRadius: '14px', border: '3px solid #17121c', resize: 'none' });
+    const say = el('p', 'c9-card-line', 'Copy her whole gift link (press and hold it in Messages, then Copy), then paste it here.');
+    box.append(say, field);
+    hud.openCard({
+      icon: 'key',
+      kicker: 'For grown-ups',
+      title: 'Add a gift link',
+      contentEl: box,
+      actions: [
+        {
+          label: 'Open the gift',
+          icon: 'check',
+          primary: true,
+          keepOpen: true,
+          onClick: () => {
+            const got = giftMod.acceptGiftText(field.value);
+            if (!got) {
+              say.textContent = 'That isn\'t a whole gift link. Copy all of it, from https to the end, and try again.';
+              return;
+            }
+            say.textContent = 'Got it! Opening the gift...';
+            setTimeout(() => location.reload(), 700);
+          },
+        },
+        { label: 'Cancel' },
+      ],
     });
   }
   function showSticks() {
