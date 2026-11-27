@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-27T14:55:28Z",
+  "generatedAt": "2026-11-27T15:59:48Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -205,7 +205,7 @@
       "roster": {
         "ir": [{ "name": "De'Zhaun Stribling", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [],
+        "badStarters": [{ "name": "Parker Washington", "pos": "WR", "slot": "WR", "why": "OUT" }],
         "starters": [
           { "name": "Brock Purdy", "pos": "QB", "slot": "QB", "points": 0, "projected": 23.02 },
           { "name": "Chase Brown", "pos": "RB", "slot": "RB", "points": 0, "projected": 16.43 },
@@ -1056,7 +1056,7 @@
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 5, "points": 21.4, "projected": 140.55 },
+      "home": { "teamId": 5, "points": 21.4, "projected": 122.34 },
       "away": { "teamId": 2, "points": 19.4, "projected": 115.37 },
       "winner": "undecided"
     },
