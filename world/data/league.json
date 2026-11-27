@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-27T13:14:51Z",
+  "generatedAt": "2026-11-27T14:55:28Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -285,7 +285,7 @@
       "pointsAgainst": 1600.88,
       "streakType": "LOSS",
       "streakLength": 9,
-      "moves": { "acquisitions": 22, "drops": 22, "trades": 0 },
+      "moves": { "acquisitions": 23, "drops": 23, "trades": 0 },
       "roster": {
         "ir": [],
         "emptyStarters": [],
@@ -307,8 +307,8 @@
           { "name": "Rachaad White", "pos": "RB", "slot": "BE", "points": 0, "projected": 1.73 },
           { "name": "Jakobi Meyers", "pos": "WR", "slot": "BE", "points": 0, "projected": 12.56 },
           { "name": "Xavier Worthy", "pos": "WR", "slot": "BE", "points": 0, "projected": 6.61 },
-          { "name": "Juwan Johnson", "pos": "TE", "slot": "BE", "points": 0, "projected": 5.38 },
-          { "name": "Adonai Mitchell", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.4 }
+          { "name": "Adonai Mitchell", "pos": "WR", "slot": "BE", "points": 0, "projected": 10.4 },
+          { "name": "Fernando Mendoza", "pos": "QB", "slot": "BE", "points": 0, "projected": 19.55 }
         ]
       }
     },
