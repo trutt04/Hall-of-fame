@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-27T17:07:37Z",
+  "generatedAt": "2026-11-27T18:57:47Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -495,7 +495,7 @@
       "pointsAgainst": 1341.16,
       "streakType": "WIN",
       "streakLength": 3,
-      "moves": { "acquisitions": 40, "drops": 38, "trades": 1 },
+      "moves": { "acquisitions": 41, "drops": 39, "trades": 1 },
       "roster": {
         "ir": [{ "name": "RJ Harvey", "pos": "RB" }],
         "emptyStarters": [],
@@ -518,7 +518,7 @@
           { "name": "KC Concepcion", "pos": "WR", "slot": "BE", "points": 0, "projected": 11.9 },
           { "name": "Packers D/ST", "pos": "D/ST", "slot": "BE", "points": 2, "projected": 4.76 },
           { "name": "Konata Mumpfield", "pos": "WR", "slot": "BE", "points": 10.9, "projected": 8.57 },
-          { "name": "Giants D/ST", "pos": "D/ST", "slot": "BE", "points": 0, "projected": 7.25 }
+          { "name": "Brian Thomas Jr.", "pos": "WR", "slot": "BE", "points": 0, "projected": 6.09 }
         ]
       }
     }
