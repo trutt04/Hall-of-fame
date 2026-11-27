@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-27T15:59:48Z",
+  "generatedAt": "2026-11-27T17:07:37Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -205,25 +205,25 @@
       "roster": {
         "ir": [{ "name": "De'Zhaun Stribling", "pos": "WR" }],
         "emptyStarters": [],
-        "badStarters": [{ "name": "Parker Washington", "pos": "WR", "slot": "WR", "why": "OUT" }],
+        "badStarters": [],
         "starters": [
           { "name": "Brock Purdy", "pos": "QB", "slot": "QB", "points": 0, "projected": 23.02 },
           { "name": "Chase Brown", "pos": "RB", "slot": "RB", "points": 0, "projected": 16.43 },
           { "name": "Bhayshul Tuten", "pos": "RB", "slot": "RB", "points": 0, "projected": 19.15 },
           { "name": "CeeDee Lamb", "pos": "WR", "slot": "WR", "points": 21.4, "projected": 20.77 },
-          { "name": "Parker Washington", "pos": "WR", "slot": "WR", "points": 0, "projected": 18.21 },
+          { "name": "Garrett Wilson", "pos": "WR", "slot": "WR", "points": 0, "projected": 14.35 },
           { "name": "T.J. Hockenson", "pos": "TE", "slot": "TE", "points": 0, "projected": 10.97 },
-          { "name": "Garrett Wilson", "pos": "WR", "slot": "FLEX", "points": 0, "projected": 14.35 },
+          { "name": "Chig Okonkwo", "pos": "TE", "slot": "FLEX", "points": 0, "projected": 9.48 },
           { "name": "Steelers D/ST", "pos": "D/ST", "slot": "D/ST", "points": 0, "projected": 6.58 },
           { "name": "Drew Stevens", "pos": "K", "slot": "K", "points": 0, "projected": 10.44 }
         ],
         "bench": [
           { "name": "Jameson Williams", "pos": "WR", "slot": "BE", "points": 14, "projected": 12.48 },
+          { "name": "Parker Washington", "pos": "WR", "slot": "BE", "points": 0, "projected": 18.21 },
           { "name": "Caleb Williams", "pos": "QB", "slot": "BE", "points": 31.3, "projected": 19.11 },
           { "name": "Kyle Pitts Sr.", "pos": "TE", "slot": "BE", "points": 0, "projected": 8.35 },
           { "name": "Kyle Monangai", "pos": "RB", "slot": "BE", "points": 15.9, "projected": 7.89 },
           { "name": "Kaelon Black", "pos": "RB", "slot": "BE", "points": 0, "projected": 6.31 },
-          { "name": "Chig Okonkwo", "pos": "TE", "slot": "BE", "points": 0, "projected": 9.48 },
           { "name": "Kenny Gainwell", "pos": "RB", "slot": "BE", "points": 0, "projected": 9.32 }
         ]
       }
@@ -1056,7 +1056,7 @@
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 5, "points": 21.4, "projected": 122.34 },
+      "home": { "teamId": 5, "points": 21.4, "projected": 131.82 },
       "away": { "teamId": 2, "points": 19.4, "projected": 115.37 },
       "winner": "undecided"
     },
