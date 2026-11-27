@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "source": "espn",
-  "generatedAt": "2026-11-27T02:49:32Z",
+  "generatedAt": "2026-11-27T02:56:27Z",
   "league": {
     "id": 70578866,
     "name": "Dan's Real Cool League",
@@ -1057,7 +1057,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 5, "points": 21.4, "projected": 140.55 },
-      "away": { "teamId": 2, "points": 18.4, "projected": 118.77 },
+      "away": { "teamId": 2, "points": 18.4, "projected": 118.76 },
       "winner": "undecided"
     },
     {
@@ -1065,14 +1065,14 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 6, "points": 76.04, "projected": 175.26 },
-      "away": { "teamId": 9, "points": 57.24, "projected": 117.53 },
+      "away": { "teamId": 9, "points": 57.24, "projected": 117.52 },
       "winner": "undecided"
     },
     {
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 4, "points": 38.34, "projected": 119.49 },
+      "home": { "teamId": 4, "points": 38.34, "projected": 119.48 },
       "away": { "teamId": 1, "points": 55.6, "projected": 158.56 },
       "winner": "undecided"
     },
@@ -1081,14 +1081,14 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 12, "points": 0, "projected": 147.27 },
-      "away": { "teamId": 8, "points": 66.9, "projected": 131.97 },
+      "away": { "teamId": 8, "points": 66.9, "projected": 131.96 },
       "winner": "undecided"
     },
     {
       "week": 12,
       "playoff": false,
       "bracket": "NONE",
-      "home": { "teamId": 3, "points": 3.6, "projected": 91.48 },
+      "home": { "teamId": 3, "points": 3.6, "projected": 91.47 },
       "away": { "teamId": 11, "points": 18, "projected": 102.41 },
       "winner": "undecided"
     },
@@ -1097,7 +1097,7 @@
       "playoff": false,
       "bracket": "NONE",
       "home": { "teamId": 7, "points": 68.6, "projected": 138.26 },
-      "away": { "teamId": 10, "points": 58, "projected": 139.6 },
+      "away": { "teamId": 10, "points": 58, "projected": 139.58 },
       "winner": "undecided"
     },
     {
